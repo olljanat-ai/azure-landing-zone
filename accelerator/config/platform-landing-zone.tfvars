@@ -178,9 +178,7 @@ management_group_settings = {
     resource_group_name_mdfc                    = "$${asc_export_resource_group_name}"
     resource_group_location                     = "$${starter_location_01}"
     email_security_contact                      = "$${defender_email_security_contact}"
-    allowed_locations = [
-      "$${starter_location_01}"
-    ]
+    # No allowed_locations: the ALZ library (platform/alz 2026.x) has no such default and alz provider 0.22 rejects it
   }
   subscription_placement = {
     identity = {
