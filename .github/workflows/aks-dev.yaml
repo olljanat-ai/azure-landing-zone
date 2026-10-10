@@ -4,6 +4,8 @@
 # the management VNet, because Key Vault, ACR and the API servers are private. Identities: GitHub environments
 # aks-dev-plan / aks-dev-apply (stacks/platform-extensions).
 name: AKS dev
+# Skipped until the repository variable AKS_DEV_ENABLED is "true" (set it after step 6 of docs/deployment.md,
+# when the self-hosted runners are online).
 
 on:
   push:
@@ -30,6 +32,7 @@ concurrency:
 jobs:
   environment:
     name: Environment
+    if: vars.AKS_DEV_ENABLED == 'true'
     uses: ./.github/workflows/terraform-stack.yaml
     permissions:
       id-token: write

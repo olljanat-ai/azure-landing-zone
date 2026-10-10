@@ -92,6 +92,7 @@ Repository **variables** (Settings → Secrets and variables → Actions → Var
 | `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` | state storage account from step 2 |
 | `BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME` | state container from step 2 (`build-tfstate`) |
 | `RUNNER_APP_ID` | optional: GitHub App for runner registration |
+| `AKS_DEV_ENABLED` | `true` once the self-hosted runners are online (step 6); until then the AKS dev workflow is skipped |
 
 Repository **secrets**: `RUNNER_REGISTRATION_TOKEN` – a fine-grained PAT for this repository with
 *Administration: read and write* (or `RUNNER_APP_PRIVATE_KEY` with `RUNNER_APP_ID`). It is only used to register
@@ -133,7 +134,10 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
 `aks-dev-plan` / `aks-dev-apply` environments. Check that the runners `aci-mgmt-runner-01/02` are online
-(Settings → Actions → Runners).
+(Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
+
+Until `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` is set the Platform workflow skips its jobs, so pushes before the
+bootstrap stay green.
 
 ## 7. dev environment and cells
 

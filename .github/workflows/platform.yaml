@@ -4,6 +4,7 @@
 # runners: they only talk to Azure Resource Manager and the state storage. The extensions create the
 # self-hosted runners that the AKS workflows need.
 name: Platform
+# Skipped until the bootstrap is done and the BACKEND_AZURE_* variables are set (docs/deployment.md, step 4).
 
 on:
   push:
@@ -37,6 +38,7 @@ concurrency:
 jobs:
   platform:
     name: Platform landing zone
+    if: vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME != ''
     uses: ./.github/workflows/terraform-stack.yaml
     permissions:
       id-token: write
