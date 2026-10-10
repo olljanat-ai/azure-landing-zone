@@ -4,7 +4,7 @@ management_groups:
     display_name: Azure Landing Zones
     archetypes:
       - root_custom
-    exists: false
+    exists: true # created by the accelerator bootstrap (alz_local), the platform only manages its policies
     parent_id: null
 
   - id: platform
