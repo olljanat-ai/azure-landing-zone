@@ -4,8 +4,8 @@ location        = "swedencentral"
 subscription_id = "00000000-0000-0000-0000-000000000003" # sub-aks-dev – replace
 
 platform_subscription_ids = {
-  management   = "00000000-0000-0000-0000-000000000001" # sub-mgmt – replace
-  connectivity = "00000000-0000-0000-0000-000000000002" # sub-hub  – replace
+  management   = "2e73156d-6206-4354-b599-1f4e31333a7d" # sub-mgmt – replace
+  connectivity = "56b07081-ca7e-4343-b000-bc0998a8c347" # sub-hub  – replace
 }
 
 countries   = { fi = 1, se = 2 }

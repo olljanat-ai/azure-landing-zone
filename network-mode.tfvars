@@ -8,4 +8,4 @@
 #             network boundary, Internet egress through NAT gateways (open egress for nodes; pods are still
 #             limited by Cilium FQDN policies), DNS through the hub Private DNS Resolver.
 #             Not for acceptance testing: section 17 phase 3 runs with the Firewall.
-network_mode = "firewall"
+network_mode = "sandbox"

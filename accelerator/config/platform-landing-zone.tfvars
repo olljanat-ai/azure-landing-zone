@@ -33,13 +33,13 @@ custom_replacements = {
     platform_dns_domain             = "example-test.com" # test domain of the build tenant, never the corporate one
 
     # Application landing zone subscriptions placed by this stack
-    subscription_id_aks_dev = "00000000-0000-0000-0000-000000000003" # sub-aks-dev – replace
+    subscription_id_aks_dev = "" # sub-aks-dev ID once it exists (empty: not placed)
 
     # Resource provisioning global connectivity
     ddos_protection_plan_enabled = false
 
     # Resource provisioning primary connectivity
-    primary_firewall_enabled                                             = true
+    primary_firewall_enabled                                             = false
     primary_firewall_sku_tier                                            = "Premium"
     primary_firewall_management_ip_enabled                               = false
     primary_virtual_network_gateway_express_route_enabled                = false
