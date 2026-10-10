@@ -61,7 +61,7 @@ variable "jump_host_enabled" {
 
 variable "jump_host_vm_size" {
   type    = string
-  default = "Standard_D2s_v5"
+  default = "Standard_D2s_v6" # new subscriptions have no Dv5 quota by default
 }
 
 variable "client_vm_enabled" {
@@ -72,7 +72,7 @@ variable "client_vm_enabled" {
 
 variable "client_vm_size" {
   type    = string
-  default = "Standard_D2s_v5"
+  default = "Standard_D2s_v6" # new subscriptions have no Dv5 quota by default
 }
 
 variable "admin_group_object_id" {
