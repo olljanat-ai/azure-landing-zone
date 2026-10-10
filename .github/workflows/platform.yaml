@@ -1,0 +1,66 @@
+---
+# Platform landing zone (ALZ accelerator output in ./platform) and its build tenant extensions. Both use the
+# accelerator's plan / apply identities (GitHub environments platform-plan / platform-apply) and GitHub-hosted
+# runners: they only talk to Azure Resource Manager and the state storage. The extensions create the
+# self-hosted runners that the AKS workflows need.
+name: Platform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - platform/**
+      - stacks/platform-extensions/**
+      - modules/address-plan/**
+      - modules/platform-lookup/**
+      - .github/workflows/platform.yaml
+      - .github/workflows/terraform-stack.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - platform/**
+      - stacks/platform-extensions/**
+      - modules/address-plan/**
+      - modules/platform-lookup/**
+  workflow_dispatch:
+    inputs:
+      terraform_action:
+        description: Terraform action
+        type: choice
+        options: [apply, destroy]
+        default: apply
+
+concurrency:
+  group: platform
+  cancel-in-progress: false
+
+jobs:
+  platform:
+    name: Platform landing zone
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: platform
+      state_key: terraform.tfstate # the accelerator's own key
+      environment_prefix: platform
+      terraform_action: ${{ inputs.terraform_action || 'apply' }}
+      apply: ${{ github.event_name != 'pull_request' }}
+
+  extensions:
+    name: Platform extensions
+    needs: platform
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/platform-extensions
+      state_key: platform-extensions.tfstate
+      environment_prefix: platform
+      terraform_action: ${{ inputs.terraform_action || 'apply' }}
+      apply: ${{ github.event_name != 'pull_request' }}
+    secrets:
+      TF_VAR_github_runner_token: ${{ secrets.RUNNER_REGISTRATION_TOKEN }}
+      TF_VAR_github_runner_app_private_key: ${{ secrets.RUNNER_APP_PRIVATE_KEY }}

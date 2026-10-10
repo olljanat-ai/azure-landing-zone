@@ -1,0 +1,172 @@
+---
+# Reusable plan -> apply workflow for one Terraform root module, modelled on the ALZ accelerator's cd-template
+# (accelerator-bootstrap-modules/alz/github/actions/terraform/templates/workflows/cd-template.yaml):
+# OIDC with a plan identity (GitHub environment <name>-plan) and an apply identity (<name>-apply, required
+# reviewers), the saved plan is applied unchanged.
+name: Terraform stack
+
+on:
+  workflow_call:
+    inputs:
+      root_module:
+        description: Root module folder
+        type: string
+        required: true
+      state_key:
+        description: Blob name of the state in the accelerator's state container
+        type: string
+        required: true
+      var_file:
+        description: Optional -var-file, relative to the repository root
+        type: string
+        default: ""
+      environment_prefix:
+        description: GitHub environments <prefix>-plan and <prefix>-apply
+        type: string
+        required: true
+      runs_on:
+        description: JSON runner label(s), e.g. '"ubuntu-latest"' or '["self-hosted"]'
+        type: string
+        default: '"ubuntu-latest"'
+      terraform_action:
+        description: apply or destroy
+        type: string
+        default: apply
+      apply:
+        description: Run the apply job (false = plan only, e.g. pull requests)
+        type: boolean
+        default: true
+      terraform_cli_version:
+        type: string
+        default: "~1.16"
+    secrets:
+      TF_VAR_github_runner_token:
+        required: false
+      TF_VAR_github_runner_app_private_key:
+        required: false
+    outputs:
+      plan_has_changes:
+        value: ${{ jobs.plan.outputs.has_changes }}
+
+env:
+  ARM_USE_OIDC: true
+  ARM_USE_AZUREAD: true
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+  TF_VAR_state_resource_group_name: ${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}
+  TF_VAR_state_storage_account_name: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}
+  TF_VAR_state_container_name: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}
+
+jobs:
+  plan:
+    name: Plan ${{ inputs.root_module }} ${{ inputs.var_file }}
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    environment: ${{ inputs.environment_prefix }}-plan
+    concurrency: ${{ inputs.state_key }}
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      TF_VAR_github_runner_token: ${{ secrets.TF_VAR_github_runner_token }}
+      TF_VAR_github_runner_app_private_key: ${{ secrets.TF_VAR_github_runner_app_private_key }}
+      TF_VAR_github_runner_app_id: ${{ vars.RUNNER_APP_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+          terraform_version: ${{ inputs.terraform_cli_version }}
+
+      - name: Terraform init
+        run: |
+          terraform -chdir="${{ inputs.root_module }}" init \
+            -backend-config="resource_group_name=${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}" \
+            -backend-config="key=${{ inputs.state_key }}" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Terraform plan (${{ inputs.terraform_action }})
+        id: plan
+        run: |
+          var_file=()
+          if [ -n "${{ inputs.var_file }}" ]; then var_file=(-var-file="$GITHUB_WORKSPACE/${{ inputs.var_file }}"); fi
+          destroy=()
+          if [ "${{ inputs.terraform_action }}" = "destroy" ]; then destroy=(-destroy); fi
+          set +e
+          terraform -chdir="${{ inputs.root_module }}" plan -out=tfplan -detailed-exitcode "${var_file[@]}" "${destroy[@]}"
+          code=$?
+          set -e
+          if [ $code -eq 1 ]; then exit 1; fi
+          echo "has_changes=$([ $code -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Plan summary
+        run: |
+          {
+            echo "### ${{ inputs.root_module }} ${{ inputs.var_file }} (${{ inputs.terraform_action }})"
+            echo '```'
+            terraform -chdir="${{ inputs.root_module }}" show -no-color tfplan | grep -E '^(Plan:|No changes|Changes to Outputs)' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish plan
+        if: inputs.apply && steps.plan.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tfplan-${{ inputs.state_key }}-${{ github.run_attempt }}
+          path: ${{ inputs.root_module }}/tfplan
+          retention-days: 5
+
+  apply:
+    name: Apply ${{ inputs.root_module }} ${{ inputs.var_file }}
+    needs: plan
+    if: inputs.apply && needs.plan.outputs.has_changes == 'true'
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    environment: ${{ inputs.environment_prefix }}-apply
+    concurrency: ${{ inputs.state_key }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZAPI_RETRY_GET_AFTER_PUT_MAX_TIME: "60m" # eventually consistent management group permissions (accelerator)
+      TF_VAR_github_runner_token: ${{ secrets.TF_VAR_github_runner_token }}
+      TF_VAR_github_runner_app_private_key: ${{ secrets.TF_VAR_github_runner_app_private_key }}
+      TF_VAR_github_runner_app_id: ${{ vars.RUNNER_APP_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tfplan-${{ inputs.state_key }}-${{ github.run_attempt }}
+          path: ${{ inputs.root_module }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+          terraform_version: ${{ inputs.terraform_cli_version }}
+
+      - name: Terraform init
+        run: |
+          terraform -chdir="${{ inputs.root_module }}" init \
+            -backend-config="resource_group_name=${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}" \
+            -backend-config="key=${{ inputs.state_key }}" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Terraform apply (${{ inputs.terraform_action }})
+        run: terraform -chdir="${{ inputs.root_module }}" apply -auto-approve tfplan

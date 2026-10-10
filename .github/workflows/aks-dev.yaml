@@ -1,0 +1,73 @@
+---
+# AKS platform, environment dev (aks-design sections 9 and 17): the environment module first, then the cells one
+# at a time (sl-az1 before sl-az2, a change never reaches every cell at once). Runs on the self-hosted runners in
+# the management VNet, because Key Vault, ACR and the API servers are private. Identities: GitHub environments
+# aks-dev-plan / aks-dev-apply (stacks/platform-extensions).
+name: AKS dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - stacks/aks-environment/**
+      - stacks/aks-stateless-cell/**
+      - modules/address-plan/**
+      - modules/platform-lookup/**
+      - environments/dev/**
+      - .github/workflows/aks-dev.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - stacks/aks-environment/**
+      - stacks/aks-stateless-cell/**
+      - environments/dev/**
+  workflow_dispatch:
+
+concurrency:
+  group: aks-dev
+  cancel-in-progress: false
+
+jobs:
+  environment:
+    name: Environment
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/aks-environment
+      state_key: aks-dev-environment.tfstate
+      var_file: environments/dev/environment.tfvars
+      environment_prefix: aks-dev
+      runs_on: '["self-hosted"]'
+      apply: ${{ github.event_name != 'pull_request' }}
+
+  sl-az1:
+    name: Cell sl-az1
+    needs: environment
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/aks-stateless-cell
+      state_key: aks-dev-sl-az1.tfstate
+      var_file: environments/dev/sl-az1.tfvars
+      environment_prefix: aks-dev
+      runs_on: '["self-hosted"]'
+      apply: ${{ github.event_name != 'pull_request' }}
+
+  sl-az2:
+    name: Cell sl-az2
+    needs: sl-az1
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/aks-stateless-cell
+      state_key: aks-dev-sl-az2.tfstate
+      var_file: environments/dev/sl-az2.tfvars
+      environment_prefix: aks-dev
+      runs_on: '["self-hosted"]'
+      apply: ${{ github.event_name != 'pull_request' }}

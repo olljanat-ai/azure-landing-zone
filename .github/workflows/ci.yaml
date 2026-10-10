@@ -1,0 +1,74 @@
+---
+# Pull request checks: formatting, validation of every root module, and that ./platform is exactly what the ALZ
+# accelerator generates from ./accelerator/config. Plans of the changed stacks run in the stack workflows.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Format and validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        root_module:
+          - platform
+          - stacks/platform-extensions
+          - stacks/aks-environment
+          - stacks/aks-stateless-cell
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+          terraform_version: "~1.16"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform validate
+        run: |
+          terraform -chdir="${{ matrix.root_module }}" init -backend=false
+          terraform -chdir="${{ matrix.root_module }}" validate
+
+  accelerator-output:
+    name: platform/ matches accelerator/config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare with the accelerator output
+        run: |
+          pip install --quiet pyyaml
+          scripts/sync-platform.sh --check
+
+  address-plan:
+    name: Address plan matches aks-design section 8
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+          terraform_version: "~1.16"
+
+      - name: terraform test
+        run: |
+          terraform -chdir=modules/address-plan init -backend=false
+          terraform -chdir=modules/address-plan test
