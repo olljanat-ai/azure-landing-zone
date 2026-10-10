@@ -1,4 +1,4 @@
-# Hub Firewall rules (aks-design sections 5, 8 and 16). The Firewall decides what a *zone* may reach; Cilium FQDN
+# Hub Firewall rules (aks-design sections 5, 8 and 16), only in network mode "firewall". The Firewall decides what a *zone* may reach; Cilium FQDN
 # policies decide what an *application* may reach. Rules are written with zone prefixes from the address plan
 # (IP groups), never with the VirtualNetwork service tag.
 locals {
@@ -38,6 +38,7 @@ locals {
 
 resource "azurerm_resource_group" "firewall_ip_groups" {
   provider = azurerm.connectivity
+  count    = local.firewall ? 1 : 0
   name     = "rg-hub-ipgroups-${var.location}"
   location = var.location
   tags     = var.tags
@@ -45,24 +46,27 @@ resource "azurerm_resource_group" "firewall_ip_groups" {
 
 resource "azurerm_ip_group" "management" {
   provider            = azurerm.connectivity
+  count               = local.firewall ? 1 : 0
   name                = "ipg-mgmt"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = [local.management.snet_runners, local.management.snet_jump]
   tags                = var.tags
 }
 
 resource "azurerm_ip_group" "client" {
   provider            = azurerm.connectivity
+  count               = local.firewall ? 1 : 0
   name                = "ipg-client"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = [var.client_address_space]
   tags                = var.tags
 }
 
 resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
   provider           = azurerm.connectivity
+  count              = local.firewall ? 1 : 0
   name               = "rcg-build-tenant"
   firewall_policy_id = module.platform.firewall_policy_id
   priority           = 200
@@ -74,7 +78,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name             = "runners-github"
-      source_ip_groups = [azurerm_ip_group.management.id]
+      source_ip_groups = [azurerm_ip_group.management[0].id]
       destination_fqdns = concat(local.github_fqdns, [
         "${var.state_storage_account_name}.blob.core.windows.net",
       ])
@@ -86,7 +90,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name              = "runners-and-jump-tooling"
-      source_ip_groups  = [azurerm_ip_group.management.id]
+      source_ip_groups  = [azurerm_ip_group.management[0].id]
       destination_fqdns = local.tooling_fqdns
       protocols {
         type = "Https"
@@ -96,7 +100,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name              = "jump-and-clients-os-updates"
-      source_ip_groups  = [azurerm_ip_group.management.id, azurerm_ip_group.client.id]
+      source_ip_groups  = [azurerm_ip_group.management[0].id, azurerm_ip_group.client[0].id]
       destination_fqdns = local.ubuntu_fqdns
       protocols {
         type = "Http"
@@ -117,7 +121,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
     rule {
       name                  = "entra-id"
       protocols             = ["TCP"]
-      source_ip_groups      = [azurerm_ip_group.management.id, azurerm_ip_group.client.id]
+      source_ip_groups      = [azurerm_ip_group.management[0].id, azurerm_ip_group.client[0].id]
       destination_addresses = ["AzureActiveDirectory"]
       destination_ports     = ["443"]
     }
@@ -127,34 +131,34 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 # One rule collection group per AKS environment
 resource "azurerm_ip_group" "zone_frontend" {
   provider = azurerm.connectivity
-  for_each = merge([for env, plan in module.address_plan : {
+  for_each = !local.firewall ? {} : merge([for env, plan in module.address_plan : {
     for zone, z in plan.zones : "${env}-${zone}" => { env = env, cidrs = [z.frontend] }
   }]...)
   name                = "ipg-${each.key}-frontend"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = each.value.cidrs
   tags                = var.tags
 }
 
 resource "azurerm_ip_group" "zone_backend" {
   provider = azurerm.connectivity
-  for_each = merge([for env, plan in module.address_plan : {
+  for_each = !local.firewall ? {} : merge([for env, plan in module.address_plan : {
     for zone, z in plan.zones : "${env}-${zone}" => { env = env, cidrs = [z.backend] }
   }]...)
   name                = "ipg-${each.key}-backend"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = each.value.cidrs
   tags                = var.tags
 }
 
 resource "azurerm_ip_group" "environment" {
   provider            = azurerm.connectivity
-  for_each            = module.address_plan
+  for_each            = local.firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-all"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = [each.value.environment_prefix]
   tags                = var.tags
 }
@@ -162,10 +166,10 @@ resource "azurerm_ip_group" "environment" {
 # Control plane zones (system pools) of the stateless cells
 resource "azurerm_ip_group" "control_planes" {
   provider            = azurerm.connectivity
-  for_each            = module.address_plan
+  for_each            = local.firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-control-planes"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs               = [for s in ["sl-az1", "sl-az2", "sl-az3"] : each.value.control_plane[s]]
   tags                = var.tags
 }
@@ -174,10 +178,10 @@ resource "azurerm_ip_group" "control_planes" {
 # cluster) are not in it, so they get no Internet access apart from the Entra ID and Azure Policy exceptions.
 resource "azurerm_ip_group" "frontend" {
   provider            = azurerm.connectivity
-  for_each            = module.address_plan
+  for_each            = local.firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-frontend"
   location            = var.location
-  resource_group_name = azurerm_resource_group.firewall_ip_groups.name
+  resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
   cidrs = concat(
     [for s in ["sl-az1", "sl-az2", "sl-az3"] : each.value.control_plane[s]],
     [for z in each.value.zones : z.frontend],
@@ -187,7 +191,7 @@ resource "azurerm_ip_group" "frontend" {
 
 resource "azurerm_firewall_policy_rule_collection_group" "aks" {
   provider           = azurerm.connectivity
-  for_each           = module.address_plan
+  for_each           = local.firewall ? module.address_plan : {}
   name               = "rcg-aks-${each.key}"
   firewall_policy_id = module.platform.firewall_policy_id
   priority           = 300 + index(keys(module.address_plan), each.key) * 10
@@ -231,7 +235,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
     rule {
       name                  = "management-to-environment"
       protocols             = ["TCP"]
-      source_ip_groups      = [azurerm_ip_group.management.id]
+      source_ip_groups      = [azurerm_ip_group.management[0].id]
       destination_ip_groups = [azurerm_ip_group.environment[each.key].id]
       destination_ports     = ["443"]
     }
@@ -240,7 +244,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
     rule {
       name                  = "client-to-internal-entry-points"
       protocols             = ["TCP"]
-      source_ip_groups      = [azurerm_ip_group.client.id]
+      source_ip_groups      = [azurerm_ip_group.client[0].id]
       destination_addresses = [for z in each.value.edge.zones : z.prefix]
       destination_ports     = ["443"]
     }

@@ -43,6 +43,10 @@ jobs:
           terraform -chdir="${{ matrix.root_module }}" init -backend=false
           terraform -chdir="${{ matrix.root_module }}" validate
 
+      - name: terraform test (mocked plans in both network modes)
+        if: hashFiles(format('{0}/tests/*.tftest.hcl', matrix.root_module)) != ''
+        run: terraform -chdir="${{ matrix.root_module }}" test
+
   accelerator-output:
     name: platform/ matches accelerator/config
     runs-on: ubuntu-latest
@@ -53,6 +57,7 @@ jobs:
       - name: Compare with the accelerator output
         run: |
           pip install --quiet pyyaml
+          scripts/check-network-mode.sh
           scripts/sync-platform.sh --check
 
   address-plan:

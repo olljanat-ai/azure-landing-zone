@@ -11,11 +11,12 @@ resource "azurerm_virtual_network" "management" {
   location            = var.location
   resource_group_name = azurerm_resource_group.management_network.name
   address_space       = [var.management_address_space]
-  dns_servers         = [local.firewall_ip] # Firewall DNS proxy: hub private DNS zones
+  dns_servers         = [local.dns_server] # Firewall DNS proxy or hub DNS resolver: hub private DNS zones
   tags                = var.tags
 }
 
 resource "azurerm_route_table" "management" {
+  count                         = local.firewall ? 1 : 0
   name                          = "rt-mgmt-${var.location}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.management_network.name
@@ -136,10 +137,47 @@ resource "azurerm_subnet_network_security_group_association" "management" {
   network_security_group_id = azurerm_network_security_group.management[each.key].id
 }
 
+locals {
+  management_egress_subnets = { for k, v in local.management_subnets : k => v if k == "runners" || k == "jump" }
+}
+
 resource "azurerm_subnet_route_table_association" "management" {
-  for_each       = { for k, v in local.management_subnets : k => v if k != "aks-api-pe" && k != "pe" }
+  for_each       = local.firewall ? local.management_egress_subnets : {}
   subnet_id      = each.value
-  route_table_id = azurerm_route_table.management.id
+  route_table_id = azurerm_route_table.management[0].id
+}
+
+# Sandbox mode: Internet egress of the runners and the jump host through a NAT gateway instead of the Firewall
+resource "azurerm_public_ip" "management_nat" {
+  count               = local.firewall ? 0 : 1
+  name                = "pip-nat-mgmt-${var.location}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.management_network.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  zones               = ["1", "2", "3"]
+  tags                = var.tags
+}
+
+resource "azurerm_nat_gateway" "management" {
+  count               = local.firewall ? 0 : 1
+  name                = "nat-mgmt-${var.location}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.management_network.name
+  sku_name            = "Standard"
+  tags                = var.tags
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "management" {
+  count                = local.firewall ? 0 : 1
+  nat_gateway_id       = azurerm_nat_gateway.management[0].id
+  public_ip_address_id = azurerm_public_ip.management_nat[0].id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "management" {
+  for_each       = local.firewall ? {} : local.management_egress_subnets
+  subnet_id      = each.value
+  nat_gateway_id = azurerm_nat_gateway.management[0].id
 }
 
 resource "azurerm_virtual_network_peering" "management_to_hub" {

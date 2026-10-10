@@ -27,3 +27,8 @@ output "runner_registry" {
   description = "Private registry that builds the runner image."
   value       = azurerm_container_registry.runners.login_server
 }
+
+output "network_mode" {
+  description = "firewall or sandbox."
+  value       = var.network_mode
+}

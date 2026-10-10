@@ -20,6 +20,10 @@ on:
         description: Optional -var-file, relative to the repository root
         type: string
         default: ""
+      network_mode_var_file:
+        description: Shared network mode flag (network-mode.tfvars); empty for the accelerator's platform module
+        type: string
+        default: network-mode.tfvars
       environment_prefix:
         description: GitHub environments <prefix>-plan and <prefix>-apply
         type: string
@@ -98,7 +102,8 @@ jobs:
         id: plan
         run: |
           var_file=()
-          if [ -n "${{ inputs.var_file }}" ]; then var_file=(-var-file="$GITHUB_WORKSPACE/${{ inputs.var_file }}"); fi
+          if [ -n "${{ inputs.network_mode_var_file }}" ]; then var_file+=(-var-file="$GITHUB_WORKSPACE/${{ inputs.network_mode_var_file }}"); fi
+          if [ -n "${{ inputs.var_file }}" ]; then var_file+=(-var-file="$GITHUB_WORKSPACE/${{ inputs.var_file }}"); fi
           destroy=()
           if [ "${{ inputs.terraform_action }}" = "destroy" ]; then destroy=(-destroy); fi
           set +e

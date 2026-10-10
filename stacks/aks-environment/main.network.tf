@@ -29,14 +29,14 @@ resource "azurerm_virtual_network" "backend" {
   location            = var.location
   resource_group_name = azurerm_resource_group.network.name
   address_space       = local.backend.address_spaces
-  dns_servers         = [local.firewall_ip]
+  dns_servers         = [local.dns_server]
   tags                = local.tags
 }
 
-# One route table per zone (and one for the shared subnet): 0.0.0.0/0 and every other zone's address space of
+# Network mode firewall: one route table per zone (and one for the shared subnet): 0.0.0.0/0 and every other zone's address space of
 # the VNet go to the Firewall, so a cross-zone packet that an NSG would allow is still inspected (section 2).
 resource "azurerm_route_table" "backend" {
-  for_each                      = local.backend_subnets
+  for_each                      = local.firewall ? local.backend_subnets : {}
   name                          = "rt-${local.env}-sf-${each.key}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.network.name
@@ -131,7 +131,7 @@ resource "azurerm_subnet_network_security_group_association" "backend" {
 }
 
 resource "azurerm_subnet_route_table_association" "backend" {
-  for_each       = local.backend_subnets
+  for_each       = local.firewall ? local.backend_subnets : {}
   subnet_id      = azurerm_subnet.backend[each.key].id
   route_table_id = azurerm_route_table.backend[each.key].id
 }
@@ -141,12 +141,12 @@ resource "azurerm_virtual_network" "edge" {
   location            = var.location
   resource_group_name = azurerm_resource_group.network.name
   address_space       = local.edge.address_spaces
-  dns_servers         = [local.firewall_ip]
+  dns_servers         = [local.dns_server]
   tags                = local.tags
 }
 
 resource "azurerm_route_table" "edge" {
-  for_each                      = local.edge.zones
+  for_each                      = local.firewall ? local.edge.zones : {}
   name                          = "rt-${local.env}-edge-${each.key}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.network.name
@@ -179,14 +179,15 @@ resource "azurerm_network_security_group" "edge" {
   tags                = local.tags
 
   security_rule {
-    name                       = "allow-https-from-corporate"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*" # the Firewall decides which corporate sources reach the entry point
+    name                   = "allow-https-from-corporate"
+    priority               = 100
+    direction              = "Inbound"
+    access                 = "Allow"
+    protocol               = "Tcp"
+    source_port_range      = "*"
+    destination_port_range = "443"
+    # firewall: the Firewall decides which corporate sources reach the entry point; sandbox: the client VNet only
+    source_address_prefixes    = local.firewall ? ["0.0.0.0/0"] : data.azurerm_virtual_network.client[0].address_space
     destination_address_prefix = each.value.snet_nginx
   }
 }
@@ -214,7 +215,7 @@ resource "azurerm_subnet_network_security_group_association" "edge" {
 }
 
 resource "azurerm_subnet_route_table_association" "edge" {
-  for_each       = local.edge.zones
+  for_each       = local.firewall ? local.edge.zones : {}
   subnet_id      = azurerm_subnet.edge[each.key].id
   route_table_id = azurerm_route_table.edge[each.key].id
 }
@@ -246,4 +247,57 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   remote_virtual_network_id    = each.value.id
   allow_forwarded_traffic      = true
   allow_virtual_network_access = true
+}
+
+# Network mode sandbox: no Firewall to route between spokes, so the networks that must talk are peered directly
+# and the NSGs above are the only boundary: management VNet <-> backend (runners -> Key Vault / ACR private
+# endpoints) and client VNet <-> edge (corporate clients -> internal entry points). Cells peer themselves to the
+# backend and edge VNets (stacks/aks-stateless-cell).
+data "azurerm_virtual_network" "client" {
+  provider            = azurerm.connectivity
+  count               = local.firewall ? 0 : 1
+  name                = "vnet-client-${var.location}"
+  resource_group_name = "rg-client-${var.location}"
+}
+
+resource "azurerm_virtual_network_peering" "backend_to_management" {
+  count                        = local.firewall ? 0 : 1
+  name                         = "peer-${local.env}-sf-to-mgmt"
+  resource_group_name          = azurerm_resource_group.network.name
+  virtual_network_name         = azurerm_virtual_network.backend.name
+  remote_virtual_network_id    = data.azurerm_virtual_network.management.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+}
+
+resource "azurerm_virtual_network_peering" "management_to_backend" {
+  provider                     = azurerm.management
+  count                        = local.firewall ? 0 : 1
+  name                         = "peer-mgmt-to-${local.env}-sf"
+  resource_group_name          = data.azurerm_virtual_network.management.resource_group_name
+  virtual_network_name         = data.azurerm_virtual_network.management.name
+  remote_virtual_network_id    = azurerm_virtual_network.backend.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+}
+
+resource "azurerm_virtual_network_peering" "edge_to_client" {
+  count                        = local.firewall ? 0 : 1
+  name                         = "peer-${local.env}-edge-to-client"
+  resource_group_name          = azurerm_resource_group.network.name
+  virtual_network_name         = azurerm_virtual_network.edge.name
+  remote_virtual_network_id    = data.azurerm_virtual_network.client[0].id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+}
+
+resource "azurerm_virtual_network_peering" "client_to_edge" {
+  provider                     = azurerm.connectivity
+  count                        = local.firewall ? 0 : 1
+  name                         = "peer-client-to-${local.env}-edge"
+  resource_group_name          = data.azurerm_virtual_network.client[0].resource_group_name
+  virtual_network_name         = data.azurerm_virtual_network.client[0].name
+  remote_virtual_network_id    = azurerm_virtual_network.edge.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
 }

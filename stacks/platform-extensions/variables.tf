@@ -129,3 +129,13 @@ variable "hub_bastion_subnet_prefix" {
   default     = "10.0.0.64/26"
   description = "AzureBastionSubnet of the hub (primary_bastion_subnet_address_prefix in platform-landing-zone.tfvars)."
 }
+
+variable "network_mode" {
+  type        = string
+  default     = "firewall"
+  description = "firewall (design) or sandbox (no Azure Firewall: direct peerings, NSGs, NAT gateways) – network-mode.tfvars."
+  validation {
+    condition     = contains(["firewall", "sandbox"], var.network_mode)
+    error_message = "firewall or sandbox."
+  }
+}

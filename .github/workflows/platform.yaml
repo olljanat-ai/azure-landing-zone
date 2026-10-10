@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - platform/**
+      - network-mode.tfvars
       - stacks/platform-extensions/**
       - modules/address-plan/**
       - modules/platform-lookup/**
@@ -46,6 +47,7 @@ jobs:
     with:
       root_module: platform
       state_key: terraform.tfstate # the accelerator's own key
+      network_mode_var_file: "" # the platform gets the mode as primary_firewall_enabled (scripts/set-network-mode.sh)
       environment_prefix: platform
       terraform_action: ${{ inputs.terraform_action || 'apply' }}
       apply: ${{ github.event_name != 'pull_request' }}

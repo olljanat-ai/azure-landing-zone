@@ -16,6 +16,7 @@ on:
       - modules/address-plan/**
       - modules/platform-lookup/**
       - environments/dev/**
+      - network-mode.tfvars
       - .github/workflows/aks-dev.yaml
   pull_request:
     branches: [main]

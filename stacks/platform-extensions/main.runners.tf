@@ -1,7 +1,8 @@
 # Self-hosted GitHub runners in the management VNet, built the same way as the ALZ accelerator's GitHub
 # bootstrap (accelerator-bootstrap-modules/modules/azure: container_registry.tf, container_instances.tf):
 # a private ACR builds the runner image with an ACR task, and Azure Container Instances run ephemeral runners
-# registered to this repository. Their traffic leaves through the hub Firewall (rules in main.firewall.tf).
+# registered to this repository. Their traffic leaves through the hub Firewall (rules in main.firewall.tf), or
+# through the NAT gateway of the management VNet in sandbox mode.
 locals {
   runners_enabled = nonsensitive(var.github_runner_token != "" || (var.github_runner_app_id != "" && var.github_runner_app_private_key != ""))
   runner_image    = "github-runner:${substr(var.github_runners.image_ref, 0, 7)}"
@@ -130,7 +131,7 @@ resource "azurerm_container_group" "runners" {
   tags                = var.tags
 
   dns_config {
-    nameservers = [local.firewall_ip]
+    nameservers = [local.dns_server]
   }
 
   identity {
@@ -173,5 +174,6 @@ resource "azurerm_container_group" "runners" {
     azurerm_role_assignment.runners_pull,
     azurerm_private_endpoint.runners_acr,
     azurerm_firewall_policy_rule_collection_group.build_tenant,
+    azurerm_subnet_nat_gateway_association.management,
   ]
 }

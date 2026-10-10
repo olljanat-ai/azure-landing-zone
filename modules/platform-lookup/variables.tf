@@ -8,3 +8,13 @@ variable "private_dns_zone_names" {
   default     = {}
   description = "Additional hub private DNS zones to look up, key => zone name."
 }
+
+variable "network_mode" {
+  type        = string
+  default     = "firewall"
+  description = "firewall: the hub Azure Firewall exists and is looked up; sandbox: no Firewall (network-mode.tfvars)."
+  validation {
+    condition     = contains(["firewall", "sandbox"], var.network_mode)
+    error_message = "firewall or sandbox."
+  }
+}

@@ -8,14 +8,24 @@ output "hub_virtual_network" {
   }
 }
 
+output "firewall_enabled" {
+  description = "true in network mode firewall."
+  value       = var.network_mode == "firewall"
+}
+
 output "firewall_private_ip" {
-  description = "Private IP of the hub Azure Firewall: next hop of every spoke route table and DNS server (DNS proxy) of every spoke."
-  value       = data.azurerm_firewall.hub.ip_configuration[0].private_ip_address
+  description = "Private IP of the hub Azure Firewall: next hop of every spoke route table (null in sandbox mode)."
+  value       = one(data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address)
 }
 
 output "firewall_policy_id" {
-  description = "Resource ID of the hub firewall policy."
-  value       = data.azurerm_firewall_policy.hub.id
+  description = "Resource ID of the hub firewall policy (null in sandbox mode)."
+  value       = one(data.azurerm_firewall_policy.hub[*].id)
+}
+
+output "dns_server_ip" {
+  description = "DNS server of every spoke: the Firewall DNS proxy, or the hub Private DNS Resolver in sandbox mode."
+  value       = var.network_mode == "firewall" ? one(data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address) : data.azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
 }
 
 output "dns_resolver_inbound_ip" {

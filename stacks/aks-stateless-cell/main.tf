@@ -1,6 +1,7 @@
 module "platform" {
-  source   = "../../modules/platform-lookup"
-  location = var.location
+  source       = "../../modules/platform-lookup"
+  location     = var.location
+  network_mode = var.network_mode
   providers = {
     azurerm.connectivity = azurerm.connectivity
     azurerm.management   = azurerm.management
@@ -70,7 +71,9 @@ locals {
   cluster_name = "aks-${local.env}-${local.cell}"
   plan         = module.address_plan.cells[local.cell]
   zones        = module.address_plan.zones
+  firewall     = module.platform.firewall_enabled
   firewall_ip  = module.platform.firewall_private_ip
+  dns_server   = module.platform.dns_server_ip
   hub_vnet     = module.platform.hub_virtual_network
 
   tags = merge({

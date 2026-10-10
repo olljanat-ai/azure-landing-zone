@@ -48,32 +48,47 @@ resource "azurerm_user_assigned_identity" "aks" {
 }
 
 resource "azurerm_federated_identity_credential" "aks" {
-  for_each            = local.environment_identities
-  name                = "github-${replace(var.github_repository, "/", "-")}-aks-${each.key}"
-  resource_group_name = azurerm_resource_group.aks_identities.name
-  parent_id           = azurerm_user_assigned_identity.aks[each.key].id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
-  subject             = "repo:${var.github_repository}:environment:aks-${each.key}"
+  for_each  = local.environment_identities
+  name      = "github-${replace(var.github_repository, "/", "-")}-aks-${each.key}"
+  parent_id = azurerm_user_assigned_identity.aks[each.key].id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
+  subject   = "repo:${var.github_repository}:environment:aks-${each.key}"
 }
 
-# Custom role on the hub VNet: peer spokes to the hub and link private DNS zones to it, nothing else.
+# Custom role on a VNet: peer AKS spokes to it and link private DNS zones to it, nothing else. Assigned on the hub
+# VNet in both network modes; in sandbox mode also on the management VNet (management <-> backend spoke) and the
+# client VNet (client <-> edge VNet), because there is no Firewall to route between them.
+locals {
+  spoke_peering_actions = [
+    "Microsoft.Network/virtualNetworks/read",
+    "Microsoft.Network/virtualNetworks/peer/action",
+    "Microsoft.Network/virtualNetworks/join/action",
+    "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/read",
+    "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/write",
+    "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/delete",
+  ]
+}
+
 resource "azurerm_role_definition" "hub_spoke_peering" {
   provider    = azurerm.connectivity
   name        = "AKS spoke peering (${var.location})"
   scope       = local.hub_vnet.id
-  description = "Create and delete VNet peerings and private DNS zone links on the hub VNet for AKS spokes."
+  description = "Create and delete VNet peerings and private DNS zone links on the hub and client VNets for AKS spokes."
   permissions {
-    actions = [
-      "Microsoft.Network/virtualNetworks/read",
-      "Microsoft.Network/virtualNetworks/peer/action",
-      "Microsoft.Network/virtualNetworks/join/action",
-      "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/read",
-      "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/write",
-      "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/delete",
-    ]
+    actions = local.spoke_peering_actions
   }
-  assignable_scopes = [local.hub_vnet.id]
+  assignable_scopes = [local.hub_vnet.id, azurerm_virtual_network.client.id]
+}
+
+resource "azurerm_role_definition" "management_spoke_peering" {
+  name        = "AKS spoke peering to management (${var.location})"
+  scope       = azurerm_virtual_network.management.id
+  description = "Create and delete VNet peerings between the management VNet and AKS backend spokes (sandbox network mode)."
+  permissions {
+    actions = local.spoke_peering_actions
+  }
+  assignable_scopes = [azurerm_virtual_network.management.id]
 }
 
 locals {
@@ -112,6 +127,23 @@ resource "azurerm_role_assignment" "aks_hub_peering" {
   for_each           = var.environments
   scope              = local.hub_vnet.id
   role_definition_id = azurerm_role_definition.hub_spoke_peering.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
+  principal_type     = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "aks_client_peering" {
+  provider           = azurerm.connectivity
+  for_each           = local.firewall ? {} : var.environments
+  scope              = azurerm_virtual_network.client.id
+  role_definition_id = azurerm_role_definition.hub_spoke_peering.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
+  principal_type     = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "aks_management_peering" {
+  for_each           = local.firewall ? {} : var.environments
+  scope              = azurerm_virtual_network.management.id
+  role_definition_id = azurerm_role_definition.management_spoke_peering.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
   principal_type     = "ServicePrincipal"
 }

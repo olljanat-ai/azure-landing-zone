@@ -75,3 +75,13 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "network_mode" {
+  type        = string
+  default     = "firewall"
+  description = "firewall (design) or sandbox (no Azure Firewall: direct peerings, NSGs, NAT gateways) – network-mode.tfvars."
+  validation {
+    condition     = contains(["firewall", "sandbox"], var.network_mode)
+    error_message = "firewall or sandbox."
+  }
+}

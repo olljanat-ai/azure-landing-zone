@@ -60,6 +60,9 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Cluster settings match the design
         env:
           CLUSTER: aks-${{ inputs.environment }}-${{ inputs.cell }}
@@ -72,13 +75,15 @@ jobs:
             if [ "$actual" = "$2" ]; then echo "PASS $3: $1 = $actual"; else echo "FAIL $3: $1 = $actual (expected $2)"; failed=1; fi
           }
           failed=0
+          mode="$(sed -nE 's|^network_mode = "(.*)"|\1|p' network-mode.tfvars)"
+          if [ "$mode" = sandbox ]; then outbound=userAssignedNATGateway; else outbound=userDefinedRouting; fi
           check '.provisioningState'                                                  Succeeded  "provisioned"
           check '.apiServerAccessProfile.enablePrivateCluster'                        true       "R1 private API server"
           check '.apiServerAccessProfile.enableVnetIntegration'                       true       "R1 API Server VNet Integration"
           check '.disableLocalAccounts'                                               true       "Entra ID only"
           check '.networkProfile.networkPluginMode'                                   overlay    "R9b overlay CNI"
           check '.networkProfile.networkDataplane'                                    cilium     "R9b Cilium"
-          check '.networkProfile.outboundType'                                        userDefinedRouting "egress via Firewall"
+          check '.networkProfile.outboundType'                                        "$outbound" "egress ($mode network mode)"
           check '.networkProfile.advancedNetworking.performance.accelerationMode'     BpfVeth    "R19 eBPF host routing"
           check '.networkProfile.advancedNetworking.security.advancedNetworkPolicies' FQDN       "R20 FQDN egress policies"
           check '.nodeProvisioningProfile.mode'                                       Auto       "R11 node auto provisioning"

@@ -45,7 +45,7 @@ resource "azapi_resource" "cluster" {
       }
 
       # Section 16: Azure CNI Overlay powered by Cilium, ACNS with FQDN policies and eBPF host routing.
-      # Egress only through the hub Firewall.
+      # Egress only through the hub Firewall (sandbox network mode: the cell's NAT gateway).
       networkProfile = {
         networkPlugin     = "azure"
         networkPluginMode = "overlay"
@@ -54,7 +54,7 @@ resource "azapi_resource" "cluster" {
         podCidr           = var.pod_cidr
         serviceCidr       = var.service_cidr
         dnsServiceIP      = var.dns_service_ip
-        outboundType      = "userDefinedRouting"
+        outboundType      = local.firewall ? "userDefinedRouting" : "userAssignedNATGateway"
         loadBalancerSku   = "standard"
         advancedNetworking = {
           enabled = true
@@ -201,6 +201,9 @@ resource "azapi_resource" "cluster" {
     azurerm_subnet_route_table_association.this,
     azurerm_virtual_network_peering.cell_to_hub,
     azurerm_virtual_network_peering.hub_to_cell,
+    azurerm_subnet_nat_gateway_association.nodes,
+    azurerm_virtual_network_peering.cell_to_environment,
+    azurerm_virtual_network_peering.environment_to_cell,
   ]
 
   lifecycle {

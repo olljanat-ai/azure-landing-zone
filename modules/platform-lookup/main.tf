@@ -34,12 +34,14 @@ data "azurerm_virtual_network" "hub" {
 
 data "azurerm_firewall" "hub" {
   provider            = azurerm.connectivity
+  count               = var.network_mode == "firewall" ? 1 : 0
   name                = "fw-hub-${var.location}"
   resource_group_name = local.hub_resource_group_name
 }
 
 data "azurerm_firewall_policy" "hub" {
   provider            = azurerm.connectivity
+  count               = var.network_mode == "firewall" ? 1 : 0
   name                = "fwp-hub-${var.location}"
   resource_group_name = local.hub_resource_group_name
 }

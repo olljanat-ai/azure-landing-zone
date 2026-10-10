@@ -28,7 +28,7 @@ resource "azurerm_virtual_network" "cell" {
   location            = var.location
   resource_group_name = azurerm_resource_group.cell.name
   address_space       = local.plan.address_spaces
-  dns_servers         = [local.firewall_ip]
+  dns_servers         = [local.dns_server]
   tags                = local.tags
 
   encryption {
@@ -37,6 +37,7 @@ resource "azurerm_virtual_network" "cell" {
 }
 
 resource "azurerm_route_table" "control_plane" {
+  count                         = local.firewall ? 1 : 0
   name                          = "rt-${local.env}-${local.cell}-control-plane"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.cell.name
@@ -52,7 +53,7 @@ resource "azurerm_route_table" "control_plane" {
 }
 
 resource "azurerm_route_table" "zone" {
-  for_each                      = local.plan.zones
+  for_each                      = local.firewall ? local.plan.zones : {}
   name                          = "rt-${local.env}-${local.cell}-${each.key}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.cell.name
@@ -194,9 +195,9 @@ resource "azurerm_subnet_network_security_group_association" "this" {
 }
 
 resource "azurerm_subnet_route_table_association" "this" {
-  for_each       = { for k, s in local.subnets : k => s if s.kind != "apiserver" && s.kind != "pls" }
+  for_each       = local.firewall ? { for k, s in local.subnets : k => s if s.kind != "apiserver" && s.kind != "pls" } : {}
   subnet_id      = azurerm_subnet.this[each.key].id
-  route_table_id = each.value.zone == null ? azurerm_route_table.control_plane.id : azurerm_route_table.zone[each.value.zone].id
+  route_table_id = each.value.zone == null ? azurerm_route_table.control_plane[0].id : azurerm_route_table.zone[each.value.zone].id
 }
 
 resource "azurerm_virtual_network_peering" "cell_to_hub" {
@@ -216,4 +217,73 @@ resource "azurerm_virtual_network_peering" "hub_to_cell" {
   remote_virtual_network_id    = azurerm_virtual_network.cell.id
   allow_forwarded_traffic      = true
   allow_virtual_network_access = true
+}
+
+# ---------------------------------------------------------------------------------------------------------------
+# Network mode sandbox (network-mode.tfvars): no hub Firewall. Node egress through a zonal NAT gateway in the
+# cell's AZ (outbound type userAssignedNATGateway), and direct peerings to the networks the cell must reach:
+# the backend spoke (Key Vault / ACR / PaaS private endpoints) and the edge VNet (internal entry points). The
+# NSGs above are then the only network boundary between zones; pods are still limited by Cilium policies.
+# ---------------------------------------------------------------------------------------------------------------
+locals {
+  node_subnet_keys = concat(["system"], [for z, _ in local.plan.zones : "${z}-nodes"])
+}
+
+resource "azurerm_public_ip" "nat" {
+  count               = local.firewall ? 0 : 1
+  name                = "pip-nat-${local.env}-${local.cell}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.cell.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  zones               = [local.az]
+  tags                = local.tags
+}
+
+resource "azurerm_nat_gateway" "cell" {
+  count               = local.firewall ? 0 : 1
+  name                = "nat-${local.env}-${local.cell}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.cell.name
+  sku_name            = "Standard"
+  zones               = [local.az]
+  tags                = local.tags
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "cell" {
+  count                = local.firewall ? 0 : 1
+  nat_gateway_id       = azurerm_nat_gateway.cell[0].id
+  public_ip_address_id = azurerm_public_ip.nat[0].id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "nodes" {
+  for_each       = local.firewall ? toset([]) : toset(local.node_subnet_keys)
+  subnet_id      = azurerm_subnet.this[each.key].id
+  nat_gateway_id = azurerm_nat_gateway.cell[0].id
+}
+
+data "azurerm_virtual_network" "environment" {
+  for_each            = local.firewall ? toset([]) : toset(["sf", "edge"])
+  name                = "vnet-${local.env}-${each.key}"
+  resource_group_name = "rg-aks-${local.env}-network-${var.location}"
+}
+
+resource "azurerm_virtual_network_peering" "cell_to_environment" {
+  for_each                     = data.azurerm_virtual_network.environment
+  name                         = "peer-${local.env}-${local.cell}-to-${each.key}"
+  resource_group_name          = azurerm_resource_group.cell.name
+  virtual_network_name         = azurerm_virtual_network.cell.name
+  remote_virtual_network_id    = each.value.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
+}
+
+resource "azurerm_virtual_network_peering" "environment_to_cell" {
+  for_each                     = data.azurerm_virtual_network.environment
+  name                         = "peer-${local.env}-${each.key}-to-${local.cell}"
+  resource_group_name          = each.value.resource_group_name
+  virtual_network_name         = each.value.name
+  remote_virtual_network_id    = azurerm_virtual_network.cell.id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = false
 }
