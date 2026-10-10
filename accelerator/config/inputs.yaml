@@ -9,7 +9,7 @@
 #     -output "./accelerator/output"
 #
 # Bootstrap module `alz_local` is used instead of `alz_github`, because the code lives in this existing
-# repository (olljanat-ai/azure-landing-zone) together with the AKS landing zone stacks. The bootstrap still
+# repository (onek8s/azure-landing-zone) together with the AKS landing zone stacks. The bootstrap still
 # creates everything the GitHub flavour would create in Azure – Terraform state storage and the plan / apply
 # managed identities – and federates the identities with the GitHub environments of this repository, so the
 # workflows in .github/workflows authenticate with OIDC and no secret is stored anywhere.
@@ -64,12 +64,12 @@ target_directory: "./platform"
 federated_credentials:
   github_platform_plan:
     user_assigned_managed_identity_key: "plan"
-    federated_credential_subject: "repo:olljanat-ai/azure-landing-zone:environment:platform-plan"
+    federated_credential_subject: "repo:onek8s/azure-landing-zone:environment:platform-plan"
     federated_credential_issuer: "https://token.actions.githubusercontent.com"
     federated_credential_name: "github-azure-landing-zone-platform-plan"
   github_platform_apply:
     user_assigned_managed_identity_key: "apply"
-    federated_credential_subject: "repo:olljanat-ai/azure-landing-zone:environment:platform-apply"
+    federated_credential_subject: "repo:onek8s/azure-landing-zone:environment:platform-apply"
     federated_credential_issuer: "https://token.actions.githubusercontent.com"
     federated_credential_name: "github-azure-landing-zone-platform-apply"
 

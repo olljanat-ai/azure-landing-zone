@@ -29,5 +29,5 @@ admin_group_object_ids = [] # Entra ID group of the platform team
 fleet = null
 # fleet = {
 #   kind = "GitRepository"
-#   url  = "https://github.com/olljanat-ai/aks-fleet"
+#   url  = "https://github.com/onek8s/aks-fleet"
 # }
