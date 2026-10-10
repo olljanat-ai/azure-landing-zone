@@ -2,14 +2,15 @@ location = "swedencentral"
 
 # The same subscriptions as accelerator/config/inputs.yaml – replace
 subscription_ids = {
-  management   = "00000000-0000-0000-0000-000000000001" # sub-mgmt
-  connectivity = "00000000-0000-0000-0000-000000000002" # sub-hub
+  management   = "2e73156d-6206-4354-b599-1f4e31333a7d" # sub-mgmt
+  connectivity = "56b07081-ca7e-4343-b000-bc0998a8c347" # sub-hub
 }
 
+# Add dev once sub-aks-dev exists: creates the AKS deployment identities
 environments = {
-  dev = {
-    subscription_id = "00000000-0000-0000-0000-000000000003" # sub-aks-dev
-  }
+  # dev = {
+  #   subscription_id = "<sub-aks-dev>"
+  # }
 }
 
 # state_storage_account_name / state_resource_group_name / state_container_name come from the GitHub variables

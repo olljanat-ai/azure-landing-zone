@@ -33,13 +33,13 @@ root_parent_management_group_id: ""  # Tenant Root Group of the build tenant
 # sub-aks-dev is not a platform subscription: it is placed in the `corp` management group by the platform
 # stack (platform-landing-zone.tfvars, subscription_placement) and set up by stacks/platform-extensions.
 subscription_ids:
-  management: "00000000-0000-0000-0000-000000000001"    # sub-mgmt   – replace
-  connectivity: "00000000-0000-0000-0000-000000000002"  # sub-hub    – replace
+  management: "2e73156d-6206-4354-b599-1f4e31333a7d"  # sub-mgmt
+  connectivity: "56b07081-ca7e-4343-b000-bc0998a8c347"  # sub-hub
   identity: ""
   security: ""
 
 ## Decision 8: Bootstrap Resource Subscription
-bootstrap_subscription_id: "00000000-0000-0000-0000-000000000001"  # bootstrap resources live in sub-mgmt
+bootstrap_subscription_id: "2e73156d-6206-4354-b599-1f4e31333a7d"  # bootstrap resources live in sub-mgmt
 
 ## Decision 9: Bootstrap Resource Naming.
 # Default names can be found here: https://aka.ms/alz/acc/bootstrap/local/resourcenames
