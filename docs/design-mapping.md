@@ -57,6 +57,11 @@ question answered by experiment.
    The apply identity is Owner of `sub-aks-dev` in the build tenant; the least-privilege roles are derived in
    phase 2 like those of the agents.
 
+7. **Sandbox network mode.** `network-mode.tfvars` can switch the whole tenant to a mode without Azure Firewall
+   for labs and early prototyping (direct peerings, NSGs, NAT gateways; see
+   [deployment](deployment.md#network-mode-firewall-or-sandbox)). It weakens R5 to two layers (NSG + Cilium) and
+   gives nodes open Internet egress, so it is not used for acceptance.
+
 ## Not built yet (phase 2 backlog)
 
 - Fleet repository: NAP `NodePool` / `AKSNodeClass` per zone, Traefik + Gateways, External Secrets Operator per

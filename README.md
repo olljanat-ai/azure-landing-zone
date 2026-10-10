@@ -10,7 +10,7 @@ a separate build tenant with management, hub and `sub-aks-dev`, pipelines with O
 audit mode, a client VNet that simulates the corporate network, and the dev environment with its two stateless
 cells `aks-dev-sl-az1` and `aks-dev-sl-az2` – created and deleted by the pipeline.
 
-**Start here: [docs/deployment.md](docs/deployment.md)** · Requirements → code: [docs/design-mapping.md](docs/design-mapping.md)
+**Start here: [docs/deployment.md](docs/deployment.md)** · Lab without Azure Firewall: `scripts/set-network-mode.sh sandbox` · Requirements → code: [docs/design-mapping.md](docs/design-mapping.md)
 
 ```text
 Build tenant (not connected to the corporate network)
@@ -33,9 +33,10 @@ Build tenant (not connected to the corporate network)
 | [`stacks/platform-extensions`](stacks/platform-extensions) | Build tenant additions: management VNet, self-hosted runners, jump host, client VNet, Firewall rules per zone, AKS deployment identities | Platform workflow |
 | [`stacks/aks-environment`](stacks/aks-environment) | Environment module (section 9): backend and edge VNets, zone and platform Key Vaults, certificates, ACR, identities, AKS policies, Front Door | AKS dev workflow |
 | [`stacks/aks-stateless-cell`](stacks/aks-stateless-cell) | Stateless cluster module: VNet, NSGs, UDRs, CMK, private AKS with NAP / ACNS / eBPF host routing / KMS, API access, Flux | AKS dev and AKS cell workflows |
+| [`network-mode.tfvars`](network-mode.tfvars) | `firewall` (design) or `sandbox` (lab without Azure Firewall: direct peerings, NSGs, NAT gateways) – switch with `scripts/set-network-mode.sh` | all workflows |
 | [`environments/dev`](environments/dev) | Parameters of dev: `environment.tfvars`, `sl-az1.tfvars`, `sl-az2.tfvars` | – |
 | [`modules`](modules) | `address-plan` (section 8, with tests), `platform-lookup` | – |
-| [`scripts`](scripts) | `sync-platform.sh` (accelerator output), `update-policy-enforcement.sh` (audit switch for every ALZ assignment) | – |
+| [`scripts`](scripts) | `sync-platform.sh` (accelerator output), `set-network-mode.sh` (firewall / sandbox), `update-policy-enforcement.sh` (audit switch for every ALZ assignment) | – |
 
 Country codes `fi` / `se`, the test domain and all IP ranges are the examples of the design; replace them with the
 prefixes reserved from the corporate IPAM before deploying.

@@ -14,6 +14,31 @@ VNet. **Exit criterion: a stateless cell can be created and deleted by the pipel
  step 8  workflow "AKS cell"             ──► create / delete one cell + smoke test
 ```
 
+## Network mode: firewall or sandbox
+
+One flag in [`network-mode.tfvars`](../network-mode.tfvars) decides how the networks are connected. Switch it
+with the script – it also sets `primary_firewall_enabled` in the accelerator configuration and regenerates
+`platform/`; CI fails if the two disagree:
+
+```bash
+scripts/set-network-mode.sh sandbox   # or: firewall
+git add -A && git commit -m "Network mode sandbox" && git push
+```
+
+| | `firewall` (the design) | `sandbox` (lab / prototype) |
+|---|---|---|
+| Azure Firewall | Premium in the hub, DNS proxy, rule collection groups per zone | not deployed |
+| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; direct peerings: cells ↔ backend, cells ↔ edge, management ↔ backend, client ↔ edge (plus hub peerings for DNS and Bastion) |
+| Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary |
+| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management and client VNets); nodes have open egress, pods are still limited by Cilium FQDN policies |
+| DNS | Firewall DNS proxy | hub Private DNS Resolver inbound endpoint |
+| Cost | Firewall Premium ≈ the largest fixed cost of the build tenant | NAT gateways and public IPs only |
+
+Use `sandbox` for a first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
+Firewall is part of what is accepted. Switching later is an ordinary change: with `firewall` the next runs create
+the Firewall, route tables and rules and remove the direct peerings and NAT gateways (run Platform, then AKS
+dev). The NAT gateway public IPs are flagged by the ALZ `corp` policies – fine while they are in audit mode.
+
 ## 0. Prerequisites
 
 - A new Entra ID tenant (the build tenant) with three subscriptions: `sub-mgmt`, `sub-hub`, `sub-aks-dev`.
@@ -40,7 +65,8 @@ Replace the placeholder subscription IDs (`00000000-0000-0000-0000-00000000000{1
 | [`stacks/platform-extensions/terraform.tfvars`](../stacks/platform-extensions/terraform.tfvars) | the same subscription IDs |
 | [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault / ACR names), `dns_domain`, `admin_group_object_ids` |
 
-Then regenerate the accelerator output and commit:
+Choose the network mode (see above, e.g. `scripts/set-network-mode.sh sandbox` for a lab). Then regenerate the
+accelerator output and commit:
 
 ```bash
 scripts/sync-platform.sh
