@@ -15,6 +15,12 @@ variable "github_repository" {
   description = "owner/name of the repository whose GitHub environments get OIDC access."
 }
 
+variable "github_oidc_subject_prefix" {
+  type        = string
+  default     = "repo:onek8s@340519759/azure-landing-zone@1412897246"
+  description = "Subject prefix of the repository's GitHub OIDC tokens: owner and repository with their immutable IDs (gh api repos/<owner>/<repo>/actions/oidc/customization/sub)."
+}
+
 variable "state_storage_account_name" {
   type        = string
   description = "Terraform state storage account created by the accelerator bootstrap (BACKEND_AZURE_STORAGE_ACCOUNT_NAME)."

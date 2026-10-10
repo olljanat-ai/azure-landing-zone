@@ -58,18 +58,20 @@ create_bootstrap_resources_in_azure: true
 target_directory: "./platform"
 
 ## GitHub OIDC federation for the generated identities (this repository's GitHub environments).
+# The repository's tokens use immutable subjects (owner and repository with their IDs); check the prefix with
+#   gh api repos/onek8s/azure-landing-zone/actions/oidc/customization/sub
 # The environments are created in the repository settings (docs/deployment.md, step 3):
 #   platform-plan  – used by pull requests and the plan job, no protection
 #   platform-apply – used by the apply job on main, required reviewers
 federated_credentials:
   github_platform_plan:
     user_assigned_managed_identity_key: "plan"
-    federated_credential_subject: "repo:onek8s/azure-landing-zone:environment:platform-plan"
+    federated_credential_subject: "repo:onek8s@340519759/azure-landing-zone@1412897246:environment:platform-plan"
     federated_credential_issuer: "https://token.actions.githubusercontent.com"
     federated_credential_name: "github-azure-landing-zone-platform-plan"
   github_platform_apply:
     user_assigned_managed_identity_key: "apply"
-    federated_credential_subject: "repo:onek8s/azure-landing-zone:environment:platform-apply"
+    federated_credential_subject: "repo:onek8s@340519759/azure-landing-zone@1412897246:environment:platform-apply"
     federated_credential_issuer: "https://token.actions.githubusercontent.com"
     federated_credential_name: "github-azure-landing-zone-platform-apply"
 
