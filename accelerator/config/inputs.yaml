@@ -1,0 +1,79 @@
+---
+# Azure Landing Zones IaC Accelerator – bootstrap inputs for the AKS platform build tenant.
+#
+# Run from the repository root (see docs/deployment.md, step 2):
+#
+#   Deploy-Accelerator `
+#     -inputs "./accelerator/config/inputs.yaml", "./accelerator/config/platform-landing-zone.tfvars" `
+#     -starterAdditionalFiles "./accelerator/config/lib" `
+#     -output "./accelerator/output"
+#
+# Bootstrap module `alz_local` is used instead of `alz_github`, because the code lives in this existing
+# repository (olljanat-ai/azure-landing-zone) together with the AKS landing zone stacks. The bootstrap still
+# creates everything the GitHub flavour would create in Azure – Terraform state storage and the plan / apply
+# managed identities – and federates the identities with the GitHub environments of this repository, so the
+# workflows in .github/workflows authenticate with OIDC and no secret is stored anywhere.
+#
+# The generated starter module is written to ./platform (target_directory) and committed; this repository is
+# the single source of truth afterwards. For more detail on these inputs, visit: https://aka.ms/alz/acc/phase0
+# All inputs of the local bootstrap module: https://aka.ms/alz/acc/bootstrap/local/variables
+
+## Decision 4: Bootstrap Resource Azure Region
+# One region for the whole build tenant; the design needs availability zones 1-3 (one cell per AZ),
+# API Server VNet Integration, NAP, ACNS and Azure Firewall Premium in it.
+bootstrap_location: "swedencentral"
+
+## Decision 6: Parent Management Group
+root_parent_management_group_id: ""  # Tenant Root Group of the build tenant
+
+## Decision 7: Platform Subscriptions
+# Build tenant subscriptions (aks-design section 17): sub-mgmt, sub-hub, sub-aks-dev.
+# identity and security are not used in the build tenant; the identity / security management groups are
+# still created by the alz_custom architecture so the hierarchy matches the corporate landing zone.
+# sub-aks-dev is not a platform subscription: it is placed in the `corp` management group by the platform
+# stack (platform-landing-zone.tfvars, subscription_placement) and set up by stacks/platform-extensions.
+subscription_ids:
+  management: "00000000-0000-0000-0000-000000000001"    # sub-mgmt   – replace
+  connectivity: "00000000-0000-0000-0000-000000000002"  # sub-hub    – replace
+  identity: ""
+  security: ""
+
+## Decision 8: Bootstrap Resource Subscription
+bootstrap_subscription_id: "00000000-0000-0000-0000-000000000001"  # bootstrap resources live in sub-mgmt
+
+## Decision 9: Bootstrap Resource Naming.
+# Default names can be found here: https://aka.ms/alz/acc/bootstrap/local/resourcenames
+service_name: "alz"
+environment_name: "build"
+postfix_number: 1
+
+# Local Specific Inputs
+
+## Whether to create bootstrap resource in Azure
+# true: state storage account + plan (Reader) and apply (Owner) identities on the intermediate root
+# management group, federated with GitHub below.
+create_bootstrap_resources_in_azure: true
+
+## Target Directory for generated files (relative to the folder Deploy-Accelerator is run from)
+target_directory: "./platform"
+
+## GitHub OIDC federation for the generated identities (this repository's GitHub environments).
+# The environments are created in the repository settings (docs/deployment.md, step 3):
+#   platform-plan  – used by pull requests and the plan job, no protection
+#   platform-apply – used by the apply job on main, required reviewers
+federated_credentials:
+  github_platform_plan:
+    user_assigned_managed_identity_key: "plan"
+    federated_credential_subject: "repo:olljanat-ai/azure-landing-zone:environment:platform-plan"
+    federated_credential_issuer: "https://token.actions.githubusercontent.com"
+    federated_credential_name: "github-azure-landing-zone-platform-plan"
+  github_platform_apply:
+    user_assigned_managed_identity_key: "apply"
+    federated_credential_subject: "repo:olljanat-ai/azure-landing-zone:environment:platform-apply"
+    federated_credential_issuer: "https://token.actions.githubusercontent.com"
+    federated_credential_name: "github-azure-landing-zone-platform-apply"
+
+# Basic Inputs (Do not modify)
+iac_type: "terraform"
+bootstrap_module_name: "alz_local"
+starter_module_name: "platform_landing_zone"
