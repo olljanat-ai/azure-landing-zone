@@ -30,17 +30,9 @@ resource "azurerm_container_registry" "runners" {
   public_network_access_enabled = false
   zone_redundancy_enabled       = true
   network_rule_bypass_option    = "AzureServices"
-  tags                          = var.tags
-}
-
-resource "azapi_update_resource" "runners_acr_task_bypass" {
-  type        = "Microsoft.ContainerRegistry/registries@2025-05-01-preview"
-  resource_id = azurerm_container_registry.runners.id
-  body = {
-    properties = {
-      networkRuleBypassAllowedForTasks = true
-    }
-  }
+  # ACR Tasks build the runner image although public network access is disabled
+  network_rule_bypass_for_tasks_enabled = true
+  tags                                  = var.tags
 }
 
 resource "azurerm_private_endpoint" "runners_acr" {
@@ -99,7 +91,7 @@ resource "azurerm_role_assignment" "runner_image_push" {
 
 resource "azurerm_container_registry_task_schedule_run_now" "runner_image" {
   container_registry_task_id = azurerm_container_registry_task.runner_image.id
-  depends_on                 = [azurerm_role_assignment.runner_image_push, azapi_update_resource.runners_acr_task_bypass]
+  depends_on                 = [azurerm_role_assignment.runner_image_push]
   lifecycle {
     replace_triggered_by = [azurerm_container_registry_task.runner_image]
   }
