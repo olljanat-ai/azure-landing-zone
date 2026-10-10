@@ -53,7 +53,7 @@ resource "azurerm_federated_identity_credential" "aks" {
   parent_id = azurerm_user_assigned_identity.aks[each.key].id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = "https://token.actions.githubusercontent.com"
-  subject   = "repo:${var.github_repository}:environment:aks-${each.key}"
+  subject   = "${var.github_oidc_subject_prefix}:environment:aks-${each.key}"
 }
 
 # Custom role on a VNet: peer AKS spokes to it and link private DNS zones to it, nothing else. Assigned on the hub

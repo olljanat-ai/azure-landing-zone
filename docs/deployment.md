@@ -97,7 +97,15 @@ differences, commit them and align `scripts/sync-platform.sh`, which CI uses to 
 `accelerator/config` in sync.
 
 Note the names of the state resource group, storage account and container and the client IDs of the two
-identities from the bootstrap output.
+identities from the bootstrap output. Keep `accelerator/output` (the bootstrap's own local state).
+
+The GitHub OIDC subjects in `inputs.yaml` (and `github_oidc_subject_prefix` of the platform extensions) must
+match the repository's token subject, which for new organizations contains the immutable owner and repository
+IDs: `gh api repos/onek8s/azure-landing-zone/actions/oidc/customization/sub`.
+
+Do not apply the bootstrap again once the platform has run: it would move `sub-mgmt` and `sub-hub` back from
+`management` / `connectivity` to `alz`. To change only the federated credentials, plan the bootstrap with
+`-target='module.azure[0].azurerm_federated_identity_credential.alz["github_platform_plan"]'` (and `_apply`).
 
 ## 3. Put sub-aks-dev under the hierarchy
 
