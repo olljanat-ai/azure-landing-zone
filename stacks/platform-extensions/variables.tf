@@ -11,7 +11,7 @@ variable "subscription_ids" {
 
 variable "github_repository" {
   type        = string
-  default     = "olljanat-ai/azure-landing-zone"
+  default     = "onek8s/azure-landing-zone"
   description = "owner/name of the repository whose GitHub environments get OIDC access."
 }
 
