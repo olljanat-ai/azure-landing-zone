@@ -111,8 +111,13 @@ run "firewall_mode" {
   }
 
   assert {
-    condition     = length(azurerm_container_group.runners) == 2 && tolist(azurerm_container_group.runners["01"].dns_config[0].nameservers)[0] == "10.0.0.4"
-    error_message = "two runners resolving through the Firewall DNS proxy."
+    condition     = length(azurerm_container_group.runners) == 1 && tolist(azurerm_container_group.runners["01"].dns_config[0].nameservers)[0] == "10.0.0.4"
+    error_message = "one runner resolving through the Firewall DNS proxy."
+  }
+
+  assert {
+    condition     = length(azurerm_private_endpoint.runners_acr) == 0 && azurerm_container_registry.runners.public_network_access_enabled
+    error_message = "lab: Basic runner registry without a private endpoint."
   }
 }
 
@@ -129,8 +134,13 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = length(azurerm_nat_gateway.management) == 1 && length(azurerm_nat_gateway.client) == 1 && length(azurerm_route_table.management) == 0 && length(azurerm_route_table.client) == 0
-    error_message = "sandbox mode: NAT gateways instead of route tables."
+    condition     = length(azurerm_nat_gateway.management) == 1 && length(azurerm_nat_gateway.client) == 0 && length(azurerm_route_table.management) == 0 && length(azurerm_route_table.client) == 0
+    error_message = "sandbox mode: NAT gateway instead of route tables, none for the client VNet without a test client."
+  }
+
+  assert {
+    condition     = length(azurerm_linux_virtual_machine.jump) == 0 && length(azurerm_linux_virtual_machine.client) == 0
+    error_message = "lab: no jump host and no test client by default."
   }
 
   assert {
@@ -141,5 +151,26 @@ run "sandbox_mode" {
   assert {
     condition     = tolist(azurerm_container_group.runners["01"].dns_config[0].nameservers)[0] == "10.0.0.164"
     error_message = "sandbox mode resolves through the hub DNS resolver."
+  }
+}
+
+run "sandbox_mode_design_options" {
+  command = plan
+
+  variables {
+    network_mode        = "sandbox"
+    client_vm_enabled   = true
+    jump_host_enabled   = true
+    runner_registry_sku = "Premium"
+  }
+
+  assert {
+    condition     = length(azurerm_nat_gateway.client) == 1 && length(azurerm_linux_virtual_machine.client) == 1 && length(azurerm_linux_virtual_machine.jump) == 1
+    error_message = "the test client brings its NAT gateway back."
+  }
+
+  assert {
+    condition     = length(azurerm_private_endpoint.runners_acr) == 1 && !azurerm_container_registry.runners.public_network_access_enabled
+    error_message = "Premium runner registry: private endpoint, no public access."
   }
 }

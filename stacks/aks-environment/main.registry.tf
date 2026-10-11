@@ -1,20 +1,26 @@
 # Environment ACR (aks-design sections 9 and 10): images and the signed fleet OCI artifact. Private endpoint in the
 # backend spoke, no admin user, no anonymous pull. Images are imported by digest from the previous environment.
+# Lab (container_registry_sku Basic / Standard): no private endpoint, public endpoint with Entra ID authentication.
+locals {
+  registry_private = var.container_registry_sku == "Premium"
+}
+
 resource "azurerm_container_registry" "this" {
   name                          = "acr${local.env}aks${var.name_suffix}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.shared.name
-  sku                           = "Premium"
+  sku                           = var.container_registry_sku
   admin_enabled                 = false
-  public_network_access_enabled = false
+  public_network_access_enabled = !local.registry_private
   anonymous_pull_enabled        = false
-  data_endpoint_enabled         = true
-  zone_redundancy_enabled       = true
+  data_endpoint_enabled         = local.registry_private
+  zone_redundancy_enabled       = local.registry_private
   network_rule_bypass_option    = "AzureServices"
   tags                          = local.tags
 }
 
 resource "azurerm_private_endpoint" "registry" {
+  count               = local.registry_private ? 1 : 0
   name                = "pe-${azurerm_container_registry.this.name}"
   location            = var.location
   resource_group_name = azurerm_resource_group.shared.name

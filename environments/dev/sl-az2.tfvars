@@ -18,9 +18,11 @@ dns_domain  = "example-test.com"
 kubernetes_version      = null
 kubernetes_minor_offset = 2
 
+# Lab: Free tier and one system node. The design: sku_tier = "Standard", node_count = 3.
+sku_tier = "Free"
 system_pool = {
   vm_size    = "Standard_D4ds_v5"
-  node_count = 3
+  node_count = 1
 }
 
 admin_group_object_ids = [] # Entra ID group of the platform team

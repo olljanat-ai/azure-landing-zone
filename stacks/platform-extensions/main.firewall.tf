@@ -81,7 +81,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
       source_ip_groups = [azurerm_ip_group.management[0].id]
       destination_fqdns = concat(local.github_fqdns, [
         "${var.state_storage_account_name}.blob.core.windows.net",
-      ])
+      ], local.runner_registry_private ? [] : [azurerm_container_registry.runners.login_server])
       protocols {
         type = "Https"
         port = 443
@@ -323,6 +323,21 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
       protocols {
         type = "Https"
         port = 443
+      }
+    }
+
+    # Lab: public environment ACR (no private endpoint). Without a dedicated data endpoint the image layers are
+    # served from the registry's storage accounts.
+    dynamic "rule" {
+      for_each = var.environments[each.key].public_registry ? [1] : []
+      content {
+        name              = "public-registry"
+        source_ip_groups  = [azurerm_ip_group.frontend[each.key].id, azurerm_ip_group.management[0].id]
+        destination_fqdns = ["*.azurecr.io", "*.blob.core.windows.net"]
+        protocols {
+          type = "Https"
+          port = 443
+        }
       }
     }
 

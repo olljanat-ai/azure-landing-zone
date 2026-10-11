@@ -80,10 +80,14 @@ resource "azurerm_subnet_route_table_association" "client" {
 }
 
 # Sandbox mode: the clients reach the internal entry points through a direct peering to the edge VNet
-# (stacks/aks-environment) and the Internet through a NAT gateway
+# (stacks/aks-environment) and the Internet through a NAT gateway, which only exists while the test client does
+locals {
+  client_nat = !local.firewall && var.client_vm_enabled
+}
+
 resource "azurerm_public_ip" "client_nat" {
   provider            = azurerm.connectivity
-  count               = local.firewall ? 0 : 1
+  count               = local.client_nat ? 1 : 0
   name                = "pip-nat-client-${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.client.name
@@ -95,7 +99,7 @@ resource "azurerm_public_ip" "client_nat" {
 
 resource "azurerm_nat_gateway" "client" {
   provider            = azurerm.connectivity
-  count               = local.firewall ? 0 : 1
+  count               = local.client_nat ? 1 : 0
   name                = "nat-client-${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.client.name
@@ -105,14 +109,14 @@ resource "azurerm_nat_gateway" "client" {
 
 resource "azurerm_nat_gateway_public_ip_association" "client" {
   provider             = azurerm.connectivity
-  count                = local.firewall ? 0 : 1
+  count                = local.client_nat ? 1 : 0
   nat_gateway_id       = azurerm_nat_gateway.client[0].id
   public_ip_address_id = azurerm_public_ip.client_nat[0].id
 }
 
 resource "azurerm_subnet_nat_gateway_association" "client" {
   provider       = azurerm.connectivity
-  for_each       = local.firewall ? {} : azurerm_subnet.client
+  for_each       = local.client_nat ? azurerm_subnet.client : {}
   subnet_id      = each.value.id
   nat_gateway_id = azurerm_nat_gateway.client[0].id
 }

@@ -5,8 +5,10 @@ Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` 
 - Three subscriptions: sub-mgmt (management), sub-hub (connectivity) and sub-aks-dev (placed in `corp`).
   identity / security subscriptions are not used, their management groups exist so the hierarchy is the same
   as in the corporate landing zone.
-- Hub: Azure Firewall Premium (DNS proxy, IDPS, threat intelligence), Bastion, Private DNS Resolver and all
-  private link DNS zones, plus the platform's own split-horizon zones `<zone>.<env>.<test domain>`.
+- Hub: Azure Firewall (network mode `firewall` only; Standard in the lab – the design is Premium with IDPS:
+  set primary_firewall_sku_tier and add intrusion_detection to firewall_policy), Bastion (off in the lab, needed
+  only for the optional jump host / test client), Private DNS Resolver and all private link DNS zones, plus the
+  platform's own split-horizon zones `<zone>.<env>.<test domain>`.
   NO ExpressRoute / VPN gateway – the build tenant is never connected to the corporate network.
 - No DDoS protection plan (no public endpoints in any spoke, only Front Door).
 - ALL policy assignments in enforcement mode `DoNotEnforce` (= audit). Switch `policy_enforcement_mode` to
@@ -40,7 +42,7 @@ custom_replacements = {
 
     # Resource provisioning primary connectivity
     primary_firewall_enabled                                             = false
-    primary_firewall_sku_tier                                            = "Premium"
+    primary_firewall_sku_tier                                            = "Standard"
     primary_firewall_management_ip_enabled                               = false
     primary_virtual_network_gateway_express_route_enabled                = false
     primary_virtual_network_gateway_express_route_hobo_public_ip_enabled = false
@@ -48,7 +50,7 @@ custom_replacements = {
     primary_private_dns_zones_enabled                                    = true
     primary_private_dns_auto_registration_zone_enabled                   = false
     primary_private_dns_resolver_enabled                                 = true
-    primary_bastion_enabled                                              = true
+    primary_bastion_enabled                                              = false
 
     # Resource group names
     management_resource_group_name               = "rg-management-$${starter_location_01}"
@@ -467,9 +469,7 @@ hub_virtual_networks = {
       dns = {
         proxy_enabled = true
       }
-      intrusion_detection = {
-        mode = "Alert" # Deny from phase 3 on, together with the policies
-      }
+      # Premium only (the design): intrusion_detection = { mode = "Alert" }, Deny from phase 3 on
       threat_intelligence_mode = "Alert"
     }
     virtual_network_gateways = {
@@ -537,7 +537,7 @@ hub_virtual_networks = {
       subnet_address_prefix = "$${primary_bastion_subnet_address_prefix}"
       name                  = "$${primary_bastion_host_name}"
       sku                   = "Standard"
-      tunneling_enabled     = true # `az network bastion ssh/tunnel` to the jump host in the management VNet
+      tunneling_enabled     = true # `az network bastion ssh/tunnel` to the jump host / test client
       zones                 = ["1", "2", "3"]
       bastion_public_ip = {
         name = "$${primary_bastion_host_public_ip_name}"

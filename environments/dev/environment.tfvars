@@ -16,8 +16,11 @@ dns_domain  = "example-test.com"
 # accelerator/config/platform-landing-zone.tfvars
 policy_enforcement_mode = "DoNotEnforce"
 
-front_door_enabled = true
-nginxaas_enabled   = false
+# Lab SKUs. The design: front_door_enabled = true, key_vault_sku = "premium", container_registry_sku = "Premium".
+front_door_enabled     = false
+nginxaas_enabled       = false
+key_vault_sku          = "standard"
+container_registry_sku = "Basic"
 
 # Reference application of the acceptance tests (aks-design section 17) in every zone
 applications = {

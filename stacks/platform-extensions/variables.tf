@@ -55,14 +55,17 @@ variable "environments" {
     # Isolation zone => extra FQDNs the zone's applications may reach on the Internet (union of the zones'
     # application egress policies, aks-design section 16). Platform FQDNs are always allowed.
     zone_fqdn_allow_lists = optional(map(list(string)), {})
+    # The environment ACR is public (container_registry_sku Basic / Standard in stacks/aks-environment, the lab):
+    # firewall mode then allows the nodes and the runners to reach it on the Internet instead of its private endpoint
+    public_registry = optional(bool, true)
   }))
   description = "AKS platform environments that exist in this tenant. The build tenant only has dev (aks-design section 17)."
 }
 
 variable "jump_host_enabled" {
   type        = bool
-  default     = true
-  description = "Linux jump host in the management VNet, reached through Bastion, signed in with Entra ID."
+  default     = false
+  description = "Linux jump host in the management VNet, signed in with Entra ID. Needs the hub Bastion (primary_bastion_enabled in accelerator/config/platform-landing-zone.tfvars). Off in the lab: `az aks command invoke` and the runners reach the private API servers."
 }
 
 variable "jump_host_vm_size" {
@@ -72,8 +75,8 @@ variable "jump_host_vm_size" {
 
 variable "client_vm_enabled" {
   type        = bool
-  default     = true
-  description = "Test client / load generator VM in the client VNet."
+  default     = false
+  description = "Test client / load generator VM in the client VNet (and its NAT gateway in sandbox mode). Needs the hub Bastion like the jump host. Turn on for acceptance testing (aks-design section 17)."
 }
 
 variable "client_vm_size" {
@@ -89,7 +92,7 @@ variable "admin_group_object_id" {
 
 variable "github_runners" {
   type = object({
-    count = optional(number, 2)
+    count = optional(number, 1)
     # Runner image of the ALZ accelerator (accelerator-bootstrap-modules, runner_container_image_*)
     image_repository = optional(string, "https://github.com/Azure/avm-container-images-cicd-agents-and-runners")
     image_ref        = optional(string, "9b4c292e1a23c162d7801e019ab9f7f9099c3682")
@@ -99,6 +102,16 @@ variable "github_runners" {
   })
   default     = {}
   description = "Self-hosted GitHub runners (Azure Container Instances) in the management VNet; the AKS environment and cell workflows run on them because Key Vault, ACR and the API servers are private."
+}
+
+variable "runner_registry_sku" {
+  type        = string
+  default     = "Basic"
+  description = "SKU of the runner image registry. Premium: private endpoint, no public access, zone redundant (the design). Basic / Standard (lab): public endpoint with Entra ID authentication only, no private endpoint."
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.runner_registry_sku)
+    error_message = "Basic, Standard or Premium."
+  }
 }
 
 variable "github_runner_token" {
