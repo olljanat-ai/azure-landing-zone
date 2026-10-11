@@ -18,7 +18,7 @@ Build tenant (not connected to the corporate network)
 │   └── alz ─┬─ platform ─┬─ management   sub-mgmt   Log Analytics · state storage · deployment identities
 │            │            │                          management VNet: GitHub runner (ACI), optional jump host,
 │            │            │                          private endpoints to every API server
-│            │            └─ connectivity sub-hub    hub: Firewall (firewall mode) · DNS resolver · private DNS
+│            │            └─ connectivity sub-hub    hub: Firewall (firewall mode) · private DNS zones
 │            │                                       client VNet (simulated corporate network)
 │            └─ landingzones ── corp      sub-aks-dev  vnet-dev-sf (backend: Key Vault / ACR endpoints)
 │                                                      vnet-dev-edge (NGINXaaS subnets) · Front Door (optional)

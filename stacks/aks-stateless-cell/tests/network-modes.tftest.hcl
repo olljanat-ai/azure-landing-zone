@@ -47,9 +47,12 @@ override_data {
 }
 
 override_data {
-  target = module.platform.data.azurerm_private_dns_resolver_inbound_endpoint.hub
+  target = module.platform.data.azurerm_resources.private_dns_zones
   values = {
-    ip_configurations = [{ private_ip_address = "10.0.0.164", private_ip_allocation_method = "Static", subnet_id = "" }]
+    resources = [
+      { name = "privatelink.vaultcore.azure.net", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+      { name = "int-fi.dev.example-test.com", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/int-fi.dev.example-test.com", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+    ]
   }
 }
 
@@ -172,8 +175,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = azurerm_virtual_network.cell.dns_servers[0] == "10.0.0.164" && azurerm_nat_gateway.cell[0].zones == toset(["2"])
-    error_message = "sandbox mode resolves through the hub DNS resolver and uses a NAT gateway in the cell's AZ."
+    condition     = length(azurerm_virtual_network.cell.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2 && azurerm_nat_gateway.cell[0].zones == toset(["2"])
+    error_message = "sandbox mode resolves through Azure DNS with the cell VNet linked to every hub zone and uses a NAT gateway in the cell's AZ."
   }
 
   assert {

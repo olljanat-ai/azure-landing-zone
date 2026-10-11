@@ -38,10 +38,12 @@ data "azurerm_firewall_policy" "hub" {
   resource_group_name = local.hub_resource_group_name
 }
 
-data "azurerm_private_dns_resolver_inbound_endpoint" "hub" {
-  provider                = azurerm.connectivity
-  name                    = "dns" # default inbound endpoint of avm-ptn-alz-connectivity-hub-and-spoke-vnet
-  private_dns_resolver_id = "${data.azurerm_subscription.connectivity.id}/resourceGroups/${local.hub_resource_group_name}/providers/Microsoft.Network/dnsResolvers/pdr-hub-dns-${var.location}"
+# Every private DNS zone of the hub (private link zones and the split-horizon zones of the isolation zones). In
+# sandbox mode there is no DNS server in the hub: each spoke links its VNet to all of them and uses Azure DNS.
+data "azurerm_resources" "private_dns_zones" {
+  provider            = azurerm.connectivity
+  resource_group_name = local.dns_resource_group_name
+  type                = "Microsoft.Network/privateDnsZones"
 }
 
 data "azurerm_private_dns_zone" "hub" {

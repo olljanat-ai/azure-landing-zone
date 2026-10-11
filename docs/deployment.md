@@ -30,8 +30,8 @@ git add -A && git commit -m "Network mode sandbox" && git push
 | Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed |
 | Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; direct peerings: cells ↔ backend, cells ↔ edge, management ↔ backend, client ↔ edge (plus hub peerings for DNS) |
 | Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary |
-| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies |
-| DNS | Firewall DNS proxy | hub Private DNS Resolver inbound endpoint |
+| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies |
+| DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone |
 | Cost | the Firewall is the largest fixed cost of the build tenant | NAT gateways and public IPs only |
 
 Use `sandbox` for a first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
@@ -172,6 +172,8 @@ the design:
 | AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
 | AKS monitoring | control plane diagnostic settings only | Container Insights, Defender for Containers sensor | `container_insights_enabled`, `defender_enabled` in `environments/dev/sl-az*.tfvars` |
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
+| Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
+| Management VNet NAT gateway | only while runners or the jump host exist | always (sandbox mode) | follows `github_runner_token` / `github_runner_app_*` and `jump_host_enabled` |
 | Management resources | Log Analytics workspace with a 1 GB/day cap | + Azure Monitor Agent identity and the VM data collection rules | `management_resource_settings` in the accelerator config |
 
 Delete the cells (Actions → AKS cell → `delete`) when they are not needed: they are the largest cost of the lab.
@@ -183,7 +185,7 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 
 - management groups and all ALZ policy assignments with `enforcementMode: DoNotEnforce`,
 - Log Analytics and data collection rules in `sub-mgmt`,
-- the hub in `sub-hub`: the Private DNS Resolver, the private link DNS zones and the split-horizon zones
+- the hub in `sub-hub`: the private link DNS zones and the split-horizon zones
   `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
 - the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
   client only when enabled), the Firewall rule collection groups and the dev deployment identities.
