@@ -69,7 +69,7 @@ resource "azurerm_linux_virtual_machine" "jump" {
   }
 }
 
-resource "azurerm_virtual_machine_extension" "jump_aad_login" {
+resource "azurerm_virtual_machine_extension" "jump_entra_login" {
   count                      = var.jump_host_enabled ? 1 : 0
   name                       = "AADSSHLoginForLinux"
   virtual_machine_id         = azurerm_linux_virtual_machine.jump[0].id
@@ -145,7 +145,7 @@ resource "azurerm_linux_virtual_machine" "client" {
   }
 }
 
-resource "azurerm_virtual_machine_extension" "client_aad_login" {
+resource "azurerm_virtual_machine_extension" "client_entra_login" {
   provider                   = azurerm.connectivity
   count                      = var.client_vm_enabled ? 1 : 0
   name                       = "AADSSHLoginForLinux"
@@ -162,4 +162,20 @@ resource "azurerm_role_assignment" "client_admin_login" {
   scope                = azurerm_linux_virtual_machine.client[0].id
   role_definition_name = "Virtual Machine Administrator Login"
   principal_id         = var.admin_group_object_id
+}
+
+# Earlier addresses of the Entra ID login extensions. Azure refuses to delete an extension of a stopped VM (409
+# OperationNotAllowed), so Terraform forgets them instead: they are deleted together with their VM.
+removed {
+  from = azurerm_virtual_machine_extension.jump_aad_login
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = azurerm_virtual_machine_extension.client_aad_login
+  lifecycle {
+    destroy = false
+  }
 }
