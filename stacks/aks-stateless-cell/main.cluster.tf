@@ -149,13 +149,15 @@ resource "azapi_resource" "cluster" {
         azureKeyvaultSecretsProvider = {
           enabled = false
         }
-        omsagent = {
-          enabled = true
+        # Container Insights: off in the lab (Log Analytics ingestion is its main cost)
+        omsagent = merge({
+          enabled = var.container_insights_enabled
+          }, var.container_insights_enabled ? {
           config = {
             logAnalyticsWorkspaceResourceID = module.platform.log_analytics_workspace_id
             useAADAuth                      = "true"
           }
-        }
+        } : {})
       }
 
       # Section 12: the version pipeline decides, AKS never upgrades on its own
