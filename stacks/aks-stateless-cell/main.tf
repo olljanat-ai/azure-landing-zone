@@ -59,7 +59,7 @@ data "azurerm_resource_group" "api_access" {
   name     = "rg-aks-${var.environment}-api-access-${var.location}"
 }
 
-# Version of the cell's speed (aks-design section 12, update policy): N-1 for sl-az1, N-2 for the others
+# Version of the cell's speed (OneK8s design section 12, update policy): N-1 for sl-az1, N-2 for the others
 data "azurerm_kubernetes_service_versions" "this" {
   location        = var.location
   include_preview = false

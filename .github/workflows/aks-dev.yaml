@@ -1,5 +1,5 @@
 ---
-# AKS platform, environment dev (aks-design sections 9 and 17): the environment module first, then the cells one
+# AKS platform, environment dev (OneK8s design sections 9 and 17): the environment module first, then the cells one
 # at a time (sl-az1 before sl-az2, a change never reaches every cell at once). Runs on the self-hosted runners in
 # the management VNet, because Key Vault, ACR and the API servers are private. Identities: GitHub environments
 # aks-dev-plan / aks-dev-apply (stacks/platform-extensions).

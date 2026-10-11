@@ -1,4 +1,4 @@
-# Admin and CI/CD access to the private API server only from the management VNet (aks-design section 3, R1):
+# Admin and CI/CD access to the private API server only from the management VNet (OneK8s design section 3, R1):
 # a Private Link Service on the kube-apiserver internal load balancer in snet-apiserver-pls, a private endpoint
 # in the management VNet's snet-aks-api-pe and a private DNS zone for the cluster's private FQDN that points to
 # that endpoint. Pattern: https://learn.microsoft.com/azure/aks/private-apiserver-vnet-integration-cluster

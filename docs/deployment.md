@@ -1,6 +1,6 @@
 # Deploying the build tenant and the dev environment
 
-This is phase 1 (Foundation) of the [implementation project](https://github.com/olljanat-ai/aks-design/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
+This is phase 1 (Foundation) of the [implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
 build tenant, management and hub, `sub-aks-dev`, pipelines with OIDC, Azure Policy in audit mode and the client
 VNet. **Exit criterion: a stateless cell can be created and deleted by the pipeline** (step 8).
 

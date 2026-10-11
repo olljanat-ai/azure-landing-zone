@@ -1,6 +1,6 @@
 variable "environment" {
   type        = string
-  description = "Environment name: dev, acc or prd (aks-design section 9)."
+  description = "Environment name: dev, acc or prd (OneK8s design section 9)."
 }
 
 variable "location" {
@@ -51,7 +51,7 @@ variable "policy_enforcement_mode" {
 variable "front_door_enabled" {
   type        = bool
   default     = false
-  description = "Azure Front Door Premium with a WAF policy per external zone (cell router for ext-* zones, aks-design section 8). Premium only: the Private Link origins and the managed WAF rule sets need it. Off in the lab until the external zones are tested (~330 USD/month base fee)."
+  description = "Azure Front Door Premium with a WAF policy per external zone (cell router for ext-* zones, OneK8s design section 8). Premium only: the Private Link origins and the managed WAF rule sets need it. Off in the lab until the external zones are tested (~330 USD/month base fee)."
 }
 
 variable "key_vault_sku" {
@@ -86,7 +86,7 @@ variable "applications" {
     secret_officer_ids = optional(list(string), [])
   }))
   default     = {}
-  description = "Onboarded applications (aks-design section 6): name => zone and exceptions. Creates id-<zone>-<app> and, when needed, id-<zone>-<app>-secrets."
+  description = "Onboarded applications (OneK8s design section 6): name => zone and exceptions. Creates id-<zone>-<app> and, when needed, id-<zone>-<app>-secrets."
 }
 
 variable "tags" {

@@ -1,11 +1,16 @@
 # azure-landing-zone
 
-Azure landing zone for the AKS platform designed in [aks-design](https://github.com/olljanat-ai/aks-design),
-built with the [Azure Landing Zones IaC Accelerator](https://azure.github.io/Azure-Landing-Zones/accelerator/)
-(Terraform, Azure Verified Modules).
+The Azure landing zone of [OneK8s](https://onek8s.github.io/) - one Kubernetes platform for every cloud, which runs
+in any public cloud without changes to the applications or to how they are deployed. Azure is the first cloud
+implemented; this repository is its landing zone, built with the
+[Azure Landing Zones IaC Accelerator](https://azure.github.io/Azure-Landing-Zones/accelerator/) (Terraform, Azure
+Verified Modules). The clusters and the container registry are
+[aks-terraform](https://github.com/onek8s/aks-terraform)'s; what runs in them is
+[aks-fluxcd-platform](https://github.com/onek8s/aks-fluxcd-platform)'s. Portability:
+[design section 21](https://github.com/onek8s/onek8s.github.io/blob/main/docs/21-open-standards-and-portability.md).
 
 It implements **phase 1 (Foundation)** of the
-[implementation project](https://github.com/olljanat-ai/aks-design/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
+[implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
 a separate build tenant with management, hub and `sub-aks-dev`, pipelines with OIDC, all Azure Policy assignments in
 audit mode, a client VNet that simulates the corporate network, and the dev environment with its two stateless
 cells `aks-dev-sl-az1` and `aks-dev-sl-az2` – created and deleted by the pipeline.

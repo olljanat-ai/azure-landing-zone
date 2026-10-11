@@ -1,4 +1,4 @@
-# Stateless cluster aks-<env>-sl-az<N> (aks-design sections 3, 4, 8, 13, 14, 16 and 18). azapi because node auto
+# Stateless cluster aks-<env>-sl-az<N> (OneK8s design sections 3, 4, 8, 13, 14, 16 and 18). azapi because node auto
 # provisioning, ACNS eBPF host routing and API Server VNet Integration are set with fields of the 2026-05-01 API.
 resource "azapi_resource" "cluster" {
   type      = "Microsoft.ContainerService/managedClusters@2026-05-01"

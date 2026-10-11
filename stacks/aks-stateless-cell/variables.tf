@@ -54,7 +54,7 @@ variable "dns_domain" {
 variable "kubernetes_version" {
   type        = string
   default     = null
-  description = "Kubernetes version of control plane and system pool, written by the version pipeline (aks-design section 12). null: the newest patch of the minor given by kubernetes_minor_offset."
+  description = "Kubernetes version of control plane and system pool, written by the version pipeline (OneK8s design section 12). null: the newest patch of the minor given by kubernetes_minor_offset."
 }
 
 variable "kubernetes_minor_offset" {
@@ -80,7 +80,7 @@ variable "system_pool" {
     max_pods   = optional(number, 110)
   })
   default     = {}
-  description = "System node pool: fixed node count, tainted CriticalAddonsOnly, pinned to the cell's AZ (aks-design sections 3 and 4)."
+  description = "System node pool: fixed node count, tainted CriticalAddonsOnly, pinned to the cell's AZ (OneK8s design sections 3 and 4)."
 }
 
 variable "pod_cidr" {
@@ -110,7 +110,7 @@ variable "fleet" {
     kind       = optional(string, "GitRepository") # GitRepository while prototyping, OCIRepository (environment ACR) later
     url        = string
     branch     = optional(string, "main")
-    tag        = optional(string) # OCIRepository: <env>-<cell> (one tag per cell, aks-design section 10)
+    tag        = optional(string) # OCIRepository: <env>-<cell> (one tag per cell, OneK8s design section 10)
     path       = optional(string) # default ./clusters/<env>/<cell>
     sync_every = optional(number, 600)
   })

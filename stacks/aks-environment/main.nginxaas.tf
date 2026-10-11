@@ -1,4 +1,4 @@
-# F5 NGINXaaS: internal entry point (cell router) of each int-* zone in the edge VNet (aks-design section 8),
+# F5 NGINXaaS: internal entry point (cell router) of each int-* zone in the edge VNet (OneK8s design section 8),
 # with client-IP affinity to the cells (`hash $client_prefix consistent`). The NGINX configuration with the cells'
 # Traefik addresses as upstream servers is added once the cells exist. Optional until the open question about
 # the partner service is answered.
