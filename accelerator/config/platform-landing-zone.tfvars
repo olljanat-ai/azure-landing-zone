@@ -182,6 +182,12 @@ management_group_settings = {
       error_message_regex = ["AuthorizationFailed"]
     }
   }
+  # Reading a role assignment takes seconds; fail fast instead of the 60-minute default
+  timeouts = {
+    policy_role_assignment = {
+      read = "5m"
+    }
+  }
   architecture_name  = "alz_custom"
   location           = "$${starter_location_01}"
   parent_resource_id = "$${root_parent_management_group_id}"
