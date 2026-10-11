@@ -53,11 +53,6 @@ output "dns_resource_group_id" {
   value       = "${data.azurerm_subscription.connectivity.id}/resourceGroups/${local.dns_resource_group_name}"
 }
 
-output "log_analytics_workspace_id" {
-  description = "Central Log Analytics workspace of the management subscription."
-  value       = data.azurerm_log_analytics_workspace.management.id
-}
-
 output "connectivity_subscription_id" {
   description = "Subscription ID of sub-hub."
   value       = data.azurerm_subscription.connectivity.subscription_id

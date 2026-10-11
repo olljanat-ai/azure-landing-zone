@@ -132,11 +132,11 @@ tags = {
 /*
 --- Management Resources ---
 */
-management_resources_enabled = true
+# Lab: no monitoring for now - observability is set up later. No Log Analytics workspace, no Azure Monitor Agent
+# identity, no data collection rules; the ALZ assignments that need them are removed in lib/archetype_definitions.
+# The settings below are what `true` deploys.
+management_resources_enabled = false
 
-# Lab: only the Log Analytics workspace, which the AKS stacks send their diagnostics to, with a daily ingestion cap.
-# The Azure Monitor Agent identity and the VM data collection rules serve the ALZ VM / SQL monitoring policies only
-# (no VMs in the lab); enable them again together with those policies.
 management_resource_settings = {
   location                               = "$${starter_location_01}"
   log_analytics_workspace_name           = "$${log_analytics_workspace_name}"
@@ -244,28 +244,9 @@ management_group_settings = {
         Deny-Classic-Resources   = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deny-UnmanagedDisk       = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-ASC-Monitoring    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-AzActivity-Log    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-Diag-LogsCat      = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-MCSB2-Monitoring  = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-MDEndpoints       = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-MDEndpointsAMA    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-MDFC-Config-H224 = {
-          enforcement_mode = "$${policy_enforcement_mode}"
-          parameters = {
-            enableAscForServers                         = "DeployIfNotExists"
-            enableAscForServersVulnerabilityAssessments = "DeployIfNotExists"
-            enableAscForSql                             = "DeployIfNotExists"
-            enableAscForAppServices                     = "DeployIfNotExists"
-            enableAscForStorage                         = "DeployIfNotExists"
-            enableAscForContainers                      = "DeployIfNotExists"
-            enableAscForKeyVault                        = "DeployIfNotExists"
-            enableAscForSqlOnVm                         = "DeployIfNotExists"
-            enableAscForArm                             = "DeployIfNotExists"
-            enableAscForOssDb                           = "DeployIfNotExists"
-            enableAscForCosmosDbs                       = "DeployIfNotExists"
-            enableAscForCspm                            = "DeployIfNotExists"
-          }
-        }
         Deploy-MDFC-OssDb        = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-MDFC-SqlAtp       = { enforcement_mode = "$${policy_enforcement_mode}" }
         Deploy-SvcHealth-BuiltIn = { enforcement_mode = "$${policy_enforcement_mode}" }
@@ -274,102 +255,86 @@ management_group_settings = {
     }
     platform = {
       policy_assignments = {
-        DenyAction-DeleteUAMIAMA = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-GuestAttest       = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-MDFC-DefSQL-AMA   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VM-ChangeTrack    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VM-Monitoring     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-vmArc-ChangeTrack = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-vmHybr-Monitoring = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VMSS-ChangeTrack  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VMSS-Monitoring   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enable-AUM-CheckUpdates  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-ASR              = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-Encrypt-CMK0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-APIM0         = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-AppServices0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Automation0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-BotService0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-CogServ0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Compute0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContApps0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContInst0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContReg0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-CosmosDb0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-DataExpl0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-DataFactory0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-EventGrid0    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-EventHub0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-KeyVault      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-KeyVaultSup0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Kubernetes0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-MachLearn0    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-MySQL0        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Network0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-OpenAI0       = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-PostgreSQL0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ServiceBus0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-SQL0          = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Storage0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Synapse0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-VirtualDesk0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-Subnet-Private   = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deploy-GuestAttest      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enable-AUM-CheckUpdates = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-ASR             = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-Encrypt-CMK0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-APIM0        = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-AppServices0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Automation0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-BotService0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-CogServ0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Compute0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContApps0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContInst0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContReg0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-CosmosDb0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-DataExpl0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-DataFactory0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-EventGrid0   = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-EventHub0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-KeyVault     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-KeyVaultSup0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Kubernetes0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-MachLearn0   = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-MySQL0       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Network0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-OpenAI0      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-PostgreSQL0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ServiceBus0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-SQL0         = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Storage0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Synapse0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-VirtualDesk0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-Subnet-Private  = { enforcement_mode = "$${policy_enforcement_mode}" }
       }
     }
     landingzones = {
       policy_assignments = {
-        Audit-AppGW-WAF          = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-IP-forwarding       = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-MgmtPorts-Internet  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Priv-Esc-AKS        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Privileged-AKS      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Storage-http        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Subnet-Without-Nsg  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-AzSqlDb-Auditing  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-GuestAttest       = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-MDFC-DefSQL-AMA   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-SQL-TDE           = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-SQL-Threat        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VM-Backup         = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VM-ChangeTrack    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VM-Monitoring     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-vmArc-ChangeTrack = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-vmHybr-Monitoring = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VMSS-ChangeTrack  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-VMSS-Monitoring   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enable-AUM-CheckUpdates  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-AKS-HTTPS        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-ASR              = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-Encrypt-CMK0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-APIM0         = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-AppServices0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Automation0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-BotService0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-CogServ0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Compute0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContApps0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContInst0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ContReg0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-CosmosDb0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-DataExpl0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-DataFactory0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-EventGrid0    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-EventHub0     = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-KeyVault      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-KeyVaultSup0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Kubernetes0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-MachLearn0    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-MySQL0        = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Network0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-OpenAI0       = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-PostgreSQL0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-ServiceBus0   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-SQL0          = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Storage0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-Synapse0      = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-GR-VirtualDesk0  = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-Subnet-Private   = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Enforce-TLS-SSL-Q225     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Audit-AppGW-WAF         = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-IP-forwarding      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-MgmtPorts-Internet = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Priv-Esc-AKS       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Privileged-AKS     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Storage-http       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Subnet-Without-Nsg = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deploy-GuestAttest      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deploy-SQL-TDE          = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deploy-SQL-Threat       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deploy-VM-Backup        = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enable-AUM-CheckUpdates = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-AKS-HTTPS       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-ASR             = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-Encrypt-CMK0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-APIM0        = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-AppServices0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Automation0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-BotService0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-CogServ0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Compute0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContApps0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContInst0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ContReg0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-CosmosDb0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-DataExpl0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-DataFactory0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-EventGrid0   = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-EventHub0    = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-KeyVault     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-KeyVaultSup0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Kubernetes0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-MachLearn0   = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-MySQL0       = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Network0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-OpenAI0      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-PostgreSQL0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-ServiceBus0  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-SQL0         = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Storage0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-Synapse0     = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-GR-VirtualDesk0 = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-Subnet-Private  = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Enforce-TLS-SSL-Q225    = { enforcement_mode = "$${policy_enforcement_mode}" }
       }
     }
     corp = {

@@ -15,7 +15,7 @@ cells `aks-dev-sl-az1` and `aks-dev-sl-az2` – created and deleted by the pipel
 ```text
 Build tenant (not connected to the corporate network)
 ├── Tenant Root Group
-│   └── alz ─┬─ platform ─┬─ management   sub-mgmt   Log Analytics · state storage · deployment identities
+│   └── alz ─┬─ platform ─┬─ management   sub-mgmt   state storage · deployment identities (no monitoring yet)
 │            │            │                          management VNet: GitHub runner (ACI), optional jump host,
 │            │            │                          private endpoints to every API server
 │            │            └─ connectivity sub-hub    hub: Firewall (firewall mode) · private DNS zones

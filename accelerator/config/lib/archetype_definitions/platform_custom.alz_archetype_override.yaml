@@ -2,15 +2,18 @@ base_archetype: platform
 name: platform_custom
 policy_assignments_to_add: []
 policy_assignments_to_remove: [
-# To disable AMA policies, uncomment the following lines:
-  # DenyAction-DeleteUAMIAMA,
-  # Deploy-MDFC-DefSQL-AMA,
-  # Deploy-VM-ChangeTrack,
-  # Deploy-VM-Monitoring,
-  # Deploy-vmArc-ChangeTrack,
-  # Deploy-vmHybr-Monitoring,
-  # Deploy-VMSS-ChangeTrack,
-  # Deploy-VMSS-Monitoring,
+# No monitoring in the lab for now (observability comes later): no Log Analytics workspace, no Azure Monitor Agent
+# identity and no data collection rules (management_resources_enabled = false in platform-landing-zone.tfvars), so
+# the ALZ assignments that send data to them or point at them are not assigned. Assign them again together with
+# the management resources.
+  DenyAction-DeleteUAMIAMA,
+  Deploy-MDFC-DefSQL-AMA,
+  Deploy-VM-ChangeTrack,
+  Deploy-VM-Monitoring,
+  Deploy-vmArc-ChangeTrack,
+  Deploy-vmHybr-Monitoring,
+  Deploy-VMSS-ChangeTrack,
+  Deploy-VMSS-Monitoring,
 ]
 policy_definitions_to_add: []
 policy_definitions_to_remove: []
