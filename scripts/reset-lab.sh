@@ -56,8 +56,9 @@ policy_assignments() { # scope<TAB>name of assignments made directly at the MGs 
   for scope in $(mg_scopes); do
     az policy assignment list --scope "$scope" --query "[?scope=='$scope'].[scope, name]" -o tsv 2>/dev/null
   done
-  for sub in $SUBSCRIPTIONS; do
-    az policy assignment list --subscription "$sub" --query "[?scope=='/subscriptions/$sub'].[scope, name]" -o tsv 2>/dev/null
+  for sub in $SUBSCRIPTIONS; do # not Azure's own default Defender assignment
+    az policy assignment list --subscription "$sub" \
+      --query "[?scope=='/subscriptions/$sub' && name!='SecurityCenterBuiltIn'].[scope, name]" -o tsv 2>/dev/null
   done
 }
 policy_exemptions() {
@@ -191,8 +192,11 @@ pass() {
   echo "::endgroup::"
 
   echo "::group::custom roles"
+  local scope
   while IFS=$'\t' read -r id name; do
-    [ -n "$id" ] && try "custom role '$name'" az role definition delete --name "${id##*/}" --scope "${id%%/providers/Microsoft.Authorization/*}"
+    [ -z "$id" ] && continue
+    scope="${id%%/providers/Microsoft.Authorization/*}" # empty for roles defined at a management group
+    try "custom role '$name'" az role definition delete --name "${id##*/}" --scope "${scope:-$MG_PREFIX/$ROOT_MG}"
   done < <(custom_roles)
   echo "::endgroup::"
 
