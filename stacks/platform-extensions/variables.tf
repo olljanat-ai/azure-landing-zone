@@ -58,6 +58,13 @@ variable "environments" {
     # The environment ACR is public (container_registry_sku Basic / Standard in stacks/aks-environment, the lab):
     # firewall mode then allows the nodes and the runners to reach it on the Internet instead of its private endpoint
     public_registry = optional(bool, true)
+    # Other repositories that deploy into the environment with its apply identity, keyed by repository name:
+    # the GitHub OIDC subject prefix (gh api repos/<owner>/<repo>/actions/oidc/customization/sub) and the GitHub
+    # environment of the deploying workflow. onek8s/aks-terraform deploys the clusters and the container registry.
+    deployment_repositories = optional(map(object({
+      subject_prefix     = string
+      github_environment = string
+    })), {})
   }))
   description = "AKS platform environments that exist in this tenant. The build tenant only has dev (OneK8s design section 17)."
 }

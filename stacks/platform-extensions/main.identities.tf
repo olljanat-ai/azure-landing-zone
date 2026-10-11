@@ -56,6 +56,23 @@ resource "azurerm_federated_identity_credential" "aks" {
   subject   = "${var.github_oidc_subject_prefix}:environment:aks-${each.key}"
 }
 
+# The apply identity of an environment also deploys from the environment's other repositories - aks-terraform:
+# the clusters, the container registry, the certificates - from their own GitHub environment.
+locals {
+  deployment_repositories = merge([for env, cfg in var.environments : {
+    for repo, r in cfg.deployment_repositories : "${env}-${repo}" => merge(r, { env = env, repo = repo })
+  }]...)
+}
+
+resource "azurerm_federated_identity_credential" "deployment_repositories" {
+  for_each  = local.deployment_repositories
+  name      = "github-${each.value.repo}-${each.value.github_environment}"
+  parent_id = azurerm_user_assigned_identity.aks["${each.value.env}-apply"].id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
+  subject   = "${each.value.subject_prefix}:environment:${each.value.github_environment}"
+}
+
 # Custom role on a VNet: peer AKS spokes to it and link private DNS zones to it, nothing else. Assigned on the hub
 # VNet in both network modes; in sandbox mode also on the management VNet (management <-> backend spoke) and the
 # client VNet (client <-> edge VNet), because there is no Firewall to route between them.
