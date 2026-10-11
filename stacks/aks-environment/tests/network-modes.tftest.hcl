@@ -17,6 +17,10 @@ variables {
   }
   name_suffix = "b1"
   dns_domain  = "example-test.com"
+  container_registry = {
+    name                = "acronek8sdev"
+    resource_group_name = "rg-aks-dev"
+  }
 }
 
 override_data {
@@ -154,7 +158,7 @@ run "sandbox_mode" {
     error_message = "sandbox mode: Azure DNS with both VNets linked to every hub zone, entry points open to the client VNet only."
   }
   assert {
-    condition     = length(azurerm_private_endpoint.registry) == 0 && azurerm_container_registry.this.sku == "Basic" && length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"
-    error_message = "lab SKUs: Basic public ACR, standard Key Vaults, no Front Door."
+    condition     = length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"
+    error_message = "lab SKUs: standard Key Vaults, no Front Door."
   }
 }

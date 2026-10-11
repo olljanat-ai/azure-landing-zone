@@ -28,9 +28,10 @@ data "azurerm_key_vault" "zone" {
   resource_group_name = "rg-aks-${var.environment}-shared-${var.location}"
 }
 
+# The environment's container registry is not part of the landing zone: onek8s/aks-terraform creates it (shared/)
 data "azurerm_container_registry" "environment" {
-  name                = "acr${var.environment}aks${var.name_suffix}"
-  resource_group_name = "rg-aks-${var.environment}-shared-${var.location}"
+  name                = var.container_registry.name
+  resource_group_name = var.container_registry.resource_group_name
 }
 
 # Every identity of the environment that is used from a cluster carries the namespace and ServiceAccount it is

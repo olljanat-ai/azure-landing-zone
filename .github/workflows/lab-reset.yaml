@@ -2,7 +2,7 @@
 # Lab reset: removes everything the platform and AKS stacks created in the build tenant lab, including their
 # Terraform state, so the lab can be redeployed from scratch (scripts/reset-lab.sh has the details). The
 # subscriptions, the accelerator bootstrap (Terraform state storage, plan / apply identities, the `alz`
-# management group) and the GitHub configuration stay. Manual only; the apply environment's reviewers approve it.
+# management group), the public DNS zone (rg-onek8s-dns) and the GitHub configuration stay. Manual only; the apply environment's reviewers approve it.
 name: Lab reset
 
 on:
@@ -78,7 +78,8 @@ jobs:
           ROOT_MG: alz
           STATE_ACCOUNT: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}
           STATE_CONTAINER: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}
-          PROTECTED_RG_REGEX: ^(rg-alz-build-|${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}$)
+          # rg-onek8s-dns: the public DNS zone onek8s.lol, created outside Terraform and delegated at the registrar
+          PROTECTED_RG_REGEX: ^(rg-alz-build-|rg-onek8s-dns$|${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}$)
           DRY_RUN: ${{ inputs.dry_run }}
           MAX_PASSES: ${{ inputs.max_passes }}
         run: scripts/reset-lab.sh

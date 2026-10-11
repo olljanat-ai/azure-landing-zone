@@ -12,7 +12,7 @@ and where this repository implements them. "Fleet" means the fleet repository wi
 | R5 | Only Kubernetes-mandatory flows between zones | NSGs with the flows of section 5 (`stacks/aks-stateless-cell/main.network.tf`), per-zone UDRs to the Firewall incl. one route per other zone, Firewall rules with zone IP groups (`stacks/platform-extensions/main.firewall.tf`); Cilium policies: fleet | Built (NSG, Firewall) |
 | R6 | Namespace + network policies | Fleet | – |
 | R7, R7a, R7b | Key Vault RBAC + ABAC, workload identity, ESO only | `stacks/aks-environment/main.identities.tf` (reader identities, ABAC on `<app>-`, per-certificate roles), federated credentials per cell (`main.workload-identity.tf`), Secrets Store CSI add-on disabled, workload identity enabled | Built; ESO: fleet |
-| R8, R8a, R9 | Stateless + optional stateful cluster in the backend network | Backend spoke `vnet-<env>-sf` exists from day one with the private endpoints and the ACR; the stateful cluster is not built (no approved workload) | Backend built; stateful module: later |
+| R8, R8a, R9 | Stateless + optional stateful cluster in the backend network | Backend spoke `vnet-<env>-sf` exists from day one with the private endpoints (the ACR is aks-terraform's); the stateful cluster is not built (no approved workload) | Backend built; stateful module: later |
 | R9b | Overlay CNI, Cilium, TLS-only Gateway API | Azure CNI Overlay + Cilium, VNet encryption on every cell VNet, HTTPS-only NSGs on `snet-<zone>-ilb`; Traefik: fleet | Built (network part) |
 | R10 | Stateful cluster zone-redundant + LTS | – | Later, with the first exception |
 | R11 | One cluster per AZ, NAP | `environments/dev/sl-az1.tfvars`, `sl-az2.tfvars`; system pool pinned to the AZ, `nodeProvisioningProfile` Auto with no default NodePools | Built |
@@ -36,7 +36,7 @@ question answered by experiment.
    platform vault and the zone vaults in every cluster spoke. With the hub private DNS zones (one
    `privatelink.vaultcore.azure.net` for everything, as ALZ sets up), several endpoints of the same vault would
    overwrite each other's DNS record. The build therefore has one endpoint per vault in `vnet-<env>-sf`
-   (zone vaults in `snet-<zone>-pe`, the platform vault and the ACR in `snet-shared-pe`), reached through the
+   (zone vaults in `snet-<zone>-pe`, the platform vault in `snet-shared-pe`), reached through the
    Firewall with the zone rule "frontend zone X → backend zone X" – the zone separation of flow ⑤ is kept by the
    Firewall and the NSGs. The cell subnets `snet-<zone>-pe` and `snet-platform-pe` stay reserved.
 2. **Pod-to-pod NSG rule.** With Azure CNI Overlay, pod traffic between nodes keeps the overlay pod IPs, which the

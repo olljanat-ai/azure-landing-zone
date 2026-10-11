@@ -19,6 +19,10 @@ variables {
   }
   name_suffix = "b1"
   dns_domain  = "example-test.com"
+  container_registry = {
+    name                = "acronek8sdev"
+    resource_group_name = "rg-aks-dev"
+  }
 }
 
 override_data {
@@ -74,8 +78,8 @@ override_data {
 override_data {
   target = data.azurerm_container_registry.environment
   values = {
-    id           = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev-shared-swedencentral/providers/Microsoft.ContainerRegistry/registries/acrdevaksb1"
-    login_server = "acrdevaksb1.azurecr.io"
+    id           = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev/providers/Microsoft.ContainerRegistry/registries/acronek8sdev"
+    login_server = "acronek8sdev.azurecr.io"
   }
 }
 

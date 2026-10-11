@@ -22,7 +22,7 @@ locals {
       description = "Images only from the environment's ACR"
       parameters = {
         effect                      = { value = local.enforce ? "Deny" : "Audit" }
-        allowedContainerImagesRegex = { value = "^${azurerm_container_registry.this.login_server}/.+$" }
+        allowedContainerImagesRegex = { value = "^${var.container_registry.name}.azurecr.io/.+$" }
         excludedNamespaces          = { value = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system"] }
       }
     }

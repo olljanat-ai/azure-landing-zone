@@ -2,8 +2,9 @@
 # Removes everything the platform and AKS stacks created in the build tenant lab, so it can be redeployed from
 # scratch. Run by the "Lab reset" workflow (.github/workflows/lab-reset.yaml) with the platform apply identity.
 #
-# Kept: the subscriptions, the accelerator bootstrap (resource groups matching PROTECTED_RG_REGEX: Terraform state
-# storage and the plan / apply identities) and the `alz` management group the bootstrap created (the identities'
+# Kept: the subscriptions, the accelerator bootstrap and the public DNS zone (resource groups matching
+# PROTECTED_RG_REGEX: Terraform state storage, the plan / apply identities and rg-onek8s-dns with onek8s.lol, which
+# is created outside Terraform and delegated at the registrar, so its name servers must never change) and the `alz` management group the bootstrap created (the identities'
 # role assignments live there; subscriptions under its children are moved up to it).
 #
 # Removed, in passes: resource locks, policy assignments and exemptions, the role assignments the ALZ module
@@ -19,7 +20,7 @@ ROOT_MG="${ROOT_MG:-alz}"
 DRY_RUN="${DRY_RUN:-false}"
 MAX_PASSES="${MAX_PASSES:-5}"
 PASS_PAUSE_SECONDS="${PASS_PAUSE_SECONDS:-60}"
-PROTECTED_RG_REGEX="${PROTECTED_RG_REGEX:-^rg-alz-build-}"
+PROTECTED_RG_REGEX="${PROTECTED_RG_REGEX:-^(rg-alz-build-|rg-onek8s-dns$)}"
 STATE_BLOB_REGEX='^(terraform|platform-extensions|aks-.*)\.tfstate$'
 ALZ_ROLE_ASSIGNMENT_DESCRIPTION="Created by ALZ Terraform provider. Assignment required for Azure Policy."
 MG_PREFIX="/providers/Microsoft.Management/managementGroups"
