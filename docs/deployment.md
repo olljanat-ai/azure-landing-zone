@@ -218,6 +218,21 @@ Actions → **AKS cell** → environment `dev`, cell `sl-az2`, action `delete` �
 a new version) and the smoke test checks the cluster settings against the requirements and reaches the API
 server through the management VNet private endpoint.
 
+## Lab reset
+
+When the lab is broken beyond repair, Actions → **Lab reset** removes everything the platform and AKS stacks
+created – resource groups, policy assignments and definitions, the ALZ custom roles, the management groups below
+`alz` – and then their Terraform state, so the next Platform run deploys from scratch. The subscriptions, the
+accelerator bootstrap (state storage, plan / apply identities, the `alz` management group) and the GitHub
+settings stay. It runs with the platform apply identity, so its reviewers approve it.
+
+- Type `reset-lab` in *confirm*. *dry_run* (default) only lists what would be deleted.
+- Deletions run in passes: a failure is logged and retried in the next pass. The Terraform state is deleted only
+  when nothing is left; otherwise the run fails with the list of leftovers and can simply be started again.
+- *redeploy* starts the Platform workflow afterwards; run AKS dev after it.
+- Key Vaults with purge protection stay soft-deleted for 90 days and keep their names: change `name_suffix` in
+  `environments/dev/*.tfvars` before redeploying the dev environment.
+
 ## Phase 3: switch from audit to deny
 
 Before acceptance testing every policy goes to its production effect (section 17, "Switch policies to deny first"):

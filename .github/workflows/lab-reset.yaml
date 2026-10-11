@@ -1,0 +1,92 @@
+---
+# Lab reset: removes everything the platform and AKS stacks created in the build tenant lab, including their
+# Terraform state, so the lab can be redeployed from scratch (scripts/reset-lab.sh has the details). The
+# subscriptions, the accelerator bootstrap (Terraform state storage, plan / apply identities, the `alz`
+# management group) and the GitHub configuration stay. Manual only; the apply environment's reviewers approve it.
+name: Lab reset
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "reset-lab" to delete the lab
+        type: string
+        required: true
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: true
+      max_passes:
+        description: Deletion passes (failed deletions are retried in the next pass)
+        type: number
+        default: 5
+      redeploy:
+        description: Start the Platform workflow afterwards (only when the reset completed)
+        type: boolean
+        default: false
+
+concurrency:
+  group: lab-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Reset lab${{ inputs.dry_run && ' (dry run)' || '' }}
+    runs-on: ubuntu-latest
+    environment: platform-apply
+    timeout-minutes: 300
+    permissions:
+      id-token: write
+      contents: read
+      actions: write # start the Platform workflow (redeploy)
+    steps:
+      - name: Confirm
+        if: inputs.confirm != 'reset-lab'
+        run: |
+          echo "::error::Type reset-lab in the confirm input to run the lab reset."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Azure login (OIDC, platform apply identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Subscriptions of the lab
+        id: subscriptions
+        run: |
+          set -euo pipefail
+          # Platform subscriptions of the accelerator inputs and the AKS environments' subscriptions (placeholders
+          # and subscriptions the identity cannot see are left out)
+          candidates="$(python3 -I -c 'import sys, yaml; print(" ".join(v for v in yaml.safe_load(open(sys.argv[1]))["subscription_ids"].values() if v))' accelerator/config/inputs.yaml)
+            $(sed -nE 's/^subscription_id *= *"([0-9a-f-]{36})".*/\1/p' environments/*/environment.tfvars)"
+          subs=""
+          for sub in $candidates; do
+            if az account show --subscription "$sub" >/dev/null 2>&1; then subs="$subs $sub"; else echo "skipped $sub (not accessible)"; fi
+          done
+          subs="$(echo $subs | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+          echo "lab subscriptions: $subs"
+          echo "list=$subs" >> "$GITHUB_OUTPUT"
+
+      - name: Reset
+        env:
+          SUBSCRIPTIONS: ${{ steps.subscriptions.outputs.list }}
+          ROOT_MG: alz
+          STATE_ACCOUNT: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_NAME }}
+          STATE_CONTAINER: ${{ vars.BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME }}
+          PROTECTED_RG_REGEX: ^(rg-alz-build-|${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}$)
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAX_PASSES: ${{ inputs.max_passes }}
+        run: scripts/reset-lab.sh
+
+      - name: Redeploy the platform
+        if: inputs.redeploy && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run platform.yaml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" -f terraform_action=apply
+          echo "Platform workflow started; approve its apply jobs, then run AKS dev if AKS_DEV_ENABLED is set."
