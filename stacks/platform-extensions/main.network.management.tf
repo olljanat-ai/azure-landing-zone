@@ -11,7 +11,7 @@ resource "azurerm_virtual_network" "management" {
   location            = var.location
   resource_group_name = azurerm_resource_group.management_network.name
   address_space       = [var.management_address_space]
-  dns_servers         = [local.dns_server] # Firewall DNS proxy or hub DNS resolver: hub private DNS zones
+  dns_servers         = module.platform.dns_servers # Firewall DNS proxy, or Azure DNS + zone links (sandbox)
   tags                = var.tags
 }
 
@@ -147,9 +147,14 @@ resource "azurerm_subnet_route_table_association" "management" {
   route_table_id = azurerm_route_table.management[0].id
 }
 
-# Sandbox mode: Internet egress of the runners and the jump host through a NAT gateway instead of the Firewall
+# Sandbox mode: Internet egress of the runners and the jump host through a NAT gateway instead of the Firewall,
+# only while one of them exists
+locals {
+  management_nat = !local.firewall && (local.runners_enabled || var.jump_host_enabled)
+}
+
 resource "azurerm_public_ip" "management_nat" {
-  count               = local.firewall ? 0 : 1
+  count               = local.management_nat ? 1 : 0
   name                = "pip-nat-mgmt-${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.management_network.name
@@ -160,7 +165,7 @@ resource "azurerm_public_ip" "management_nat" {
 }
 
 resource "azurerm_nat_gateway" "management" {
-  count               = local.firewall ? 0 : 1
+  count               = local.management_nat ? 1 : 0
   name                = "nat-mgmt-${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.management_network.name
@@ -169,13 +174,13 @@ resource "azurerm_nat_gateway" "management" {
 }
 
 resource "azurerm_nat_gateway_public_ip_association" "management" {
-  count                = local.firewall ? 0 : 1
+  count                = local.management_nat ? 1 : 0
   nat_gateway_id       = azurerm_nat_gateway.management[0].id
   public_ip_address_id = azurerm_public_ip.management_nat[0].id
 }
 
 resource "azurerm_subnet_nat_gateway_association" "management" {
-  for_each       = local.firewall ? {} : local.management_egress_subnets
+  for_each       = local.management_nat ? local.management_egress_subnets : {}
   subnet_id      = each.value
   nat_gateway_id = azurerm_nat_gateway.management[0].id
 }
@@ -197,4 +202,19 @@ resource "azurerm_virtual_network_peering" "hub_to_management" {
   remote_virtual_network_id    = azurerm_virtual_network.management.id
   allow_forwarded_traffic      = true
   allow_virtual_network_access = true
+}
+
+# Sandbox mode has no DNS server in the hub: the VNet uses Azure DNS and is linked to every hub private DNS zone
+# (Key Vault / ACR private link zones and the split-horizon zones). Firewall mode resolves through the Firewall
+# DNS proxy, i.e. through the hub's links.
+resource "azurerm_private_dns_zone_virtual_network_link" "hub_zones" {
+  provider = azurerm.connectivity
+  for_each = local.firewall ? {} : merge([for vnet_key, vnet in { management = azurerm_virtual_network.management, client = azurerm_virtual_network.client } : {
+    for zone, _ in module.platform.private_dns_zones : "${vnet_key}/${zone}" => { zone = zone, vnet = vnet }
+  }]...)
+  name                  = "link-${each.value.vnet.name}"
+  resource_group_name   = module.platform.dns_resource_group_name
+  private_dns_zone_name = each.value.zone
+  virtual_network_id    = each.value.vnet.id
+  registration_enabled  = false
 }

@@ -52,9 +52,12 @@ override_data {
 }
 
 override_data {
-  target = module.platform.data.azurerm_private_dns_resolver_inbound_endpoint.hub
+  target = module.platform.data.azurerm_resources.private_dns_zones
   values = {
-    ip_configurations = [{ private_ip_address = "10.0.0.164", private_ip_allocation_method = "Static", subnet_id = "" }]
+    resources = [
+      { name = "privatelink.vaultcore.azure.net", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+      { name = "int-fi.dev.example-test.com", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/int-fi.dev.example-test.com", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+    ]
   }
 }
 
@@ -147,8 +150,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = azurerm_virtual_network.edge.dns_servers[0] == "10.0.0.164" && contains(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes, "10.200.0.0/22") && length(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes) == 1
-    error_message = "sandbox mode: hub DNS resolver, entry points open to the client VNet only."
+    condition     = length(azurerm_virtual_network.edge.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 4 && contains(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes, "10.200.0.0/22") && length(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes) == 1
+    error_message = "sandbox mode: Azure DNS with both VNets linked to every hub zone, entry points open to the client VNet only."
   }
   assert {
     condition     = length(azurerm_private_endpoint.registry) == 0 && azurerm_container_registry.this.sku == "Basic" && length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"

@@ -28,7 +28,7 @@ resource "azurerm_virtual_network" "cell" {
   location            = var.location
   resource_group_name = azurerm_resource_group.cell.name
   address_space       = local.plan.address_spaces
-  dns_servers         = [local.dns_server]
+  dns_servers         = module.platform.dns_servers
   tags                = local.tags
 
   encryption {
@@ -286,4 +286,19 @@ resource "azurerm_virtual_network_peering" "environment_to_cell" {
   remote_virtual_network_id    = azurerm_virtual_network.cell.id
   allow_virtual_network_access = true
   allow_forwarded_traffic      = false
+}
+
+# Sandbox mode has no DNS server in the hub: the VNet uses Azure DNS and is linked to every hub private DNS zone
+# (Key Vault / ACR private link zones and the split-horizon zones). Firewall mode resolves through the Firewall
+# DNS proxy, i.e. through the hub's links.
+resource "azurerm_private_dns_zone_virtual_network_link" "hub_zones" {
+  provider = azurerm.connectivity
+  for_each = local.firewall ? {} : merge([for vnet_key, vnet in { cell = azurerm_virtual_network.cell } : {
+    for zone, _ in module.platform.private_dns_zones : "${vnet_key}/${zone}" => { zone = zone, vnet = vnet }
+  }]...)
+  name                  = "link-${each.value.vnet.name}"
+  resource_group_name   = module.platform.dns_resource_group_name
+  private_dns_zone_name = each.value.zone
+  virtual_network_id    = each.value.vnet.id
+  registration_enabled  = false
 }

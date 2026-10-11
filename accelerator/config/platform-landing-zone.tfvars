@@ -7,10 +7,12 @@ Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` 
   as in the corporate landing zone.
 - Hub: Azure Firewall (network mode `firewall` only; Standard in the lab – the design is Premium with IDPS:
   set primary_firewall_sku_tier and add intrusion_detection to firewall_policy), Bastion (off in the lab, needed
-  only for the optional jump host / test client), Private DNS Resolver, the private link DNS zones of Key Vault
-  and ACR (all ~90 in the design), plus the platform's own split-horizon zones `<zone>.<env>.<test domain>`.
-- Management: the Log Analytics workspace only (daily cap 1 GB in the lab), no VM monitoring rules.
+  only for the optional jump host / test client), the private link DNS zones of Key Vault and ACR (all ~90 in
+  the design), plus the platform's own split-horizon zones `<zone>.<env>.<test domain>`. No Private DNS Resolver
+  in the lab: spokes resolve through the Firewall DNS proxy, or in sandbox mode through Azure DNS with every hub
+  zone linked to the spoke VNet (the design forwards the corporate DNS to the resolver).
   NO ExpressRoute / VPN gateway – the build tenant is never connected to the corporate network.
+- Management: the Log Analytics workspace only (daily cap 1 GB in the lab), no VM monitoring rules.
 - No DDoS protection plan (no public endpoints in any spoke, only Front Door).
 - ALL policy assignments in enforcement mode `DoNotEnforce` (= audit). Switch `policy_enforcement_mode` to
   `Default` before phase 3 (acceptance testing); see docs/deployment.md.
@@ -50,7 +52,7 @@ custom_replacements = {
     primary_virtual_network_gateway_vpn_enabled                          = false
     primary_private_dns_zones_enabled                                    = true
     primary_private_dns_auto_registration_zone_enabled                   = false
-    primary_private_dns_resolver_enabled                                 = true
+    primary_private_dns_resolver_enabled                                 = false
     primary_bastion_enabled                                              = false
 
     # Resource group names

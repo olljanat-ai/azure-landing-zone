@@ -24,13 +24,23 @@ output "firewall_policy_id" {
 }
 
 output "dns_server_ip" {
-  description = "DNS server of every spoke: the Firewall DNS proxy, or the hub Private DNS Resolver in sandbox mode."
-  value       = var.network_mode == "firewall" ? one(data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address) : data.azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
+  description = "Custom DNS server of every spoke: the Firewall DNS proxy in firewall mode; null in sandbox mode (Azure DNS with the hub zones linked to the spoke, see private_dns_zones)."
+  value       = one(data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address)
 }
 
-output "dns_resolver_inbound_ip" {
-  description = "Inbound endpoint IP of the hub Private DNS Resolver (what the corporate DNS forwards to)."
-  value       = data.azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
+output "dns_servers" {
+  description = "dns_servers of every spoke VNet: [Firewall DNS proxy] in firewall mode, [] (Azure DNS) in sandbox mode."
+  value       = data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address
+}
+
+output "private_dns_zones" {
+  description = "Every hub private DNS zone, name => resource ID. Sandbox mode links each spoke VNet to all of them."
+  value       = { for z in data.azurerm_resources.private_dns_zones.resources : z.name => z.id }
+}
+
+output "dns_resource_group_name" {
+  description = "Resource group of the hub private DNS zones."
+  value       = local.dns_resource_group_name
 }
 
 output "private_dns_zone_ids" {

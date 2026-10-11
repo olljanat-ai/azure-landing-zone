@@ -1,6 +1,6 @@
 # Client VNet (aks-design section 17): simulates the corporate network. It is peered to the hub and routed
 # through the Firewall like on-premises traffic, and its DNS forwards to the hub Private DNS Resolver like the
-# corporate DNS servers would. Internal test clients and load generators for the int-* zones live here.
+# corporate DNS servers would (sandbox mode: Azure DNS with the hub zones linked). Internal test clients and load generators for the int-* zones live here.
 resource "azurerm_resource_group" "client" {
   provider = azurerm.connectivity
   name     = "rg-client-${var.location}"
@@ -14,7 +14,7 @@ resource "azurerm_virtual_network" "client" {
   location            = var.location
   resource_group_name = azurerm_resource_group.client.name
   address_space       = [var.client_address_space]
-  dns_servers         = [module.platform.dns_resolver_inbound_ip]
+  dns_servers         = module.platform.dns_servers
   tags                = var.tags
 }
 

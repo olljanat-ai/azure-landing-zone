@@ -57,9 +57,12 @@ override_data {
 }
 
 override_data {
-  target = module.platform.data.azurerm_private_dns_resolver_inbound_endpoint.hub
+  target = module.platform.data.azurerm_resources.private_dns_zones
   values = {
-    ip_configurations = [{ private_ip_address = "10.0.0.164", private_ip_allocation_method = "Static", subnet_id = "" }]
+    resources = [
+      { name = "privatelink.vaultcore.azure.net", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+      { name = "int-fi.dev.example-test.com", id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-hub-dns-swedencentral/providers/Microsoft.Network/privateDnsZones/int-fi.dev.example-test.com", type = "Microsoft.Network/privateDnsZones", location = "global", resource_group_name = "rg-hub-dns-swedencentral", tags = {} },
+    ]
   }
 }
 
@@ -149,8 +152,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = tolist(azurerm_container_group.runners["01"].dns_config[0].nameservers)[0] == "10.0.0.164"
-    error_message = "sandbox mode resolves through the hub DNS resolver."
+    condition     = length(azurerm_container_group.runners["01"].dns_config) == 0 && length(azurerm_virtual_network.management.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 4
+    error_message = "sandbox mode resolves through Azure DNS with the management and client VNets linked to every hub zone."
   }
 }
 
@@ -172,5 +175,19 @@ run "sandbox_mode_design_options" {
   assert {
     condition     = length(azurerm_private_endpoint.runners_acr) == 1 && !azurerm_container_registry.runners.public_network_access_enabled
     error_message = "Premium runner registry: private endpoint, no public access."
+  }
+}
+
+run "sandbox_mode_without_runners" {
+  command = plan
+
+  variables {
+    network_mode        = "sandbox"
+    github_runner_token = ""
+  }
+
+  assert {
+    condition     = length(azurerm_container_group.runners) == 0 && length(azurerm_nat_gateway.management) == 0 && length(azurerm_public_ip.management_nat) == 0
+    error_message = "no runners and no jump host: no NAT gateway for the management VNet."
   }
 }

@@ -126,8 +126,11 @@ resource "azurerm_container_group" "runners" {
   restart_policy      = "Always" # ephemeral runners: the container exits after each job and registers again
   tags                = var.tags
 
-  dns_config {
-    nameservers = [local.dns_server]
+  dynamic "dns_config" {
+    for_each = local.firewall ? [1] : [] # sandbox mode: Azure DNS of the VNet
+    content {
+      nameservers = [local.dns_server]
+    }
   }
 
   identity {
