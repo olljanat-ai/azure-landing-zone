@@ -209,6 +209,7 @@ delete_state() {
   local blobs
   blobs="$(az storage blob list --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --auth-mode login \
     --query "[].name" -o tsv | grep -E "$STATE_BLOB_REGEX")"
+  [ -z "$blobs" ] && echo "  no state blobs matching $STATE_BLOB_REGEX"
   for blob in $blobs; do
     az storage blob lease break --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --blob-name "$blob" \
       --auth-mode login >/dev/null 2>&1 || true # stale lock of a cancelled run
@@ -227,17 +228,19 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
+clean=false
 for i in $(seq 1 "$MAX_PASSES"); do
   echo "=== pass $i/$MAX_PASSES"
   pass
   echo "=== left after pass $i ($failed failed deletions so far):"
-  if report; then echo "nothing left"; break; fi
+  if report; then echo "nothing left"; clean=true; break; fi
   echo "$left items left"
   [ "$i" -lt "$MAX_PASSES" ] && sleep "$PASS_PAUSE_SECONDS"
 done
 
-if report >/dev/null; then
-  echo "=== Terraform state"
+# The last report already checked everything; scanning again only adds minutes of silence before the state step
+if [ "$clean" = true ]; then
+  echo "=== Terraform state ($STATE_CONTAINER in $STATE_ACCOUNT)"
   failed=0
   delete_state
   [ "$failed" -eq 0 ] && { echo "Lab reset complete."; exit 0; }
