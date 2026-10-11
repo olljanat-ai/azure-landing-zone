@@ -174,7 +174,7 @@ the design:
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
 | Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
 | Management VNet NAT gateway | only while runners or the jump host exist | always (sandbox mode) | follows `github_runner_token` / `github_runner_app_*` and `jump_host_enabled` |
-| Management resources | Log Analytics workspace with a 1 GB/day cap | + Azure Monitor Agent identity and the VM data collection rules | `management_resource_settings` in the accelerator config |
+| Management resources | Log Analytics workspace with a 1 GB/day cap, the Azure Monitor Agent identity and the VM data collection rules (the ALZ AMA policies point at them; the platform apply fails without them) | the same, without the cap | `management_resource_settings` in the accelerator config |
 
 Delete the cells (Actions → AKS cell → `delete`) when they are not needed: they are the largest cost of the lab.
 Acceptance testing (phase 3) runs with the design values.

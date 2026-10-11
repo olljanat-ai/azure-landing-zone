@@ -135,8 +135,9 @@ tags = {
 management_resources_enabled = true
 
 # Lab: only the Log Analytics workspace, which the AKS stacks send their diagnostics to, with a daily ingestion cap.
-# The Azure Monitor Agent identity and the VM data collection rules serve the ALZ VM / SQL monitoring policies only
-# (no VMs in the lab); enable them again together with those policies.
+# The Azure Monitor Agent identity and the VM data collection rules are deployed: the ALZ VM / SQL monitoring
+# policies point at them, and their policy identities get role assignments on them - without them the platform
+# apply fails (ResourceNotFound on dcr-vm-insights). None of them costs anything until data flows.
 management_resource_settings = {
   location                               = "$${starter_location_01}"
   log_analytics_workspace_name           = "$${log_analytics_workspace_name}"
@@ -145,21 +146,21 @@ management_resource_settings = {
   user_assigned_managed_identities = {
     ama = {
       name    = "$${ama_user_assigned_managed_identity_name}"
-      enabled = false
+      enabled = true
     }
   }
   data_collection_rules = {
     change_tracking = {
       name    = "$${dcr_change_tracking_name}"
-      enabled = false
+      enabled = true
     }
     defender_sql = {
       name    = "$${dcr_defender_sql_name}"
-      enabled = false
+      enabled = true
     }
     vm_insights = {
       name    = "$${dcr_vm_insights_name}"
-      enabled = false
+      enabled = true
     }
   }
 }
