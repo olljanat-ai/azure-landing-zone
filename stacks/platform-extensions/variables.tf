@@ -58,6 +58,8 @@ variable "environments" {
     # The environment ACR is public (container_registry_sku Basic / Standard in stacks/aks-environment, the lab):
     # firewall mode then allows the nodes and the runners to reach it on the Internet instead of its private endpoint
     public_registry = optional(bool, true)
+    # Same for the Key Vaults (key_vault_public_access in stacks/aks-environment, the lab)
+    public_key_vaults = optional(bool, true)
   }))
   description = "AKS platform environments that exist in this tenant. The build tenant only has dev (aks-design section 17)."
 }

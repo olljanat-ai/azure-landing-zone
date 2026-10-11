@@ -64,6 +64,12 @@ variable "key_vault_sku" {
   }
 }
 
+variable "key_vault_public_access" {
+  type        = bool
+  default     = true
+  description = "Lab (GitHub-hosted runners): the vaults have a public endpoint with Entra ID / RBAC as the only control and no private endpoints. The design (false): public network access disabled, private endpoints in the backend spoke, self-hosted runners in the management VNet."
+}
+
 variable "container_registry_sku" {
   type        = string
   default     = "Basic"

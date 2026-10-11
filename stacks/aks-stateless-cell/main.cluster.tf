@@ -120,11 +120,12 @@ resource "azapi_resource" "cluster" {
         workloadIdentity = {
           enabled = true
         }
-        # Section 18: KMS etcd encryption with a private platform vault (needs API Server VNet Integration)
+        # Section 18: KMS etcd encryption with a private platform vault (needs API Server VNet Integration); public
+        # in the lab (key_vault_public_access of stacks/aks-environment)
         azureKeyVaultKms = {
           enabled               = true
           keyId                 = azurerm_key_vault_key.cluster["kms"].id
-          keyVaultNetworkAccess = "Private"
+          keyVaultNetworkAccess = data.azurerm_key_vault.platform.public_network_access_enabled ? "Public" : "Private"
           keyVaultResourceId    = data.azurerm_key_vault.platform.id
         }
         imageCleaner = {

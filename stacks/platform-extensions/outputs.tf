@@ -25,7 +25,7 @@ output "aks_api_access_resource_groups" {
 
 output "runner_registry" {
   description = "Private registry that builds the runner image."
-  value       = azurerm_container_registry.runners.login_server
+  value       = one(azurerm_container_registry.runners[*].login_server)
 }
 
 output "network_mode" {

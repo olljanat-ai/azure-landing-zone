@@ -157,4 +157,9 @@ run "sandbox_mode" {
     condition     = length(azurerm_private_endpoint.registry) == 0 && azurerm_container_registry.this.sku == "Basic" && length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"
     error_message = "lab SKUs: Basic public ACR, standard Key Vaults, no Front Door."
   }
+
+  assert {
+    condition     = azurerm_key_vault.this["platform"].public_network_access_enabled && azurerm_key_vault.this["platform"].network_acls[0].default_action == "Allow" && length(azurerm_private_endpoint.key_vault) == 0
+    error_message = "lab: public Key Vaults (RBAC only) without private endpoints, for the GitHub-hosted runners."
+  }
 }

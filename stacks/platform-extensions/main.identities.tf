@@ -147,3 +147,28 @@ resource "azurerm_role_assignment" "aks_management_peering" {
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
   principal_type     = "ServicePrincipal"
 }
+
+# Smoke tests of the AKS cell workflow: the plan identity runs read-only kubectl commands through the AKS API
+# (`az aks command invoke`), so they work from GitHub-hosted runners although the API servers are private.
+resource "azurerm_role_definition" "aks_run_command" {
+  for_each    = var.environments
+  name        = "AKS run command (${each.key} smoke tests)"
+  scope       = data.azurerm_subscription.environment[each.key].id
+  description = "Run commands in the ${each.key} AKS clusters through the AKS API (az aks command invoke)."
+  permissions {
+    actions = [
+      "Microsoft.ContainerService/managedClusters/read",
+      "Microsoft.ContainerService/managedClusters/runCommand/action",
+      "Microsoft.ContainerService/managedClusters/commandResults/read",
+    ]
+  }
+  assignable_scopes = [data.azurerm_subscription.environment[each.key].id]
+}
+
+resource "azurerm_role_assignment" "aks_run_command" {
+  for_each           = var.environments
+  scope              = data.azurerm_subscription.environment[each.key].id
+  role_definition_id = azurerm_role_definition.aks_run_command[each.key].role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.aks["${each.key}-plan"].principal_id
+  principal_type     = "ServicePrincipal"
+}

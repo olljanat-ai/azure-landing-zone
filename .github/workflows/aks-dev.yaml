@@ -43,7 +43,7 @@ jobs:
       state_key: aks-dev-environment.tfstate
       var_file: environments/dev/environment.tfvars
       environment_prefix: aks-dev
-      runs_on: '["self-hosted"]'
+      runs_on: ${{ vars.AKS_RUNS_ON || '"ubuntu-latest"' }} # lab: GitHub-hosted; the design: '["self-hosted"]'
       apply: ${{ github.event_name != 'pull_request' }}
 
   sl-az1:
@@ -58,7 +58,7 @@ jobs:
       state_key: aks-dev-sl-az1.tfstate
       var_file: environments/dev/sl-az1.tfvars
       environment_prefix: aks-dev
-      runs_on: '["self-hosted"]'
+      runs_on: ${{ vars.AKS_RUNS_ON || '"ubuntu-latest"' }} # lab: GitHub-hosted; the design: '["self-hosted"]'
       apply: ${{ github.event_name != 'pull_request' }}
 
   sl-az2:
@@ -73,5 +73,5 @@ jobs:
       state_key: aks-dev-sl-az2.tfstate
       var_file: environments/dev/sl-az2.tfvars
       environment_prefix: aks-dev
-      runs_on: '["self-hosted"]'
+      runs_on: ${{ vars.AKS_RUNS_ON || '"ubuntu-latest"' }} # lab: GitHub-hosted; the design: '["self-hosted"]'
       apply: ${{ github.event_name != 'pull_request' }}

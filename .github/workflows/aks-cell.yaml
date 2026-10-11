@@ -40,14 +40,14 @@ jobs:
       state_key: aks-${{ inputs.environment }}-${{ inputs.cell }}.tfstate
       var_file: environments/${{ inputs.environment }}/${{ inputs.cell }}.tfvars
       environment_prefix: aks-${{ inputs.environment }}
-      runs_on: '["self-hosted"]'
+      runs_on: ${{ vars.AKS_RUNS_ON || '"ubuntu-latest"' }} # lab: GitHub-hosted; the design: '["self-hosted"]'
       terraform_action: ${{ inputs.action == 'delete' && 'destroy' || 'apply' }}
 
   smoke-test:
     name: Smoke test ${{ inputs.environment }}/${{ inputs.cell }}
     needs: terraform
     if: inputs.action == 'create'
-    runs-on: [self-hosted]
+    runs-on: ${{ fromJSON(vars.AKS_RUNS_ON || '"ubuntu-latest"') }}
     environment: aks-${{ inputs.environment }}-plan
     permissions:
       id-token: write
@@ -80,6 +80,7 @@ jobs:
           check '.provisioningState'                                                  Succeeded  "provisioned"
           check '.apiServerAccessProfile.enablePrivateCluster'                        true       "R1 private API server"
           check '.apiServerAccessProfile.enableVnetIntegration'                       true       "R1 API Server VNet Integration"
+          check '(.apiServerAccessProfile.enablePrivateClusterPublicFQDN // false)'   false      "R1 no public FQDN"
           check '.disableLocalAccounts'                                               true       "Entra ID only"
           check '.networkProfile.networkPluginMode'                                   overlay    "R9b overlay CNI"
           check '.networkProfile.networkDataplane'                                    cilium     "R9b Cilium"
@@ -88,7 +89,9 @@ jobs:
           check '.networkProfile.advancedNetworking.security.advancedNetworkPolicies' FQDN       "R20 FQDN egress policies"
           check '.nodeProvisioningProfile.mode'                                       Auto       "R11 node auto provisioning"
           check '.securityProfile.azureKeyVaultKms.enabled'                           true       "R21 KMS"
-          check '.securityProfile.azureKeyVaultKms.keyVaultNetworkAccess'             Private    "R21 private vault"
+          vault_public="$(az resource show --ids "$(jq -r '.securityProfile.azureKeyVaultKms.keyVaultResourceId' cluster.json)" --query properties.publicNetworkAccess -o tsv)"
+          if [ "$vault_public" = Enabled ]; then kms_access=Public; else kms_access=Private; fi # lab: public vault
+          check '.securityProfile.azureKeyVaultKms.keyVaultNetworkAccess'             "$kms_access" "R21 vault network access ($vault_public public access)"
           check '(.diskEncryptionSetId // .diskEncryptionSetID) | test("des-")'       true       "R21 disk encryption set"
           check '.addonProfiles.azurepolicy.enabled'                                  true       "R14 Azure Policy add-on"
           check '(.addonProfiles.azureKeyvaultSecretsProvider.enabled // false)'      false      "R7b no Secrets Store CSI driver"
@@ -96,22 +99,21 @@ jobs:
           check '.agentPoolProfiles[0].enableEncryptionAtHost'                        true       "R21 encryption at host"
           exit $failed
 
-      - name: API server reachable only through the management VNet private endpoint (R1)
+      # The API server stays private (R1): kubectl runs inside the cluster through the AKS API, so this works from
+      # GitHub-hosted runners too. The private endpoint in the management VNet serves people and self-hosted runners.
+      - name: Nodes and system pods (az aks command invoke)
         env:
           CLUSTER: aks-${{ inputs.environment }}-${{ inputs.cell }}
           RG: rg-aks-${{ inputs.environment }}-${{ inputs.cell }}-swedencentral
         run: |
           set -euo pipefail
-          az aks install-cli --install-location "$HOME/bin/kubectl" --kubelogin-install-location "$HOME/bin/kubelogin" >/dev/null
-          export PATH="$HOME/bin:$PATH"
-          az aks get-credentials -g "$RG" -n "$CLUSTER" --file kubeconfig --overwrite-existing
-          export KUBECONFIG="$PWD/kubeconfig"
-          kubelogin convert-kubeconfig -l azurecli
-          fqdn="$(az aks show -g "$RG" -n "$CLUSTER" --query privateFqdn -o tsv)"
-          echo "API server $fqdn resolves to $(dig +short "$fqdn" | tail -1) (private endpoint in snet-aks-api-pe)"
-          kubectl get nodes -o wide
-          kubectl get pods -A
-          if [ -n "$(kubectl get nodes -l kubernetes.azure.com/ebpf-host-routing=true -o name)" ]; then
+          in_cluster() { # <command>: prints the output, fails with the command's exit code
+            az aks command invoke -g "$RG" -n "$CLUSTER" --command "$1" -o json > invoke.json
+            jq -r '.logs' invoke.json
+            return "$(jq -r '.exitCode' invoke.json)"
+          }
+          in_cluster "kubectl get nodes -o wide && kubectl get pods -A"
+          if in_cluster 'kubectl get nodes -l kubernetes.azure.com/ebpf-host-routing=true -o name' | grep -q '^node/'; then
             echo "PASS R19 eBPF host routing label on nodes"
           else
             echo "FAIL R19 no node carries kubernetes.azure.com/ebpf-host-routing=true"; exit 1

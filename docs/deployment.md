@@ -125,12 +125,13 @@ Repository **variables** (Settings → Secrets and variables → Actions → Var
 | `BACKEND_AZURE_RESOURCE_GROUP_NAME` | state resource group from step 2 |
 | `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` | state storage account from step 2 |
 | `BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME` | state container from step 2 (`build-tfstate`) |
-| `RUNNER_APP_ID` | optional: GitHub App for runner registration |
-| `AKS_DEV_ENABLED` | `true` once the self-hosted runners are online (step 6); until then the AKS dev workflow is skipped |
+| `RUNNER_APP_ID` | optional: GitHub App for runner registration (self-hosted runners only) |
+| `AKS_RUNS_ON` | optional: runner labels of the AKS workflows as JSON; unset = `"ubuntu-latest"` (the lab), `["self-hosted"]` for the runners in the management VNet (the design) |
+| `AKS_DEV_ENABLED` | `true` once the dev deployment identities exist (step 6); until then the AKS dev workflow is skipped |
 
-Repository **secrets**: `RUNNER_REGISTRATION_TOKEN` – a fine-grained PAT for this repository with
-*Administration: read and write* (or `RUNNER_APP_PRIVATE_KEY` with `RUNNER_APP_ID`). It is only used to register
-the self-hosted runners.
+Repository **secrets** (self-hosted runners only, not needed in the lab): `RUNNER_REGISTRATION_TOKEN` – a
+fine-grained PAT for this repository with *Administration: read and write* (or `RUNNER_APP_PRIVATE_KEY` with
+`RUNNER_APP_ID`). Without either, no runner, runner registry or management NAT gateway is deployed.
 
 **Environments** – each with the variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`:
 
@@ -149,11 +150,13 @@ Protect `main` with a ruleset (pull request required, status checks of the **CI*
 |---|---|---|---|---|
 | Platform | `platform` | `terraform.tfstate` | GitHub-hosted | accelerator plan / apply |
 | Platform | `stacks/platform-extensions` | `platform-extensions.tfstate` | GitHub-hosted | accelerator plan / apply |
-| AKS dev | `stacks/aks-environment` + `environments/dev/environment.tfvars` | `aks-dev-environment.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
-| AKS dev, AKS cell | `stacks/aks-stateless-cell` + `environments/dev/sl-az<N>.tfvars` | `aks-dev-sl-az<N>.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
+| AKS dev | `stacks/aks-environment` + `environments/dev/environment.tfvars` | `aks-dev-environment.tfstate` | `AKS_RUNS_ON`: GitHub-hosted (lab) or self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
+| AKS dev, AKS cell | `stacks/aks-stateless-cell` + `environments/dev/sl-az<N>.tfvars` | `aks-dev-sl-az<N>.tfstate` | `AKS_RUNS_ON`: GitHub-hosted (lab) or self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
 
-The AKS stacks need the self-hosted runners because Key Vault (keys, certificates) and the API servers have no
-public endpoint.
+In the design the AKS stacks need the self-hosted runners because Key Vault (keys, certificates) and the API
+servers have no public endpoint. The lab runs them on GitHub-hosted runners: the Key Vaults have a public endpoint
+with Entra ID / RBAC as the only control (`key_vault_public_access`), the API servers stay private and the smoke
+test runs `kubectl` through `az aks command invoke`.
 
 ## Lab SKUs
 
@@ -165,9 +168,10 @@ the design:
 | Jump host, test client | not deployed – use `az aks command invoke` or the runners | Linux VMs reached through Bastion | `jump_host_enabled` / `client_vm_enabled` in `stacks/platform-extensions`, together with `primary_bastion_enabled = true` |
 | Bastion | not deployed | Standard | `primary_bastion_enabled` in `accelerator/config/platform-landing-zone.tfvars` |
 | Azure Firewall (`firewall` mode) | Standard, no IDPS | Premium, IDPS | `primary_firewall_sku_tier` and `intrusion_detection` in the accelerator config |
-| GitHub runners | 1 | 2 | `github_runners.count` |
+| GitHub runners of the AKS workflows | GitHub-hosted; no ACI runners, runner registry or management NAT gateway | 2 self-hosted ACI runners in the management VNet | repository variable `AKS_RUNS_ON`, runner token / GitHub App, `github_runners.count` |
 | Runner ACR, environment ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku`, `container_registry_sku` (and `environments.<env>.public_registry = false` in `stacks/platform-extensions` for the Firewall rules) |
 | Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | `key_vault_sku` – changing it later replaces the cluster keys, so rebuild the cells |
+| Key Vault network access | public endpoint, Entra ID / RBAC only, no private endpoints; KMS with public vault access | public access disabled, private endpoints, KMS with private vault access | `key_vault_public_access` (and `environments.<env>.public_key_vaults = false` in `stacks/platform-extensions` for the Firewall rules) |
 | Front Door | not deployed | Premium | `front_door_enabled` (Premium only: Private Link origins and managed WAF rules) |
 | AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
 | AKS monitoring | control plane diagnostic settings only | Container Insights, Defender for Containers sensor | `container_insights_enabled`, `defender_enabled` in `environments/dev/sl-az*.tfvars` |
@@ -187,12 +191,12 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 - Log Analytics and data collection rules in `sub-mgmt`,
 - the hub in `sub-hub`: the private link DNS zones and the split-horizon zones
   `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
-- the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
-  client only when enabled), the Firewall rule collection groups and the dev deployment identities.
+- the management VNet (ACI runners and the jump host only when enabled), the client VNet (the test client only
+  when enabled), the Firewall rule collection groups and the dev deployment identities.
 
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
-`aks-dev-plan` / `aks-dev-apply` environments. Check that the runner `aci-mgmt-runner-01` is online
-(Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
+`aks-dev-plan` / `aks-dev-apply` environments, then set the repository variable `AKS_DEV_ENABLED` to `true`. With
+self-hosted runners (`AKS_RUNS_ON`), first check that `aci-mgmt-runner-01` is online (Settings → Actions → Runners).
 
 Until `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` is set the Platform workflow skips its jobs, so pushes before the
 bootstrap stay green.

@@ -2,6 +2,8 @@
 # vault for the environment's certificates and the clusters' customer-managed keys. RBAC permission model,
 # public network access disabled, purge protection. The private endpoints are in the backend spoke and reached
 # through the Firewall: zone X only from zone X (rule "frontend-to-backend"), the platform vault from every node.
+# Lab (key_vault_public_access): public endpoint with Entra ID / RBAC as the only control and no private endpoints,
+# so the GitHub-hosted runners reach the data plane.
 resource "azurerm_key_vault" "this" {
   for_each                      = local.key_vault_names
   name                          = each.value
@@ -10,16 +12,17 @@ resource "azurerm_key_vault" "this" {
   tenant_id                     = data.azurerm_client_config.current.tenant_id
   sku_name                      = var.key_vault_sku # premium: HSM-protected keys (open question)
   rbac_authorization_enabled    = true
-  public_network_access_enabled = false
+  public_network_access_enabled = var.key_vault_public_access
   purge_protection_enabled      = true
   soft_delete_retention_days    = 90
   tags                          = merge(local.tags, { zone = each.key })
 
   network_acls {
-    default_action = "Deny"
+    default_action = var.key_vault_public_access ? "Allow" : "Deny"
     # Trusted services: disk encryption sets reach the platform vault although public access is disabled
     bypass = "AzureServices"
   }
+
 }
 
 resource "azurerm_management_lock" "platform_key_vault" {
@@ -30,7 +33,7 @@ resource "azurerm_management_lock" "platform_key_vault" {
 }
 
 resource "azurerm_private_endpoint" "key_vault" {
-  for_each            = local.key_vault_names
+  for_each            = var.key_vault_public_access ? {} : local.key_vault_names
   name                = "pe-${each.value}"
   location            = var.location
   resource_group_name = azurerm_resource_group.shared.name
@@ -110,7 +113,7 @@ resource "azurerm_key_vault_certificate" "zone_wildcard" {
     ignore_changes = [certificate_policy, tags]
   }
 
-  # Data plane through the private endpoint: the apply identity has Key Vault Administrator on the subscription
-  # (stacks/platform-extensions) and runs on the runners in the management VNet.
+  # Data plane through the private endpoint (self-hosted runners in the management VNet) or, in the lab, the
+  # public endpoint. The apply identity has Key Vault Administrator on the subscription (stacks/platform-extensions).
   depends_on = [azurerm_private_endpoint.key_vault]
 }

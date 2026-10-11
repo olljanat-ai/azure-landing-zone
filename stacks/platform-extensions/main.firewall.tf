@@ -81,7 +81,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
       source_ip_groups = [azurerm_ip_group.management[0].id]
       destination_fqdns = concat(local.github_fqdns, [
         "${var.state_storage_account_name}.blob.core.windows.net",
-      ], local.runner_registry_private ? [] : [azurerm_container_registry.runners.login_server])
+      ], local.runners_enabled && !local.runner_registry_private ? [azurerm_container_registry.runners[0].login_server] : [])
       protocols {
         type = "Https"
         port = 443
@@ -326,14 +326,17 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
       }
     }
 
-    # Lab: public environment ACR (no private endpoint). Without a dedicated data endpoint the image layers are
-    # served from the registry's storage accounts.
+    # Lab: public environment ACR and Key Vaults (no private endpoints). Without a dedicated data endpoint the
+    # image layers are served from the registry's storage accounts.
     dynamic "rule" {
-      for_each = var.environments[each.key].public_registry ? [1] : []
+      for_each = var.environments[each.key].public_registry || var.environments[each.key].public_key_vaults ? [1] : []
       content {
-        name              = "public-registry"
-        source_ip_groups  = [azurerm_ip_group.frontend[each.key].id, azurerm_ip_group.management[0].id]
-        destination_fqdns = ["*.azurecr.io", "*.blob.core.windows.net"]
+        name             = "public-paas"
+        source_ip_groups = [azurerm_ip_group.frontend[each.key].id, azurerm_ip_group.management[0].id]
+        destination_fqdns = concat(
+          var.environments[each.key].public_registry ? ["*.azurecr.io", "*.blob.core.windows.net"] : [],
+          var.environments[each.key].public_key_vaults ? ["*.vault.azure.net"] : [],
+        )
         protocols {
           type = "Https"
           port = 443
