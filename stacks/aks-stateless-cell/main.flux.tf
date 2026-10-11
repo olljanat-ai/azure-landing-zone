@@ -1,4 +1,4 @@
-# GitOps (aks-design section 10): the AKS GitOps extension (microsoft.flux) is installed by the cluster IaC, so
+# GitOps (OneK8s design section 10): the AKS GitOps extension (microsoft.flux) is installed by the cluster IaC, so
 # Microsoft manages its lifecycle. Everything inside the cluster then comes from the fleet repository. The IaC
 # hands the cluster its variables (the "cluster-vars" of section 9) as Flux post-build substitutions.
 locals {

@@ -1,4 +1,4 @@
-# Backend spoke vnet-<env>-sf (aks-design section 8): exists from day one because it holds the PaaS private
+# Backend spoke vnet-<env>-sf (OneK8s design section 8): exists from day one because it holds the PaaS private
 # endpoints, the environment's ACR and the Key Vault private endpoints. The stateful cluster's subnets are
 # reserved in the address plan and only created with that cluster. No Internet: the Firewall gives the backend
 # prefixes only the Entra ID and Azure Policy exceptions.

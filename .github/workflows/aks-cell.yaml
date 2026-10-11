@@ -1,5 +1,5 @@
 ---
-# Create, rebuild or delete one stateless cell (aks-design sections 12 and 17). This is the exit criterion of
+# Create, rebuild or delete one stateless cell (OneK8s design sections 12 and 17). This is the exit criterion of
 # phase 1 – "a stateless cell can be created and deleted by the pipeline" – and the building block of the
 # rebuild test in phase 3. Before a cell of an environment with traffic is deleted, it is drained in the cell
 # router (Front Door origin disabled, NGINXaaS server marked down); the other cells carry the load (N+1).

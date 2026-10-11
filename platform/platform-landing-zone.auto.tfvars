@@ -1,5 +1,5 @@
 /*
-Platform landing zone of the AKS platform build tenant (aks-design section 17).
+Platform landing zone of the AKS platform build tenant (OneK8s design section 17).
 
 Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` with these build tenant decisions:
 - Three subscriptions: sub-mgmt (management), sub-hub (connectivity) and sub-aks-dev (placed in `corp`).
@@ -19,7 +19,7 @@ Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` 
 
 Address plan: the hub and the shared networks of the build tenant use 10.0.0.0/16, the corporate network that
 the client VNet simulates uses 10.200.0.0/16, the AKS environments use one /12 each (dev 10.16.0.0/12) as in
-aks-design section 8. Replace all of them with the prefixes reserved from the corporate IPAM.
+OneK8s design section 8. Replace all of them with the prefixes reserved from the corporate IPAM.
 
 --- Built-in Replacements ---
 Replacements are denoted by the dollar-dollar curly braces token (e.g. $${starter_location_01}):
@@ -168,7 +168,7 @@ management_resource_settings = {
 --- Management Groups and Policy ---
 The corporate landing zone initiatives (ALZ library, see lib/alz_library_metadata.json) assigned at the same
 scopes as in the corporate tenant. The AKS platform's own definitions are assigned per environment subscription
-by stacks/aks-environment (aks-design section 14).
+by stacks/aks-environment (OneK8s design section 14).
 */
 management_groups_enabled = true
 
@@ -225,7 +225,7 @@ management_group_settings = {
       subscription_id       = "$${subscription_id_security}"
       management_group_name = "security"
     }
-    # AKS platform environment subscriptions (aks-design section 9). Corp: connected to the hub, no public
+    # AKS platform environment subscriptions (OneK8s design section 9). Corp: connected to the hub, no public
     # endpoints – the only public entry point (Front Door) is a global service outside the spokes.
     aks_dev = {
       subscription_id       = "$${subscription_id_aks_dev}"
@@ -508,7 +508,7 @@ hub_virtual_networks = {
       }
       auto_registration_zone_enabled = "$${primary_private_dns_auto_registration_zone_enabled}"
       auto_registration_zone_name    = "$${primary_auto_registration_zone_name}"
-      # Split-horizon zones of the isolation zones (aks-design section 13): `*.<zone>.<env>.<domain>` resolve
+      # Split-horizon zones of the isolation zones (OneK8s design section 13): `*.<zone>.<env>.<domain>` resolve
       # only here, to the zone's internal entry point (NGINXaaS) or Traefik internal load balancers.
       private_link_private_dns_zones_additional = {
         aks_dev_int_fi = {

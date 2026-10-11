@@ -1,4 +1,4 @@
-# dev environment of the build tenant (aks-design sections 9 and 17)
+# dev environment of the build tenant (OneK8s design sections 9 and 17)
 environment     = "dev"
 location        = "swedencentral"
 subscription_id = "3b9f032a-0165-4b8c-9e1e-d7a664c661a8" # sub-aks-dev
@@ -27,7 +27,7 @@ container_registry = {
   resource_group_name = "rg-aks-dev"
 }
 
-# Reference application of the acceptance tests (aks-design section 17) in every zone
+# Reference application of the acceptance tests (OneK8s design section 17) in every zone
 applications = {
   # refapp = { zone = "int-fi", needs_secrets = true }
 }

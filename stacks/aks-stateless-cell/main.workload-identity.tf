@@ -1,4 +1,4 @@
-# Federated credentials (aks-design section 6): every cluster has its own OIDC issuer, so every identity of the
+# Federated credentials (OneK8s design section 6): every cluster has its own OIDC issuer, so every identity of the
 # environment that is used from a cluster gets one credential per cluster. A rebuilt cell gets a new issuer and
 # replaces its credentials. Max 20 per identity: 3 cells + stateful cluster per environment.
 resource "azurerm_federated_identity_credential" "cell" {

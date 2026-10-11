@@ -1,4 +1,4 @@
-# Key Vaults (aks-design sections 6, 13 and 18): one per isolation zone for application secrets and one platform
+# Key Vaults (OneK8s design sections 6, 13 and 18): one per isolation zone for application secrets and one platform
 # vault for the environment's certificates and the clusters' customer-managed keys. RBAC permission model,
 # public network access disabled, purge protection. The private endpoints are in the backend spoke and reached
 # through the Firewall: zone X only from zone X (rule "frontend-to-backend"), the platform vault from every node.
@@ -26,7 +26,7 @@ resource "azurerm_management_lock" "platform_key_vault" {
   name       = "lock-${azurerm_key_vault.this["platform"].name}"
   scope      = azurerm_key_vault.this["platform"].id
   lock_level = "CanNotDelete"
-  notes      = "Deleting the platform vault destroys every cluster's KMS and disk keys (aks-design section 18)."
+  notes      = "Deleting the platform vault destroys every cluster's KMS and disk keys (OneK8s design section 18)."
 }
 
 resource "azurerm_private_endpoint" "key_vault" {

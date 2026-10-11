@@ -1,5 +1,5 @@
 # Cell sl-az2 of dev: slow update speed, one minor behind sl-az1 (N-2), patches 1 month after release
-# (aks-design section 12). Everything in availability zone 2.
+# (OneK8s design section 12). Everything in availability zone 2.
 environment     = "dev"
 cell            = "sl-az2"
 location        = "swedencentral"
@@ -33,7 +33,7 @@ system_pool = {
 
 admin_group_object_ids = [] # Entra ID group of the platform team
 
-# Fleet repository (aks-design section 10); null until it exists
+# Fleet repository (OneK8s design section 10); null until it exists
 fleet = null
 # fleet = {
 #   kind = "GitRepository"

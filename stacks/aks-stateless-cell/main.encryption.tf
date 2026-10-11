@@ -1,4 +1,4 @@
-# Customer-managed keys (aks-design section 18), created by the cell module before the cluster: a cluster
+# Customer-managed keys (OneK8s design section 18), created by the cell module before the cluster: a cluster
 # created without them would have to be rebuilt.
 #   key-<cell>-kms   KMS etcd encryption, used by the control plane identity (Key Vault Crypto User on the key)
 #   key-<cell>-disk  disk encryption set des-<env>-<cell> for the OS disks of all nodes (system pool + NAP)

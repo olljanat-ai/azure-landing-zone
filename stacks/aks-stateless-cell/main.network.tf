@@ -1,4 +1,4 @@
-# Cell VNet vnet-<env>-sl-az<N> (aks-design pictures 2 and 8): the control plane zone and every isolation zone
+# Cell VNet vnet-<env>-sl-az<N> (OneK8s design pictures 2 and 8): the control plane zone and every isolation zone
 # get their own /20 address space; Azure Virtual Network encryption is the only encryption between nodes
 # (section 13). Every subnet has its own NSG, every zone its own route table that sends 0.0.0.0/0 and the other
 # zones' address spaces to the Firewall.
@@ -88,7 +88,7 @@ resource "azurerm_network_security_group" "subnet" {
 }
 
 locals {
-  # Allowed flows of aks-design section 5 (numbers as in picture 5). Everything else inbound is denied; NSG
+  # Allowed flows of OneK8s design section 5 (numbers as in picture 5). Everything else inbound is denied; NSG
   # allow rules use zone prefixes, never the VirtualNetwork service tag.
   nsg_rules = merge(
     # Node subnets (system + zones)

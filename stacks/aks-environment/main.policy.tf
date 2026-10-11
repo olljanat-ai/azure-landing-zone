@@ -1,4 +1,4 @@
-# Azure Policy for the AKS platform (aks-design section 14), assigned to the environment subscription so that a
+# Azure Policy for the AKS platform (OneK8s design section 14), assigned to the environment subscription so that a
 # new or rebuilt cluster gets every policy automatically. Built-in definitions first; the platform's custom
 # Microsoft.Kubernetes.Data definitions (zone pinning, FQDN egress, ESO-only secrets, Gateway API only, ...) are
 # added here in phase 2 and tested with `gator verify`.
@@ -82,6 +82,6 @@ resource "azurerm_subscription_policy_assignment" "aks" {
   location             = var.location
 
   non_compliance_message {
-    content = "Violates the AKS platform design (aks-design section 14): ${each.value.description}."
+    content = "Violates the AKS platform design (OneK8s design section 14): ${each.value.description}."
   }
 }

@@ -1,8 +1,8 @@
-# How the code implements aks-design
+# How the code implements the OneK8s design
 
-Requirements from [aks-design/docs/requirements.md](https://github.com/olljanat-ai/aks-design/blob/main/docs/requirements.md)
+Requirements from [docs/requirements.md](https://github.com/onek8s/onek8s.github.io/blob/main/docs/requirements.md)
 and where this repository implements them. "Fleet" means the fleet repository with the in-cluster state
-(aks-design section 10), which is not part of the landing zone.
+(OneK8s design section 10), which is not part of the landing zone.
 
 | # | Requirement | Implemented in | Status |
 |---|---|---|---|

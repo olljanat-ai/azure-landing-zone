@@ -1,4 +1,4 @@
-# Identities that must survive a cluster rebuild (aks-design sections 6 and 13). Federated credentials are per
+# Identities that must survive a cluster rebuild (OneK8s design sections 6 and 13). Federated credentials are per
 # cluster (own OIDC issuer) and are added by the cell stack.
 #
 # - id-<zone>-gateway-secrets: secret reader of the zone's Traefik namespace <zone>-gateway, used only by the
