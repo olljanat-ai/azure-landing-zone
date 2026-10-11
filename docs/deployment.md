@@ -205,6 +205,11 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 - the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
   client only when enabled), the Firewall rule collection groups and the dev deployment identities.
 
+`environments.<env>.deployment_repositories` federates the apply identity with other repositories too:
+`onek8s/aks-terraform` deploys the clusters and the container registry into `sub-aks-dev` from its GitHub
+environment `dev` (variables `AZURE_CLIENT_ID` = the `aks-dev-apply` client ID, `AZURE_TENANT_ID`,
+`AZURE_SUBSCRIPTION_ID`; no secret).
+
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
 `aks-dev-plan` / `aks-dev-apply` environments. Check that the runner `aci-mgmt-runner-01` is online
 (Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
