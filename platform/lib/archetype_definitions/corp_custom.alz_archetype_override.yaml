@@ -2,8 +2,10 @@ base_archetype: corp
 name: corp_custom
 policy_assignments_to_add: []
 policy_assignments_to_remove: [
-# To remove the private DNS zones policy for private endpoints
-  # Deploy-Private-DNS-Zones,
+  # Lab: the hub has only the Key Vault and ACR private link zones (private_link_private_dns_zones in
+  # platform-landing-zone.tfvars); the policy and its role assignments target all ~90 ALZ zones. The AKS
+  # stacks register their private endpoints in the zones themselves. Remove this line with all zones.
+  Deploy-Private-DNS-Zones,
 ]
 policy_definitions_to_add: []
 policy_definitions_to_remove: []

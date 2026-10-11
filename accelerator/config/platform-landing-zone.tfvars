@@ -173,6 +173,15 @@ by stacks/aks-environment (aks-design section 14).
 management_groups_enabled = true
 
 management_group_settings = {
+  # No retry on not-found when reading policy role assignments: the module default retries ResourceNotFound
+  # (eventual consistency after create, which AZAPI_RETRY_GET_AFTER_PUT_MAX_TIME covers in the apply job), so a
+  # role assignment whose scope was deleted (e.g. a removed private DNS zone) hangs the plan instead of leaving
+  # the state.
+  retries = {
+    policy_role_assignments = {
+      error_message_regex = ["AuthorizationFailed"]
+    }
+  }
   architecture_name  = "alz_custom"
   location           = "$${starter_location_01}"
   parent_resource_id = "$${root_parent_management_group_id}"
@@ -359,11 +368,10 @@ management_group_settings = {
     }
     corp = {
       policy_assignments = {
-        Audit-PeDnsZones         = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-HybridNetworking    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Public-Endpoints    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deny-Public-IP-On-NIC    = { enforcement_mode = "$${policy_enforcement_mode}" }
-        Deploy-Private-DNS-Zones = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Audit-PeDnsZones      = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-HybridNetworking = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Public-Endpoints = { enforcement_mode = "$${policy_enforcement_mode}" }
+        Deny-Public-IP-On-NIC = { enforcement_mode = "$${policy_enforcement_mode}" }
       }
     }
     local = {
