@@ -150,4 +150,8 @@ run "sandbox_mode" {
     condition     = azurerm_virtual_network.edge.dns_servers[0] == "10.0.0.164" && contains(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes, "10.200.0.0/22") && length(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes) == 1
     error_message = "sandbox mode: hub DNS resolver, entry points open to the client VNet only."
   }
+  assert {
+    condition     = length(azurerm_private_endpoint.registry) == 0 && azurerm_container_registry.this.sku == "Basic" && length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"
+    error_message = "lab SKUs: Basic public ACR, standard Key Vaults, no Front Door."
+  }
 }

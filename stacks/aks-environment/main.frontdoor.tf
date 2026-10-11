@@ -1,6 +1,7 @@
 # Azure Front Door Premium: cell router of the external zones (aks-design section 8). One profile per environment
 # with one endpoint and one WAF policy per ext-* zone (open question: profile per zone). The origin groups – one
 # per cell with Private Link origins on the Traefik internal load balancers – are added by the cell stack.
+# Off in the lab (front_door_enabled).
 locals {
   external_zones = { for z, v in local.zones : z => v if v.exposure == "ext" }
 }

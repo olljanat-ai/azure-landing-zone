@@ -8,7 +8,7 @@ resource "azurerm_key_vault" "this" {
   location                      = var.location
   resource_group_name           = azurerm_resource_group.shared.name
   tenant_id                     = data.azurerm_client_config.current.tenant_id
-  sku_name                      = "premium" # HSM-protected keys possible (open question)
+  sku_name                      = var.key_vault_sku # premium: HSM-protected keys (open question)
   rbac_authorization_enabled    = true
   public_network_access_enabled = false
   purge_protection_enabled      = true

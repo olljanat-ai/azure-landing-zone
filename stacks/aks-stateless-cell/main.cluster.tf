@@ -15,7 +15,7 @@ resource "azapi_resource" "cluster" {
   body = {
     sku = {
       name = "Base"
-      tier = "Standard"
+      tier = var.sku_tier
     }
     properties = {
       kubernetesVersion = local.kubernetes_version

@@ -7,7 +7,7 @@ resource "azurerm_key_vault_key" "cluster" {
   for_each     = toset(["kms", "disk"])
   name         = "key-${local.cell}-${each.key}"
   key_vault_id = data.azurerm_key_vault.platform.id
-  key_type     = "RSA-HSM"
+  key_type     = data.azurerm_key_vault.platform.sku_name == "premium" ? "RSA-HSM" : "RSA" # HSM keys need a premium vault
   key_size     = 2048
   key_opts     = ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
   tags         = merge(local.tags, { purpose = each.key })

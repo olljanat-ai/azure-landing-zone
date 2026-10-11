@@ -1,5 +1,6 @@
-# Jump host (management VNet) and test client (client VNet). No public IPs: both are reached through the hub
-# Bastion (`az network bastion ssh --auth-type AAD`), sign-in with Entra ID (AADSSHLoginForLinux).
+# Jump host (management VNet) and test client (client VNet), both off by default in the lab. No public IPs: both
+# are reached through the hub Bastion (`az network bastion ssh --auth-type AAD`, enable primary_bastion_enabled
+# first), sign-in with Entra ID (AADSSHLoginForLinux).
 # The generated SSH key is only the provisioning credential and is never used by people.
 resource "tls_private_key" "vm" {
   algorithm = "ED25519"
@@ -57,7 +58,7 @@ resource "azurerm_linux_virtual_machine" "jump" {
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
+    storage_account_type = "StandardSSD_LRS"
   }
 
   source_image_reference {
@@ -133,7 +134,7 @@ resource "azurerm_linux_virtual_machine" "client" {
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
+    storage_account_type = "StandardSSD_LRS"
   }
 
   source_image_reference {

@@ -50,8 +50,28 @@ variable "policy_enforcement_mode" {
 
 variable "front_door_enabled" {
   type        = bool
-  default     = true
-  description = "Azure Front Door Premium with a WAF policy per external zone (cell router for ext-* zones, aks-design section 8)."
+  default     = false
+  description = "Azure Front Door Premium with a WAF policy per external zone (cell router for ext-* zones, aks-design section 8). Premium only: the Private Link origins and the managed WAF rule sets need it. Off in the lab until the external zones are tested (~330 USD/month base fee)."
+}
+
+variable "key_vault_sku" {
+  type        = string
+  default     = "standard"
+  description = "SKU of the zone and platform Key Vaults. premium: HSM-protected cluster keys (RSA-HSM, open question in the design); standard (lab): software-protected keys."
+  validation {
+    condition     = contains(["standard", "premium"], var.key_vault_sku)
+    error_message = "standard or premium."
+  }
+}
+
+variable "container_registry_sku" {
+  type        = string
+  default     = "Basic"
+  description = "SKU of the environment ACR. Premium: private endpoint in the backend spoke, dedicated data endpoint, zone redundant (the design). Basic / Standard (lab): public endpoint with Entra ID authentication only (no admin user, no anonymous pull)."
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.container_registry_sku)
+    error_message = "Basic, Standard or Premium."
+  }
 }
 
 variable "nginxaas_enabled" {

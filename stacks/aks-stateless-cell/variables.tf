@@ -55,10 +55,20 @@ variable "kubernetes_minor_offset" {
   description = "Update speed when kubernetes_version is null: 1 = second latest GA minor (N-1, sl-az1, fast), 2 = N-2 (sl-az2/sl-az3, slow)."
 }
 
+variable "sku_tier" {
+  type        = string
+  default     = "Free"
+  description = "AKS pricing tier. Standard: uptime SLA (the design); Free (lab): no SLA, no control plane fee."
+  validation {
+    condition     = contains(["Free", "Standard"], var.sku_tier)
+    error_message = "Free or Standard."
+  }
+}
+
 variable "system_pool" {
   type = object({
     vm_size    = optional(string, "Standard_D4ds_v5") # VNet encryption + encryption at host + ephemeral OS disk
-    node_count = optional(number, 3)
+    node_count = optional(number, 1)                  # 3 in the design
     max_pods   = optional(number, 110)
   })
   default     = {}

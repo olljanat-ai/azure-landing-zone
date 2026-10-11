@@ -27,12 +27,12 @@ git add -A && git commit -m "Network mode sandbox" && git push
 
 | | `firewall` (the design) | `sandbox` (lab / prototype) |
 |---|---|---|
-| Azure Firewall | Premium in the hub, DNS proxy, rule collection groups per zone | not deployed |
-| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; direct peerings: cells ↔ backend, cells ↔ edge, management ↔ backend, client ↔ edge (plus hub peerings for DNS and Bastion) |
+| Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed |
+| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; direct peerings: cells ↔ backend, cells ↔ edge, management ↔ backend, client ↔ edge (plus hub peerings for DNS) |
 | Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary |
-| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management and client VNets); nodes have open egress, pods are still limited by Cilium FQDN policies |
+| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies |
 | DNS | Firewall DNS proxy | hub Private DNS Resolver inbound endpoint |
-| Cost | Firewall Premium ≈ the largest fixed cost of the build tenant | NAT gateways and public IPs only |
+| Cost | the Firewall is the largest fixed cost of the build tenant | NAT gateways and public IPs only |
 
 Use `sandbox` for a first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
 Firewall is part of what is accepted. Switching later is an ordinary change: with `firewall` the next runs create
@@ -152,8 +152,27 @@ Protect `main` with a ruleset (pull request required, status checks of the **CI*
 | AKS dev | `stacks/aks-environment` + `environments/dev/environment.tfvars` | `aks-dev-environment.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
 | AKS dev, AKS cell | `stacks/aks-stateless-cell` + `environments/dev/sl-az<N>.tfvars` | `aks-dev-sl-az<N>.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
 
-The AKS stacks need the self-hosted runners because Key Vault (keys, certificates), ACR and the API servers have
-no public endpoint.
+The AKS stacks need the self-hosted runners because Key Vault (keys, certificates) and the API servers have no
+public endpoint.
+
+## Lab SKUs
+
+The build tenant runs with the cheapest SKUs that keep the design working. Each one is a single switch back to
+the design:
+
+| Component | Lab (default) | Design | Switch |
+|---|---|---|---|
+| Jump host, test client | not deployed – use `az aks command invoke` or the runners | Linux VMs reached through Bastion | `jump_host_enabled` / `client_vm_enabled` in `stacks/platform-extensions`, together with `primary_bastion_enabled = true` |
+| Bastion | not deployed | Standard | `primary_bastion_enabled` in `accelerator/config/platform-landing-zone.tfvars` |
+| Azure Firewall (`firewall` mode) | Standard, no IDPS | Premium, IDPS | `primary_firewall_sku_tier` and `intrusion_detection` in the accelerator config |
+| GitHub runners | 1 | 2 | `github_runners.count` |
+| Runner ACR, environment ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku`, `container_registry_sku` (and `environments.<env>.public_registry = false` in `stacks/platform-extensions` for the Firewall rules) |
+| Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | `key_vault_sku` – changing it later replaces the cluster keys, so rebuild the cells |
+| Front Door | not deployed | Premium | `front_door_enabled` (Premium only: Private Link origins and managed WAF rules) |
+| AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
+
+Delete the cells (Actions → AKS cell → `delete`) when they are not needed: they are the largest cost of the lab.
+Acceptance testing (phase 3) runs with the design values.
 
 ## 6. Platform
 
@@ -161,13 +180,13 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 
 - management groups and all ALZ policy assignments with `enforcementMode: DoNotEnforce`,
 - Log Analytics and data collection rules in `sub-mgmt`,
-- the hub in `sub-hub`: Azure Firewall Premium (DNS proxy), Bastion, Private DNS Resolver, the private link DNS
-  zones and the split-horizon zones `<zone>.dev.<domain>`,
-- the management VNet with two ACI GitHub runners and the jump host, the client VNet with a test client,
-  the Firewall rule collection groups and the dev deployment identities.
+- the hub in `sub-hub`: the Private DNS Resolver, the private link DNS zones and the split-horizon zones
+  `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
+- the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
+  client only when enabled), the Firewall rule collection groups and the dev deployment identities.
 
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
-`aks-dev-plan` / `aks-dev-apply` environments. Check that the runners `aci-mgmt-runner-01/02` are online
+`aks-dev-plan` / `aks-dev-apply` environments. Check that the runner `aci-mgmt-runner-01` is online
 (Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
 
 Until `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` is set the Platform workflow skips its jobs, so pushes before the
@@ -176,16 +195,18 @@ bootstrap stay green.
 ## 7. dev environment and cells
 
 Run the **AKS dev** workflow. It applies the environment (backend and edge VNets, Key Vaults, ACR, identities,
-policies, Front Door), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
+policies, Front Door when enabled), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
 
-Connect from the jump host (`az network bastion ssh --name bas-hub-<region> --resource-group rg-hub-<region>
---target-resource-id <vm id> --auth-type AAD`):
+The API servers are private. Without a jump host, run kubectl through the AKS API (no network path needed, your
+Entra ID account needs a Kubernetes RBAC role on the cluster):
 
 ```bash
-az aks get-credentials -g rg-aks-dev-sl-az1-<region> -n aks-dev-sl-az1
-kubelogin convert-kubeconfig -l azurecli
-kubectl get nodes
+az aks command invoke -g rg-aks-dev-sl-az1-<region> -n aks-dev-sl-az1 --command "kubectl get nodes"
 ```
+
+With the jump host enabled, connect with `az network bastion ssh --name bas-hub-<region> --resource-group
+rg-hub-<region> --target-resource-id <vm id> --auth-type AAD`, then `az aks get-credentials`,
+`kubelogin convert-kubeconfig -l azurecli` and `kubectl` as usual.
 
 ## 8. Phase 1 exit criterion: create and delete a cell by the pipeline
 
@@ -200,5 +221,6 @@ Before acceptance testing every policy goes to its production effect (section 17
 
 - `policy_enforcement_mode = "Default"` in `accelerator/config/platform-landing-zone.tfvars` (then
   `scripts/sync-platform.sh`) and in `environments/dev/environment.tfvars`,
-- `intrusion_detection.mode = "Deny"` and `threat_intelligence_mode = "Deny"` in the Firewall policy,
+- the design SKUs (see [Lab SKUs](#lab-skus)), in particular Firewall Premium with
+  `intrusion_detection.mode = "Deny"` and `threat_intelligence_mode = "Deny"` in the Firewall policy,
 - the Front Door WAF policies follow `policy_enforcement_mode` (Detection → Prevention).

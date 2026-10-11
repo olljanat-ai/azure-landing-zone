@@ -1,12 +1,15 @@
 # Self-hosted GitHub runners in the management VNet, built the same way as the ALZ accelerator's GitHub
 # bootstrap (accelerator-bootstrap-modules/modules/azure: container_registry.tf, container_instances.tf):
-# a private ACR builds the runner image with an ACR task, and Azure Container Instances run ephemeral runners
-# registered to this repository. Their traffic leaves through the hub Firewall (rules in main.firewall.tf), or
+# an ACR builds the runner image with an ACR task, and Azure Container Instances run ephemeral runners
+# registered to this repository. The registry is private (Premium, private endpoint) in the design and public with
+# Entra ID authentication only in the lab (runner_registry_sku Basic). Their traffic leaves through the hub Firewall (rules in main.firewall.tf), or
 # through the NAT gateway of the management VNet in sandbox mode.
 locals {
   runners_enabled = nonsensitive(var.github_runner_token != "" || (var.github_runner_app_id != "" && var.github_runner_app_private_key != ""))
   runner_image    = "github-runner:${substr(var.github_runners.image_ref, 0, 7)}"
   runner_url      = "https://github.com/${var.github_repository}"
+  # Private endpoints, disabled public access, zone redundancy and the trusted-services bypass need Premium
+  runner_registry_private = var.runner_registry_sku == "Premium"
 }
 
 resource "random_string" "acr" {
@@ -25,17 +28,18 @@ resource "azurerm_container_registry" "runners" {
   name                          = "acrmgmtrunners${random_string.acr.result}"
   resource_group_name           = azurerm_resource_group.runners.name
   location                      = var.location
-  sku                           = "Premium"
+  sku                           = var.runner_registry_sku
   admin_enabled                 = false
-  public_network_access_enabled = false
-  zone_redundancy_enabled       = true
+  public_network_access_enabled = !local.runner_registry_private
+  zone_redundancy_enabled       = local.runner_registry_private
   network_rule_bypass_option    = "AzureServices"
   # ACR Tasks build the runner image although public network access is disabled
-  network_rule_bypass_for_tasks_enabled = true
+  network_rule_bypass_for_tasks_enabled = local.runner_registry_private
   tags                                  = var.tags
 }
 
 resource "azurerm_private_endpoint" "runners_acr" {
+  count               = local.runner_registry_private ? 1 : 0
   name                = "pe-${azurerm_container_registry.runners.name}"
   location            = var.location
   resource_group_name = azurerm_resource_group.runners.name
