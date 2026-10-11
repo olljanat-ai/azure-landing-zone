@@ -131,14 +131,9 @@ resource "azapi_resource" "cluster" {
           enabled       = true
           intervalHours = 48
         }
-        }, var.defender_enabled ? {
-        defender = {
-          logAnalyticsWorkspaceResourceId = module.platform.log_analytics_workspace_id
-          securityMonitoring = {
-            enabled = true
-          }
-        }
-      } : {})
+        # No monitoring for now (observability is set up later): no Defender for Containers sensor, which
+        # needs a Log Analytics workspace
+      })
 
       addonProfiles = {
         # Section 14: the single policy engine
@@ -149,15 +144,10 @@ resource "azapi_resource" "cluster" {
         azureKeyvaultSecretsProvider = {
           enabled = false
         }
-        # Container Insights: off in the lab (Log Analytics ingestion is its main cost)
-        omsagent = merge({
-          enabled = var.container_insights_enabled
-          }, var.container_insights_enabled ? {
-          config = {
-            logAnalyticsWorkspaceResourceID = module.platform.log_analytics_workspace_id
-            useAADAuth                      = "true"
-          }
-        } : {})
+        # No monitoring for now (observability is set up later): no Container Insights
+        omsagent = {
+          enabled = false
+        }
       }
 
       # Section 12: the version pipeline decides, AKS never upgrades on its own
@@ -218,27 +208,4 @@ locals {
   cluster_private_fqdn = azapi_resource.cluster.output.properties.privateFQDN
   node_resource_group  = azapi_resource.cluster.output.properties.nodeResourceGroup
   oidc_issuer_url      = azapi_resource.cluster.output.properties.oidcIssuerProfile.issuerURL
-}
-
-resource "azurerm_monitor_diagnostic_setting" "cluster" {
-  name                           = "diag-to-law"
-  target_resource_id             = azapi_resource.cluster.id
-  log_analytics_workspace_id     = module.platform.log_analytics_workspace_id
-  log_analytics_destination_type = "Dedicated"
-
-  enabled_log {
-    category = "kube-audit-admin"
-  }
-  enabled_log {
-    category = "kube-apiserver"
-  }
-  enabled_log {
-    category = "guard"
-  }
-  enabled_log {
-    category = "kube-controller-manager"
-  }
-  enabled_log {
-    category = "cluster-autoscaler"
-  }
 }

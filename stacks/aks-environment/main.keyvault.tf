@@ -50,20 +50,6 @@ resource "azurerm_private_endpoint" "key_vault" {
   }
 }
 
-resource "azurerm_monitor_diagnostic_setting" "key_vault" {
-  for_each                   = local.key_vault_names
-  name                       = "diag-to-law"
-  target_resource_id         = azurerm_key_vault.this[each.key].id
-  log_analytics_workspace_id = module.platform.log_analytics_workspace_id
-
-  enabled_log {
-    category_group = "audit"
-  }
-  enabled_metric {
-    category = "AllMetrics"
-  }
-}
-
 # One wildcard certificate per zone in the platform vault (section 13). Created as a short-lived self-signed
 # placeholder (issuer Self) so that the role assignments below can exist; the renewal job in the management
 # network replaces it with the Let's Encrypt certificate (DNS-01) on its first run.

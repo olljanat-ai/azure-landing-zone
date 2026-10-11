@@ -61,13 +61,6 @@ override_data {
 }
 
 override_data {
-  target = module.platform.data.azurerm_log_analytics_workspace.management
-  values = {
-    id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-management-swedencentral/providers/Microsoft.OperationalInsights/workspaces/law-management-swedencentral"
-  }
-}
-
-override_data {
   target = data.azurerm_key_vault.platform
   values = {
     id   = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev-shared-swedencentral/providers/Microsoft.KeyVault/vaults/kv-dev-platform-b1"

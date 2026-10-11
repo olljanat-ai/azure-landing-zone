@@ -62,14 +62,3 @@ resource "azurerm_cdn_frontdoor_security_policy" "zone" {
     }
   }
 }
-
-resource "azurerm_monitor_diagnostic_setting" "front_door" {
-  count                      = var.front_door_enabled ? 1 : 0
-  name                       = "diag-to-law"
-  target_resource_id         = azurerm_cdn_frontdoor_profile.this[0].id
-  log_analytics_workspace_id = module.platform.log_analytics_workspace_id
-
-  enabled_log {
-    category_group = "allLogs"
-  }
-}

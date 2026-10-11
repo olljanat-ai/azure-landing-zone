@@ -74,13 +74,6 @@ override_data {
 }
 
 override_data {
-  target = module.platform.data.azurerm_log_analytics_workspace.management
-  values = {
-    id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-management-swedencentral/providers/Microsoft.OperationalInsights/workspaces/law-management-swedencentral"
-  }
-}
-
-override_data {
   target = data.azurerm_storage_account.state
   values = {
     id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-alz-build-state-swedencentral-1/providers/Microsoft.Storage/storageAccounts/stoalzbuildswe1abcd"

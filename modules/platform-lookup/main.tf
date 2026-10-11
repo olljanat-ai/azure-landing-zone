@@ -52,9 +52,3 @@ data "azurerm_private_dns_zone" "hub" {
   name                = each.value
   resource_group_name = local.dns_resource_group_name
 }
-
-data "azurerm_log_analytics_workspace" "management" {
-  provider            = azurerm.management
-  name                = "law-management-${var.location}"
-  resource_group_name = local.management_resource_group_name
-}

@@ -109,7 +109,6 @@ locals {
     "${env}-apply-mgmt-reader"     = { identity = "${env}-apply", scope = data.azurerm_subscription.management.id, role = "Reader" }
     "${env}-apply-api-access"      = { identity = "${env}-apply", scope = azurerm_resource_group.aks_api_access[env].id, role = "Contributor" }
     "${env}-apply-api-access-snet" = { identity = "${env}-apply", scope = azurerm_subnet.management_aks_api_pe.id, role = "Network Contributor" }
-    "${env}-apply-log-analytics"   = { identity = "${env}-apply", scope = module.platform.log_analytics_workspace_id, role = "Log Analytics Contributor" }
     "${env}-apply-state"           = { identity = "${env}-apply", scope = "${data.azurerm_storage_account.state.id}/blobServices/default/containers/${var.state_container_name}", role = "Storage Blob Data Contributor" }
   }]...)
 }
