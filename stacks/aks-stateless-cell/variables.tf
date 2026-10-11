@@ -35,7 +35,15 @@ variable "countries" {
 
 variable "name_suffix" {
   type        = string
-  description = "Same name_suffix as the environment stack (Key Vault and ACR names)."
+  description = "Same name_suffix as the environment stack (Key Vault names)."
+}
+
+variable "container_registry" {
+  type = object({
+    name                = string
+    resource_group_name = string
+  })
+  description = "The environment's container registry, created by onek8s/aks-terraform (shared/): the kubelet identity gets AcrPull on it."
 }
 
 variable "dns_domain" {

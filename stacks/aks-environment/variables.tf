@@ -64,14 +64,12 @@ variable "key_vault_sku" {
   }
 }
 
-variable "container_registry_sku" {
-  type        = string
-  default     = "Basic"
-  description = "SKU of the environment ACR. Premium: private endpoint in the backend spoke, dedicated data endpoint, zone redundant (the design). Basic / Standard (lab): public endpoint with Entra ID authentication only (no admin user, no anonymous pull)."
-  validation {
-    condition     = contains(["Basic", "Standard", "Premium"], var.container_registry_sku)
-    error_message = "Basic, Standard or Premium."
-  }
+variable "container_registry" {
+  type = object({
+    name                = string
+    resource_group_name = string
+  })
+  description = "The environment's container registry. Not part of the landing zone: onek8s/aks-terraform creates it with the clusters (shared/, container_registry_name). Only its name is used here, for the allowed-images policy."
 }
 
 variable "nginxaas_enabled" {

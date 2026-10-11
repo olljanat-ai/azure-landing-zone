@@ -11,11 +11,6 @@ output "key_vaults" {
   value       = { for k, v in azurerm_key_vault.this : k => { id = v.id, name = v.name, uri = v.vault_uri } }
 }
 
-output "container_registry" {
-  description = "Environment ACR."
-  value       = { id = azurerm_container_registry.this.id, login_server = azurerm_container_registry.this.login_server }
-}
-
 output "gateway_secret_reader_client_ids" {
   description = "Client IDs of id-<zone>-gateway-secrets (annotation of the secrets-reader ServiceAccount in <zone>-gateway)."
   value       = { for k, v in azurerm_user_assigned_identity.gateway_secrets : k => v.client_id }

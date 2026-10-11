@@ -63,7 +63,7 @@ Replace the placeholder subscription IDs (`00000000-0000-0000-0000-00000000000{1
 | [`accelerator/config/inputs.yaml`](../accelerator/config/inputs.yaml) | `subscription_ids`, `bootstrap_subscription_id`, `bootstrap_location`, the GitHub repository in `federated_credentials` |
 | [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, `platform_dns_domain`, address prefixes |
 | [`stacks/platform-extensions/terraform.tfvars`](../stacks/platform-extensions/terraform.tfvars) | the same subscription IDs |
-| [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault / ACR names), `dns_domain`, `admin_group_object_ids` |
+| [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault names), `container_registry` (the registry aks-terraform creates), `dns_domain`, `admin_group_object_ids` |
 
 Choose the network mode (see above, e.g. `scripts/set-network-mode.sh sandbox` for a lab). Then regenerate the
 accelerator output and commit:
@@ -116,6 +116,21 @@ apply identity can only do once the subscription is below `alz`:
 az account management-group subscription add --name alz --subscription <sub-aks-dev>
 ```
 
+## 3b. Public DNS zone
+
+The public zone `onek8s.lol` is created once, outside Terraform, so that a lab reset or a rebuilt stack never
+changes its name servers (the registrar points at them). It lives in `rg-onek8s-dns` in `sub-aks-dev`, which the
+Lab reset keeps; [aks-terraform](https://github.com/onek8s/aks-terraform) only looks it up and lets each
+cluster's external-dns write its own records.
+
+```bash
+az group create --subscription <sub-aks-dev> -n rg-onek8s-dns -l swedencentral --tags purpose=public-dns
+az network dns zone create --subscription <sub-aks-dev> -g rg-onek8s-dns -n onek8s.lol
+az network dns zone show --subscription <sub-aks-dev> -g rg-onek8s-dns -n onek8s.lol --query nameServers
+```
+
+Set the four name servers as the domain's NS records at the registrar.
+
 ## 4. GitHub environments, variables and secrets
 
 Repository **variables** (Settings → Secrets and variables → Actions → Variables):
@@ -166,7 +181,8 @@ the design:
 | Bastion | not deployed | Standard | `primary_bastion_enabled` in `accelerator/config/platform-landing-zone.tfvars` |
 | Azure Firewall (`firewall` mode) | Standard, no IDPS | Premium, IDPS | `primary_firewall_sku_tier` and `intrusion_detection` in the accelerator config |
 | GitHub runners | 1 | 2 | `github_runners.count` |
-| Runner ACR, environment ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku`, `container_registry_sku` (and `environments.<env>.public_registry = false` in `stacks/platform-extensions` for the Firewall rules) |
+| Runner ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku` |
+| Environment ACR | not part of the landing zone: created by [aks-terraform](https://github.com/onek8s/aks-terraform) (`shared/`) | | `environments.<env>.public_registry` in `stacks/platform-extensions` for the Firewall rules |
 | Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | `key_vault_sku` – changing it later replaces the cluster keys, so rebuild the cells |
 | Front Door | not deployed | Premium | `front_door_enabled` (Premium only: Private Link origins and managed WAF rules) |
 | AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
@@ -199,7 +215,7 @@ bootstrap stay green.
 
 ## 7. dev environment and cells
 
-Run the **AKS dev** workflow. It applies the environment (backend and edge VNets, Key Vaults, ACR, identities,
+Run the **AKS dev** workflow. It applies the environment (backend and edge VNets, Key Vaults, identities,
 policies, Front Door when enabled), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
 
 The API servers are private. Without a jump host, run kubectl through the AKS API (no network path needed, your
@@ -225,8 +241,9 @@ server through the management VNet private endpoint.
 When the lab is broken beyond repair, Actions → **Lab reset** removes everything the platform and AKS stacks
 created – resource groups, policy assignments and definitions, the ALZ custom roles, the management groups below
 `alz` – and then their Terraform state, so the next Platform run deploys from scratch. The subscriptions, the
-accelerator bootstrap (state storage, plan / apply identities, the `alz` management group) and the GitHub
-settings stay. It runs with the platform apply identity, so its reviewers approve it.
+accelerator bootstrap (state storage, plan / apply identities, the `alz` management group), the public DNS zone
+`onek8s.lol` (resource group `rg-onek8s-dns` in `sub-aks-dev`, created once with the Azure CLI and delegated at the
+registrar, so its name servers must not change) and the GitHub settings stay. It runs with the platform apply identity, so its reviewers approve it.
 
 - Type `reset-lab` in *confirm*. *dry_run* (default) only lists what would be deleted.
 - Deletions run in passes: a failure is logged and retried in the next pass. The Terraform state is deleted only
