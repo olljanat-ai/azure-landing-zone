@@ -7,8 +7,9 @@ Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` 
   as in the corporate landing zone.
 - Hub: Azure Firewall (network mode `firewall` only; Standard in the lab – the design is Premium with IDPS:
   set primary_firewall_sku_tier and add intrusion_detection to firewall_policy), Bastion (off in the lab, needed
-  only for the optional jump host / test client), Private DNS Resolver and all private link DNS zones, plus the
-  platform's own split-horizon zones `<zone>.<env>.<test domain>`.
+  only for the optional jump host / test client), Private DNS Resolver, the private link DNS zones of Key Vault
+  and ACR (all ~90 in the design), plus the platform's own split-horizon zones `<zone>.<env>.<test domain>`.
+- Management: the Log Analytics workspace only (daily cap 1 GB in the lab), no VM monitoring rules.
   NO ExpressRoute / VPN gateway – the build tenant is never connected to the corporate network.
 - No DDoS protection plan (no public endpoints in any spoke, only Front Door).
 - ALL policy assignments in enforcement mode `DoNotEnforce` (= audit). Switch `policy_enforcement_mode` to
@@ -131,24 +132,32 @@ tags = {
 */
 management_resources_enabled = true
 
+# Lab: only the Log Analytics workspace, which the AKS stacks send their diagnostics to, with a daily ingestion cap.
+# The Azure Monitor Agent identity and the VM data collection rules serve the ALZ VM / SQL monitoring policies only
+# (no VMs in the lab); enable them again together with those policies.
 management_resource_settings = {
-  location                     = "$${starter_location_01}"
-  log_analytics_workspace_name = "$${log_analytics_workspace_name}"
-  resource_group_name          = "$${management_resource_group_name}"
+  location                               = "$${starter_location_01}"
+  log_analytics_workspace_name           = "$${log_analytics_workspace_name}"
+  log_analytics_workspace_daily_quota_gb = 1
+  resource_group_name                    = "$${management_resource_group_name}"
   user_assigned_managed_identities = {
     ama = {
-      name = "$${ama_user_assigned_managed_identity_name}"
+      name    = "$${ama_user_assigned_managed_identity_name}"
+      enabled = false
     }
   }
   data_collection_rules = {
     change_tracking = {
-      name = "$${dcr_change_tracking_name}"
+      name    = "$${dcr_change_tracking_name}"
+      enabled = false
     }
     defender_sql = {
-      name = "$${dcr_defender_sql_name}"
+      name    = "$${dcr_defender_sql_name}"
+      enabled = false
     }
     vm_insights = {
-      name = "$${dcr_vm_insights_name}"
+      name    = "$${dcr_vm_insights_name}"
+      enabled = false
     }
   }
 }
@@ -503,6 +512,16 @@ hub_virtual_networks = {
     }
     private_dns_zones = {
       parent_id = "$${dns_resource_group_id}"
+      # Lab: only the private link zones the AKS platform uses (Key Vault and ACR private endpoints) instead of
+      # all ~90 Azure services. Same keys as the module defaults, so adding more zones back is additive.
+      private_link_private_dns_zones = {
+        azure_key_vault = {
+          zone_name = "privatelink.vaultcore.azure.net"
+        }
+        azure_acr_registry = {
+          zone_name = "privatelink.azurecr.io"
+        }
+      }
       private_link_private_dns_zones_regex_filter = {
         enabled = false
       }

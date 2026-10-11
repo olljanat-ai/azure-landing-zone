@@ -170,6 +170,9 @@ the design:
 | Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | `key_vault_sku` – changing it later replaces the cluster keys, so rebuild the cells |
 | Front Door | not deployed | Premium | `front_door_enabled` (Premium only: Private Link origins and managed WAF rules) |
 | AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
+| AKS monitoring | control plane diagnostic settings only | Container Insights, Defender for Containers sensor | `container_insights_enabled`, `defender_enabled` in `environments/dev/sl-az*.tfvars` |
+| Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
+| Management resources | Log Analytics workspace with a 1 GB/day cap | + Azure Monitor Agent identity and the VM data collection rules | `management_resource_settings` in the accelerator config |
 
 Delete the cells (Actions → AKS cell → `delete`) when they are not needed: they are the largest cost of the lab.
 Acceptance testing (phase 3) runs with the design values.

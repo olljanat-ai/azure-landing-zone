@@ -6,19 +6,11 @@ locals {
   dns_resource_group_name        = "rg-hub-dns-${var.location}"
   management_resource_group_name = "rg-management-${var.location}"
 
+  # Private link zones the AKS stacks use. The hub only has these in the lab (private_link_private_dns_zones in
+  # accelerator/config/platform-landing-zone.tfvars); add a zone there and here before a stack needs it.
   private_dns_zone_names = merge({
-    key_vault  = "privatelink.vaultcore.azure.net"
-    acr        = "privatelink.azurecr.io"
-    blob       = "privatelink.blob.core.windows.net"
-    aks        = "privatelink.${var.location}.azmk8s.io"
-    monitor    = "privatelink.monitor.azure.com"
-    oms        = "privatelink.oms.opinsights.azure.com"
-    ods        = "privatelink.ods.opinsights.azure.com"
-    agentsvc   = "privatelink.agentsvc.azure-automation.net"
-    prometheus = "privatelink.${var.location}.prometheus.monitor.azure.com"
-    postgres   = "privatelink.postgres.database.azure.com"
-    sql        = "privatelink.database.windows.net"
-    servicebus = "privatelink.servicebus.windows.net"
+    key_vault = "privatelink.vaultcore.azure.net"
+    acr       = "privatelink.azurecr.io"
   }, var.private_dns_zone_names)
 }
 

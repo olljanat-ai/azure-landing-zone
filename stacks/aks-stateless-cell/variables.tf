@@ -99,8 +99,14 @@ variable "admin_group_object_ids" {
 
 variable "defender_enabled" {
   type        = bool
-  default     = true
-  description = "Defender for Containers sensor in the cluster."
+  default     = false
+  description = "Defender for Containers sensor in the cluster (the design). Off in the lab: billed per vCore with the Defender for Containers plan."
+}
+
+variable "container_insights_enabled" {
+  type        = bool
+  default     = false
+  description = "Container Insights (omsagent) to the platform Log Analytics workspace (the design). Off in the lab; the control plane diagnostic settings stay."
 }
 
 variable "fleet" {
