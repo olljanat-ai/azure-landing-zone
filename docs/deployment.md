@@ -49,8 +49,9 @@ dev). The NAT gateway public IPs are flagged by the ALZ `corp` policies – fine
   Install-PSResource -Name ALZ
   ```
 - Admin rights on this repository (environments, variables, secrets).
-- A registered test domain for the zone names and Let's Encrypt (`platform_dns_domain`, default
-  `example-test.com`), never the corporate one.
+- The platform's one DNS domain, `onek8s.lol` (`dns_domain` in `environments/dev`), never the corporate one. Its
+  zone is [aks-terraform](https://github.com/onek8s/aks-terraform)'s, public or private (`dns_zone_private`
+  there); the lab's is the public zone of step 3b, which Let's Encrypt validates against.
 - vCPU quota in the region for the system pools (2 cells × 3 × D4ds_v5) and the NAP VM families, and the
   region must offer availability zones 1–3, API Server VNet Integration and NAP.
 
@@ -61,7 +62,7 @@ Replace the placeholder subscription IDs (`00000000-0000-0000-0000-00000000000{1
 | File | What |
 |---|---|
 | [`accelerator/config/inputs.yaml`](../accelerator/config/inputs.yaml) | `subscription_ids`, `bootstrap_subscription_id`, `bootstrap_location`, the GitHub repository in `federated_credentials` |
-| [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, `platform_dns_domain`, address prefixes |
+| [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, address prefixes |
 | [`stacks/platform-extensions/terraform.tfvars`](../stacks/platform-extensions/terraform.tfvars) | the same subscription IDs |
 | [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault names), `container_registry` (the registry aks-terraform creates), `dns_domain`, `admin_group_object_ids` |
 
@@ -201,8 +202,7 @@ Acceptance testing (phase 3) runs with the design values.
 Run the **Platform** workflow (Actions → Platform → Run workflow), approve the two apply jobs. It deploys:
 
 - management groups and all ALZ policy assignments with `enforcementMode: DoNotEnforce`,
-- the hub in `sub-hub`: the private link DNS zones and the split-horizon zones
-  `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
+- the hub in `sub-hub`: the private link DNS zones, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
 - the management VNet with an ACI GitHub runner and its image registry when a runner token or GitHub App is set
   (the jump host only when enabled), the client VNet (the test
   client only when enabled), the Firewall rule collection groups and the dev deployment identities.
