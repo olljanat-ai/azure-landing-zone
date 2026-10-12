@@ -3,6 +3,10 @@
 # policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners and does not wait for
 # AKS_DEV_ENABLED: the clusters of onek8s/aks-terraform report their compliance to these assignments.
 # Identities: GitHub environments aks-dev-plan / aks-dev-apply (stacks/platform-extensions, Owner of sub-aks-dev).
+# The first job fills in those environments' AZURE_* variables from the managed identities in sub-mgmt, with the
+# organization secrets AZURE_OWNER (an `az ad sp create-for-rbac` service principal that can read sub-mgmt) and
+# GH_OWNER (a token that can administer this repository). It creates an environment only when it is missing and
+# never changes its protection rules.
 name: AKS policy
 
 on:
@@ -17,6 +21,7 @@ on:
     paths:
       - stacks/aks-policy/**
       - environments/dev/policy.tfvars
+      - .github/workflows/aks-policy.yaml
   workflow_dispatch:
 
 concurrency:
@@ -24,8 +29,66 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  environments:
+    name: GitHub environments aks-dev-plan / aks-dev-apply
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MANAGEMENT_SUBSCRIPTION: 2e73156d-6206-4354-b599-1f4e31333a7d # sub-mgmt, stacks/platform-extensions/terraform.tfvars
+      LOCATION: swedencentral
+      ENVIRONMENT: dev
+      VAR_FILE: environments/dev/policy.tfvars
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sign in to Azure
+        env:
+          AZURE_OWNER: ${{ secrets.AZURE_OWNER }}
+        run: |
+          set -euo pipefail
+          [ -n "$AZURE_OWNER" ] || { echo "::error::The organization secret AZURE_OWNER is not available to this repository."; exit 1; }
+          password=$(jq -r .password <<<"$AZURE_OWNER")
+          echo "::add-mask::$password"
+          tenant=$(jq -r .tenant <<<"$AZURE_OWNER")
+          az login --service-principal --username "$(jq -r .appId <<<"$AZURE_OWNER")" --password "$password" \
+            --tenant "$tenant" --allow-no-subscriptions --output none
+          echo "AZURE_TENANT_ID=$tenant" >> "$GITHUB_ENV"
+
+      - name: Set the environments' variables
+        env:
+          GH_TOKEN: ${{ secrets.GH_OWNER }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -n "$GH_TOKEN" ] || { echo "::error::The organization secret GH_OWNER is not available to this repository."; exit 1; }
+          subscription=$(sed -nE 's/^subscription_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$VAR_FILE")
+          for role in plan apply; do
+            name="id-aks-${ENVIRONMENT}-${role}-${LOCATION}"
+            client_id=$(az identity list --subscription "$MANAGEMENT_SUBSCRIPTION" --query "[?name=='${name}'].clientId | [0]" --output tsv)
+            [ -n "$client_id" ] || { echo "::error::No identity $name in sub-mgmt: apply stacks/platform-extensions first."; exit 1; }
+            gh_env="aks-${ENVIRONMENT}-${role}"
+            if ! gh api "repos/$REPO/environments/$gh_env" --silent 2>/dev/null; then
+              gh api -X PUT "repos/$REPO/environments/$gh_env" --silent
+              echo "$gh_env: created"
+            fi
+            for kv in "AZURE_CLIENT_ID=$client_id" "AZURE_TENANT_ID=$AZURE_TENANT_ID" "AZURE_SUBSCRIPTION_ID=$subscription"; do
+              key=${kv%%=*}; value=${kv#*=}
+              current=$(gh api "repos/$REPO/environments/$gh_env/variables/$key" --jq .value 2>/dev/null || true)
+              if [ "$current" = "$value" ]; then echo "$gh_env: $key unchanged"; continue; fi
+              if [ -n "$current" ]; then
+                gh api -X PATCH "repos/$REPO/environments/$gh_env/variables/$key" -f name="$key" -f value="$value" --silent
+              else
+                gh api -X POST "repos/$REPO/environments/$gh_env/variables" -f name="$key" -f value="$value" --silent
+              fi
+              echo "$gh_env: $key = $value"
+            done
+          done
+
   policy:
     name: Policy dev
+    needs: environments
     uses: ./.github/workflows/terraform-stack.yaml
     permissions:
       id-token: write
