@@ -18,7 +18,7 @@ container_registry = {
   name                = "acronek8sdev"
   resource_group_name = "rg-aks-dev"
 }
-dns_domain = "example-test.com"
+dns_domain = "onek8s.lol"
 
 # null: newest patch of N-2. The version pipeline writes the explicit version here.
 kubernetes_version      = null

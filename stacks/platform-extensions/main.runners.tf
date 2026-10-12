@@ -3,7 +3,9 @@
 # an ACR builds the runner image with an ACR task, and Azure Container Instances run ephemeral runners
 # registered to this repository. The registry is private (Premium, private endpoint) in the design and public with
 # Entra ID authentication only in the lab (runner_registry_sku Basic). Their traffic leaves through the hub Firewall (rules in main.firewall.tf), or
-# through the NAT gateway of the management VNet in sandbox mode.
+# through the NAT gateway of the management VNet in sandbox mode. The registry exists only together with the
+# runners: without a runner token or GitHub App (the lab, where onek8s/aks-terraform deploys from GitHub-hosted
+# runners) the environment's registry in onek8s/aks-terraform is the only one.
 locals {
   runners_enabled = nonsensitive(var.github_runner_token != "" || (var.github_runner_app_id != "" && var.github_runner_app_private_key != ""))
   runner_image    = "github-runner:${substr(var.github_runners.image_ref, 0, 7)}"
@@ -13,6 +15,7 @@ locals {
 }
 
 resource "random_string" "acr" {
+  count   = local.runners_enabled ? 1 : 0
   length  = 6
   special = false
   upper   = false
@@ -25,7 +28,8 @@ resource "azurerm_resource_group" "runners" {
 }
 
 resource "azurerm_container_registry" "runners" {
-  name                          = "acrmgmtrunners${random_string.acr.result}"
+  count                         = local.runners_enabled ? 1 : 0
+  name                          = "acrmgmtrunners${random_string.acr[0].result}"
   resource_group_name           = azurerm_resource_group.runners.name
   location                      = var.location
   sku                           = var.runner_registry_sku
@@ -39,8 +43,8 @@ resource "azurerm_container_registry" "runners" {
 }
 
 resource "azurerm_private_endpoint" "runners_acr" {
-  count               = local.runner_registry_private ? 1 : 0
-  name                = "pe-${azurerm_container_registry.runners.name}"
+  count               = local.runners_enabled && local.runner_registry_private ? 1 : 0
+  name                = "pe-${azurerm_container_registry.runners[0].name}"
   location            = var.location
   resource_group_name = azurerm_resource_group.runners.name
   subnet_id           = azurerm_subnet.management_pe.id
@@ -48,7 +52,7 @@ resource "azurerm_private_endpoint" "runners_acr" {
 
   private_service_connection {
     name                           = "registry"
-    private_connection_resource_id = azurerm_container_registry.runners.id
+    private_connection_resource_id = azurerm_container_registry.runners[0].id
     subresource_names              = ["registry"]
     is_manual_connection           = false
   }
@@ -60,8 +64,9 @@ resource "azurerm_private_endpoint" "runners_acr" {
 }
 
 resource "azurerm_container_registry_task" "runner_image" {
+  count                 = local.runners_enabled ? 1 : 0
   name                  = "image-build-task"
-  container_registry_id = azurerm_container_registry.runners.id
+  container_registry_id = azurerm_container_registry.runners[0].id
   tags                  = var.tags
 
   platform {
@@ -81,27 +86,30 @@ resource "azurerm_container_registry_task" "runner_image" {
 
   registry_credential {
     custom {
-      login_server = azurerm_container_registry.runners.login_server
+      login_server = azurerm_container_registry.runners[0].login_server
       identity     = "[system]"
     }
   }
 }
 
 resource "azurerm_role_assignment" "runner_image_push" {
-  scope                = azurerm_container_registry.runners.id
+  count                = local.runners_enabled ? 1 : 0
+  scope                = azurerm_container_registry.runners[0].id
   role_definition_name = "AcrPush"
-  principal_id         = azurerm_container_registry_task.runner_image.identity[0].principal_id
+  principal_id         = azurerm_container_registry_task.runner_image[0].identity[0].principal_id
 }
 
 resource "azurerm_container_registry_task_schedule_run_now" "runner_image" {
-  container_registry_task_id = azurerm_container_registry_task.runner_image.id
+  count                      = local.runners_enabled ? 1 : 0
+  container_registry_task_id = azurerm_container_registry_task.runner_image[0].id
   depends_on                 = [azurerm_role_assignment.runner_image_push]
   lifecycle {
-    replace_triggered_by = [azurerm_container_registry_task.runner_image]
+    replace_triggered_by = [azurerm_container_registry_task.runner_image[0]]
   }
 }
 
 resource "azurerm_user_assigned_identity" "runners" {
+  count               = local.runners_enabled ? 1 : 0
   name                = "id-mgmt-runners-${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.runners.name
@@ -109,9 +117,10 @@ resource "azurerm_user_assigned_identity" "runners" {
 }
 
 resource "azurerm_role_assignment" "runners_pull" {
-  scope                = azurerm_container_registry.runners.id
+  count                = local.runners_enabled ? 1 : 0
+  scope                = azurerm_container_registry.runners[0].id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.runners.principal_id
+  principal_id         = azurerm_user_assigned_identity.runners[0].principal_id
 }
 
 resource "azurerm_container_group" "runners" {
@@ -135,17 +144,17 @@ resource "azurerm_container_group" "runners" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.runners.id]
+    identity_ids = [azurerm_user_assigned_identity.runners[0].id]
   }
 
   image_registry_credential {
-    server                    = azurerm_container_registry.runners.login_server
-    user_assigned_identity_id = azurerm_user_assigned_identity.runners.id
+    server                    = azurerm_container_registry.runners[0].login_server
+    user_assigned_identity_id = azurerm_user_assigned_identity.runners[0].id
   }
 
   container {
     name   = "runner"
-    image  = "${azurerm_container_registry.runners.login_server}/${local.runner_image}"
+    image  = "${azurerm_container_registry.runners[0].login_server}/${local.runner_image}"
     cpu    = var.github_runners.cpu
     memory = var.github_runners.memory
 

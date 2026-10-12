@@ -48,7 +48,7 @@ variable "container_registry" {
 
 variable "dns_domain" {
   type        = string
-  description = "Test domain; zone names are <zone>.<env>.<domain> (cluster-vars)."
+  description = "The platform's one DNS domain (onek8s.lol); names are <zone>.<env>.<domain> (cluster-vars)."
 }
 
 variable "kubernetes_version" {

@@ -49,8 +49,9 @@ dev). The NAT gateway public IPs are flagged by the ALZ `corp` policies – fine
   Install-PSResource -Name ALZ
   ```
 - Admin rights on this repository (environments, variables, secrets).
-- A registered test domain for the zone names and Let's Encrypt (`platform_dns_domain`, default
-  `example-test.com`), never the corporate one.
+- The platform's one DNS domain, `onek8s.lol` (`dns_domain` in `environments/dev`), never the corporate one. Its
+  zone is [aks-terraform](https://github.com/onek8s/aks-terraform)'s, public or private (`dns_zone_private`
+  there); the lab's is the public zone of step 3b, which Let's Encrypt validates against.
 - vCPU quota in the region for the system pools (2 cells × 3 × D4ds_v5) and the NAP VM families, and the
   region must offer availability zones 1–3, API Server VNet Integration and NAP.
 
@@ -61,7 +62,7 @@ Replace the placeholder subscription IDs (`00000000-0000-0000-0000-00000000000{1
 | File | What |
 |---|---|
 | [`accelerator/config/inputs.yaml`](../accelerator/config/inputs.yaml) | `subscription_ids`, `bootstrap_subscription_id`, `bootstrap_location`, the GitHub repository in `federated_credentials` |
-| [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, `platform_dns_domain`, address prefixes |
+| [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, address prefixes |
 | [`stacks/platform-extensions/terraform.tfvars`](../stacks/platform-extensions/terraform.tfvars) | the same subscription IDs |
 | [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault names), `container_registry` (the registry aks-terraform creates), `dns_domain`, `admin_group_object_ids` |
 
@@ -189,6 +190,7 @@ the design:
 | Monitoring | none for now - observability is set up later: no Log Analytics, no Container Insights, no VM Insights, no diagnostic settings, no Defender for Containers sensor | Log Analytics, Container Insights, Defender for Containers, control plane diagnostics | to be designed with the observability stack ([section 19](https://onek8s.github.io/docs/19-observability-with-grafana-cloud.html)) |
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
 | Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
+| Runner image registry | only while runners exist – without them the environment ACR of aks-terraform is the only registry | Premium, private endpoint | `github_runner_token` / `github_runner_app_*`, `runner_registry_sku` |
 | Management VNet NAT gateway | only while runners or the jump host exist | always (sandbox mode) | follows `github_runner_token` / `github_runner_app_*` and `jump_host_enabled` |
 | Management resources | not deployed (`management_resources_enabled = false`), and the ALZ assignments that need them removed in `accelerator/config/lib` (activity log, diagnostics, SQL auditing, Defender for Cloud export, the AMA VM / VMSS / Arc monitoring and change tracking) | Log Analytics workspace, Azure Monitor Agent identity, VM data collection rules, those assignments | `management_resources_enabled` and `management_resource_settings` in the accelerator config, the overrides in `accelerator/config/lib/archetype_definitions` |
 
@@ -200,9 +202,9 @@ Acceptance testing (phase 3) runs with the design values.
 Run the **Platform** workflow (Actions → Platform → Run workflow), approve the two apply jobs. It deploys:
 
 - management groups and all ALZ policy assignments with `enforcementMode: DoNotEnforce`,
-- the hub in `sub-hub`: the private link DNS zones and the split-horizon zones
-  `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
-- the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
+- the hub in `sub-hub`: the private link DNS zones, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
+- the management VNet with an ACI GitHub runner and its image registry when a runner token or GitHub App is set
+  (the jump host only when enabled), the client VNet (the test
   client only when enabled), the Firewall rule collection groups and the dev deployment identities.
 
 `environments.<env>.deployment_repositories` federates the apply identity with other repositories too:

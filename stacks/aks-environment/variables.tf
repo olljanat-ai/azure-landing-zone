@@ -35,7 +35,7 @@ variable "name_suffix" {
 
 variable "dns_domain" {
   type        = string
-  description = "Registered test domain of the build tenant (platform_dns_domain); zone names are <zone>.<env>.<domain>."
+  description = "The platform's one DNS domain (onek8s.lol); names are <zone>.<env>.<domain>. Its zone, public or private, is onek8s/aks-terraform's (dns_zone_private there)."
 }
 
 variable "policy_enforcement_mode" {

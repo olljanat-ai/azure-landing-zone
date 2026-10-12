@@ -2,8 +2,8 @@
 # Writes ./platform exactly like the ALZ IaC Accelerator (bootstrap module `alz_local`, starter module
 # `platform_landing_zone`) does from ./accelerator/config, without creating any Azure resources:
 #
-#   - the starter module of Azure/alz-terraform-accelerator at $ACCELERATOR_REF (examples left out),
-#     with the azurerm backend block enabled,
+#   - the starter module of Azure/alz-terraform-accelerator at $ACCELERATOR_REF (examples and the moved blocks
+#     for older starter module versions left out), with the azurerm backend block enabled,
 #   - accelerator/config/platform-landing-zone.tfvars as platform-landing-zone.auto.tfvars,
 #   - accelerator/config/lib as lib/,
 #   - terraform.tfvars.json with the bootstrap inputs the starter module needs.
@@ -30,6 +30,19 @@ mkdir -p "$out"
 
 # Same transformation as accelerator-bootstrap-modules/modules/file_manipulation (locals.files.tf)
 sed -i 's|# backend "azurerm" {}|backend "azurerm" {}|' "$out/terraform.tf"
+
+# The starter module's moved blocks (and the moved-block variable and output) migrate states written by
+# earlier starter module versions. This platform has only ever been deployed with the current layout, so they
+# are left out: the configuration needs no moved blocks.
+rm -f "$out/variables.moved.tf" "$out/outputs.moved.tf"
+python3 -I - "$out" <<'PY'
+import pathlib, re, sys
+for f in pathlib.Path(sys.argv[1]).glob("*.tf"):
+    text = f.read_bytes().decode()  # bytes: the upstream files keep their own line endings
+    stripped = re.sub(r"(\r?\n)*^moved \{\r?\n(?:^  .*\n)*^\}\r?\n", r"\1", text, flags=re.M)
+    if stripped != text:
+        f.write_bytes(stripped.encode())
+PY
 
 rm -rf "$out/lib"
 cp -r "$config/lib" "$out/lib"

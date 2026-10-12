@@ -289,7 +289,7 @@ resource "azurerm_virtual_network_peering" "environment_to_cell" {
 }
 
 # Sandbox mode has no DNS server in the hub: the VNet uses Azure DNS and is linked to every hub private DNS zone
-# (Key Vault / ACR private link zones and the split-horizon zones). Firewall mode resolves through the Firewall
+# (the Key Vault / ACR private link zones). Firewall mode resolves through the Firewall
 # DNS proxy, i.e. through the hub's links.
 resource "azurerm_private_dns_zone_virtual_network_link" "hub_zones" {
   provider = azurerm.connectivity

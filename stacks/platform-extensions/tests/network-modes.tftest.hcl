@@ -112,7 +112,7 @@ run "firewall_mode" {
   }
 
   assert {
-    condition     = length(azurerm_private_endpoint.runners_acr) == 0 && azurerm_container_registry.runners.public_network_access_enabled
+    condition     = length(azurerm_private_endpoint.runners_acr) == 0 && azurerm_container_registry.runners[0].public_network_access_enabled
     error_message = "lab: Basic runner registry without a private endpoint."
   }
 }
@@ -166,7 +166,7 @@ run "sandbox_mode_design_options" {
   }
 
   assert {
-    condition     = length(azurerm_private_endpoint.runners_acr) == 1 && !azurerm_container_registry.runners.public_network_access_enabled
+    condition     = length(azurerm_private_endpoint.runners_acr) == 1 && !azurerm_container_registry.runners[0].public_network_access_enabled
     error_message = "Premium runner registry: private endpoint, no public access."
   }
 }
@@ -182,5 +182,9 @@ run "sandbox_mode_without_runners" {
   assert {
     condition     = length(azurerm_container_group.runners) == 0 && length(azurerm_nat_gateway.management) == 0 && length(azurerm_public_ip.management_nat) == 0
     error_message = "no runners and no jump host: no NAT gateway for the management VNet."
+  }
+  assert {
+    condition     = length(azurerm_container_registry.runners) == 0 && length(azurerm_container_registry_task.runner_image) == 0 && length(azurerm_user_assigned_identity.runners) == 0
+    error_message = "no runners: no runner registry, so the environment's registry is the only one."
   }
 }

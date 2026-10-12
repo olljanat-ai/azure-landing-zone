@@ -26,8 +26,3 @@ module "management_groups" {
   policy_role_assignments_dependencies                             = local.management_group_dependencies
   telemetry_additional_content                                     = var.telemetry_additional_content
 }
-
-moved {
-  from = module.management_groups[0].module.management_groups
-  to   = module.management_groups[0]
-}
