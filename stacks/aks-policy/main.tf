@@ -75,6 +75,7 @@ locals {
       parameters = {
         effect             = { value = "Audit" }
         excludedNamespaces = { value = local.platform_namespaces }
+        namespaces         = { value = [] } # every namespace but the excluded ones
         kind               = { value = "Ingress" }
         apiGroups          = { value = ["networking.k8s.io"] }
       }
