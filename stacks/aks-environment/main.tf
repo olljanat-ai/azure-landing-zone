@@ -32,6 +32,7 @@ data "azurerm_client_config" "current" {}
 
 locals {
   env         = var.environment
+  enforce     = var.policy_enforcement_mode == "Default" # Front Door WAF: Detection until phase 3
   zones       = module.address_plan.zones
   firewall    = module.platform.firewall_enabled
   firewall_ip = module.platform.firewall_private_ip

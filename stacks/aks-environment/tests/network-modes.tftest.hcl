@@ -17,10 +17,6 @@ variables {
   }
   name_suffix = "b1"
   dns_domain  = "example-test.com"
-  container_registry = {
-    name                = "acronek8sdev"
-    resource_group_name = "rg-aks-dev"
-  }
 }
 
 override_data {

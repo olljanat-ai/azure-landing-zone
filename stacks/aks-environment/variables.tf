@@ -41,7 +41,7 @@ variable "dns_domain" {
 variable "policy_enforcement_mode" {
   type        = string
   default     = "DoNotEnforce"
-  description = "Enforcement of the AKS platform's policy assignments: DoNotEnforce (audit) in the build tenant until phase 3, then Default."
+  description = "DoNotEnforce (audit) in the build tenant until phase 3, then Default: the Front Door WAF policies follow it (Detection / Prevention). The AKS policy assignments are stacks/aks-policy's."
   validation {
     condition     = contains(["Default", "DoNotEnforce"], var.policy_enforcement_mode)
     error_message = "Default or DoNotEnforce."
@@ -62,14 +62,6 @@ variable "key_vault_sku" {
     condition     = contains(["standard", "premium"], var.key_vault_sku)
     error_message = "standard or premium."
   }
-}
-
-variable "container_registry" {
-  type = object({
-    name                = string
-    resource_group_name = string
-  })
-  description = "The environment's container registry. Not part of the landing zone: onek8s/aks-terraform creates it with the clusters (shared/, container_registry_name). Only its name is used here, for the allowed-images policy."
 }
 
 variable "nginxaas_enabled" {

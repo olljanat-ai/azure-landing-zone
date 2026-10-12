@@ -1,0 +1,117 @@
+---
+# Azure Policy of the AKS platform, environment dev (OneK8s design section 14): stacks/aks-policy assigns the AKS
+# policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners and does not wait for
+# AKS_DEV_ENABLED: the clusters of onek8s/aks-terraform report their compliance to these assignments.
+# Identities: GitHub environments aks-dev-plan / aks-dev-apply (stacks/platform-extensions, Owner of sub-aks-dev).
+# The first job fills in those environments' AZURE_* variables from the managed identities in sub-mgmt, with the
+# organization secrets AZURE_OWNER (an `az ad sp create-for-rbac` service principal that can read sub-mgmt) and
+# GH_OWNER (a token that can administer this repository). It creates an environment only when it is missing and
+# never changes its protection rules.
+name: AKS policy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - stacks/aks-policy/**
+      - environments/dev/policy.tfvars
+      - .github/workflows/aks-policy.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - stacks/aks-policy/**
+      - environments/dev/policy.tfvars
+      - .github/workflows/aks-policy.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: aks-dev-policy
+  cancel-in-progress: false
+
+jobs:
+  environments:
+    name: GitHub environments aks-dev-plan / aks-dev-apply
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MANAGEMENT_SUBSCRIPTION: 2e73156d-6206-4354-b599-1f4e31333a7d # sub-mgmt, stacks/platform-extensions/terraform.tfvars
+      LOCATION: swedencentral
+      ENVIRONMENT: dev
+      VAR_FILE: environments/dev/policy.tfvars
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sign in to Azure
+        env:
+          AZURE_OWNER: ${{ secrets.AZURE_OWNER }}
+        run: |
+          set -euo pipefail
+          [ -n "$AZURE_OWNER" ] || { echo "::error::The organization secret AZURE_OWNER is not available to this repository."; exit 1; }
+          password=$(jq -r .password <<<"$AZURE_OWNER")
+          echo "::add-mask::$password"
+          tenant=$(jq -r .tenant <<<"$AZURE_OWNER")
+          az login --service-principal --username "$(jq -r .appId <<<"$AZURE_OWNER")" --password "$password" \
+            --tenant "$tenant" --allow-no-subscriptions --output none
+          echo "AZURE_TENANT_ID=$tenant" >> "$GITHUB_ENV"
+
+      - name: Set the environments' variables
+        env:
+          GH_TOKEN: ${{ secrets.GH_OWNER }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -n "$GH_TOKEN" ] || { echo "::error::The organization secret GH_OWNER is not available to this repository."; exit 1; }
+          # A token that cannot administer this repository sees its environments as 404.
+          admin=$(gh api "repos/$REPO" --jq .permissions.admin 2>/dev/null || echo "no access")
+          echo "GH_OWNER on $REPO: admin=$admin"
+          [ "$admin" = true ] || { echo "::error::GH_OWNER cannot administer $REPO (admin=$admin): give the token Administration and Environments: read and write on it."; exit 1; }
+          subscription=$(sed -nE 's/^subscription_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$VAR_FILE")
+          for role in plan apply; do
+            name="id-aks-${ENVIRONMENT}-${role}-${LOCATION}"
+            client_id=$(az identity list --subscription "$MANAGEMENT_SUBSCRIPTION" --query "[?name=='${name}'].clientId | [0]" --output tsv)
+            echo "$name: client ID $client_id"
+            [ -n "$client_id" ] || { echo "::error::No identity $name in sub-mgmt: apply stacks/platform-extensions first."; exit 1; }
+            gh_env="aks-${ENVIRONMENT}-${role}"
+            if gh api "repos/$REPO/environments/$gh_env" --silent 2>/dev/null; then
+              echo "$gh_env: exists"
+            else
+              # Creating an environment takes Administration: read and write on a fine-grained token.
+              echo "$gh_env: missing, creating it"
+              gh api -X PUT "repos/$REPO/environments/$gh_env" --silent \
+                || { echo "::error::GH_OWNER cannot create the environment $gh_env (fine-grained token: Administration: read and write)."; exit 1; }
+            fi
+            for kv in "AZURE_CLIENT_ID=$client_id" "AZURE_TENANT_ID=$AZURE_TENANT_ID" "AZURE_SUBSCRIPTION_ID=$subscription"; do
+              key=${kv%%=*}; value=${kv#*=}
+              # A missing variable is a 404, whose error body gh still prints: go by the exit status.
+              exists=false
+              if current=$(gh api "repos/$REPO/environments/$gh_env/variables/$key" --jq .value 2>/dev/null); then exists=true; fi
+              if [ "$exists" = true ] && [ "$current" = "$value" ]; then echo "$gh_env: $key unchanged"; continue; fi
+              # Environment variables take Environments: read and write on a fine-grained token.
+              if [ "$exists" = true ]; then
+                gh api -X PATCH "repos/$REPO/environments/$gh_env/variables/$key" -f name="$key" -f value="$value" --silent \
+                  || { echo "::error::GH_OWNER cannot update $key in $gh_env (fine-grained token: Environments: read and write)."; exit 1; }
+              else
+                gh api -X POST "repos/$REPO/environments/$gh_env/variables" -f name="$key" -f value="$value" --silent \
+                  || { echo "::error::GH_OWNER cannot add $key to $gh_env (fine-grained token: Environments: read and write)."; exit 1; }
+              fi
+              echo "$gh_env: $key = $value"
+            done
+          done
+
+  policy:
+    name: Policy dev
+    needs: environments
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/aks-policy
+      state_key: aks-dev-policy.tfstate
+      var_file: environments/dev/policy.tfvars
+      network_mode_var_file: ""
+      environment_prefix: aks-dev
+      runs_on: '"ubuntu-latest"'
+      apply: ${{ github.event_name != 'pull_request' }}
