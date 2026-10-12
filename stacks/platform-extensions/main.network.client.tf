@@ -79,8 +79,8 @@ resource "azurerm_subnet_route_table_association" "client" {
   route_table_id = azurerm_route_table.client[0].id
 }
 
-# Sandbox mode: the clients reach the internal entry points through a direct peering to the edge VNet
-# (stacks/aks-environment) and the Internet through a NAT gateway, which only exists while the test client does
+# Sandbox mode: the clients reach the Internet through a NAT gateway, which only exists while the test client does.
+# The internal entry points (the cells of onek8s/aks-terraform) are not peered to the client VNet yet
 locals {
   client_nat = !local.firewall && var.client_vm_enabled
 }

@@ -1,7 +1,7 @@
 ---
 # Azure Policy of the AKS platform, environment dev (OneK8s design section 14): stacks/aks-policy assigns the AKS
-# policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners and does not wait for
-# AKS_DEV_ENABLED: the clusters of onek8s/aks-terraform report their compliance to these assignments.
+# policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners: the clusters of
+# onek8s/aks-terraform report their compliance to these assignments.
 # Identities: GitHub environments aks-dev-plan / aks-dev-apply (stacks/platform-extensions, Owner of sub-aks-dev).
 # The first job fills in those environments' AZURE_* variables from the managed identities in sub-mgmt, with the
 # organization secrets AZURE_OWNER (an `az ad sp create-for-rbac` service principal that can read sub-mgmt) and

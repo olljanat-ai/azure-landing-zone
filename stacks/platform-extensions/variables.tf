@@ -55,7 +55,7 @@ variable "environments" {
     # Isolation zone => extra FQDNs the zone's applications may reach on the Internet (union of the zones'
     # application egress policies, OneK8s design section 16). Platform FQDNs are always allowed.
     zone_fqdn_allow_lists = optional(map(list(string)), {})
-    # The environment ACR is public (container_registry_sku Basic / Standard in stacks/aks-environment, the lab):
+    # The environment ACR is public (Basic, created by onek8s/aks-terraform in the lab):
     # firewall mode then allows the nodes and the runners to reach it on the Internet instead of its private endpoint
     public_registry = optional(bool, true)
     # Other repositories that deploy into the environment with its apply identity, keyed by repository name:

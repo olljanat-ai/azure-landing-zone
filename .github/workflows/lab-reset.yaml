@@ -90,4 +90,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run platform.yaml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" -f terraform_action=apply
-          echo "Platform workflow started; approve its apply jobs, then run AKS dev if AKS_DEV_ENABLED is set."
+          echo "Platform workflow started; approve its apply jobs, then run AKS policy and onek8s/aks-terraform's Deploy."
