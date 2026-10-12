@@ -84,10 +84,12 @@ jobs:
             fi
             for kv in "AZURE_CLIENT_ID=$client_id" "AZURE_TENANT_ID=$AZURE_TENANT_ID" "AZURE_SUBSCRIPTION_ID=$subscription"; do
               key=${kv%%=*}; value=${kv#*=}
-              current=$(gh api "repos/$REPO/environments/$gh_env/variables/$key" --jq .value 2>/dev/null || true)
-              if [ "$current" = "$value" ]; then echo "$gh_env: $key unchanged"; continue; fi
+              # A missing variable is a 404, whose error body gh still prints: go by the exit status.
+              exists=false
+              if current=$(gh api "repos/$REPO/environments/$gh_env/variables/$key" --jq .value 2>/dev/null); then exists=true; fi
+              if [ "$exists" = true ] && [ "$current" = "$value" ]; then echo "$gh_env: $key unchanged"; continue; fi
               # Environment variables take Environments: read and write on a fine-grained token.
-              if [ -n "$current" ]; then
+              if [ "$exists" = true ]; then
                 gh api -X PATCH "repos/$REPO/environments/$gh_env/variables/$key" -f name="$key" -f value="$value" --silent \
                   || { echo "::error::GH_OWNER cannot update $key in $gh_env (fine-grained token: Environments: read and write)."; exit 1; }
               else
