@@ -4,8 +4,16 @@
 # added here in phase 2 and tested with `gator verify`.
 #
 # Build tenant: every assignment uses var.policy_enforcement_mode (DoNotEnforce = audit only, section 17).
+# New definitions start with effect Audit regardless of the enforcement mode (section 14: audit in dev first, then
+# deny), so switching policy_enforcement_mode to Default does not turn them into Deny by accident.
 locals {
   enforce = var.policy_enforcement_mode == "Default"
+
+  # Platform namespaces, left out of the application rules (section 14)
+  platform_namespaces = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system", "kube-public", "aks-istio-system"]
+
+  # Images by digest from the environment's ACR only
+  allowed_images_regex = "^${var.container_registry.name}\\.azurecr\\.io/[^@]+@sha256:[a-f0-9]{64}$"
 
   policy_assignments = {
     # Kubernetes (Azure Policy add-on / Gatekeeper)
@@ -14,17 +22,84 @@ locals {
       description = "Kubernetes pod security restricted standards for Linux workloads"
       parameters = {
         effect             = { value = local.enforce ? "Deny" : "Audit" }
-        excludedNamespaces = { value = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system", "kube-public", "aks-istio-system"] }
+        excludedNamespaces = { value = local.platform_namespaces }
       }
     }
     k8s-allowed-images = {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/febd0533-8e55-448f-b837-bd0e06f16469"
-      description = "Images only from the environment's ACR"
+      description = "Images by digest from the environment's ACR only"
       parameters = {
         effect                      = { value = local.enforce ? "Deny" : "Audit" }
-        allowedContainerImagesRegex = { value = "^${var.container_registry.name}.azurecr.io/.+$" }
+        allowedContainerImagesRegex = { value = local.allowed_images_regex }
         excludedNamespaces          = { value = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system"] }
       }
+    }
+    # Audit only until promoted to Deny (section 14)
+    k8s-deployment-safeguards = {
+      id          = "/providers/Microsoft.Authorization/policySetDefinitions/c047ea8e-9c78-49b2-958b-37e56d291a44"
+      description = "Deployment safeguards: probes, resource requests and AKS best practices"
+      parameters = {
+        effect                      = { value = "Audit" }
+        excludedNamespaces          = { value = local.platform_namespaces }
+        allowedContainerImagesRegex = { value = local.allowed_images_regex }
+      }
+    }
+    k8s-read-only-root-filesystem = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/df49d893-a74c-421d-bc95-c663042e5b80"
+      description = "readOnlyRootFilesystem for application containers"
+      parameters = {
+        effect             = { value = "Audit" }
+        excludedNamespaces = { value = local.platform_namespaces }
+      }
+    }
+    k8s-no-service-account-token-automount = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/423dd1ba-798e-40e4-9c4d-b6902674b423"
+      description = "automountServiceAccountToken false for application pods"
+      parameters = {
+        effect             = { value = "Audit" }
+        excludedNamespaces = { value = local.platform_namespaces }
+      }
+    }
+    k8s-no-ingress = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/b81f454c-eebb-4e4f-9dfe-dca060e8a8fd"
+      description = "No Ingress objects, Gateway API only"
+      parameters = {
+        effect             = { value = "Audit" }
+        excludedNamespaces = { value = local.platform_namespaces }
+        kind               = { value = "Ingress" }
+        apiGroups          = { value = ["networking.k8s.io"] }
+      }
+    }
+    k8s-internal-load-balancers = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/3fc4dc25-5baf-40d8-9b05-7fe74c1bc64e"
+      description = "LoadBalancer Services only internal"
+      parameters = {
+        effect             = { value = "Audit" }
+        excludedNamespaces = { value = local.platform_namespaces }
+      }
+    }
+    k8s-image-integrity = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/cf426bb8-b320-4321-8545-1b784a5df3a4"
+      description = "Images signed with Notation, audited at admission with Image Integrity (preview, audit only)"
+      parameters = {
+        effect             = { value = "Audit" }
+        excludedNamespaces = { value = local.platform_namespaces }
+      }
+    }
+    aks-ssh-disabled = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/28257686-e9db-403e-b9e2-a5eecbe03da9"
+      description = "SSH access to the nodes disabled"
+      parameters  = { effect = { value = "Audit" } }
+    }
+    aks-azure-cni = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/46238e2f-3f6f-4589-9f3f-77bed4116e67"
+      description = "Azure CNI (Cilium dataplane)"
+      parameters  = { effect = { value = "Audit" } }
+    }
+    aks-workload-identity = {
+      id          = "/providers/Microsoft.Authorization/policyDefinitions/2cc2e023-0dac-4046-875b-178f683929d5"
+      description = "Workload identity enabled (section 6)"
+      parameters  = { effect = { value = "Audit" } }
     }
     # Cluster resources
     aks-azure-policy-add-on = {
