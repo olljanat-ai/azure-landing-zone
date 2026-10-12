@@ -22,6 +22,7 @@ jobs:
           - platform
           - stacks/platform-extensions
           - stacks/aks-environment
+          - stacks/aks-policy
           - stacks/aks-stateless-cell
     steps:
       - name: Checkout

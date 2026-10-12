@@ -1,0 +1,40 @@
+---
+# Azure Policy of the AKS platform, environment dev (OneK8s design section 14): stacks/aks-policy assigns the AKS
+# policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners and does not wait for
+# AKS_DEV_ENABLED: the clusters of onek8s/aks-terraform report their compliance to these assignments.
+# Identities: GitHub environments aks-dev-plan / aks-dev-apply (stacks/platform-extensions, Owner of sub-aks-dev).
+name: AKS policy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - stacks/aks-policy/**
+      - environments/dev/policy.tfvars
+      - .github/workflows/aks-policy.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - stacks/aks-policy/**
+      - environments/dev/policy.tfvars
+  workflow_dispatch:
+
+concurrency:
+  group: aks-dev-policy
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    name: Policy dev
+    uses: ./.github/workflows/terraform-stack.yaml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      root_module: stacks/aks-policy
+      state_key: aks-dev-policy.tfstate
+      var_file: environments/dev/policy.tfvars
+      network_mode_var_file: ""
+      environment_prefix: aks-dev
+      runs_on: '"ubuntu-latest"'
+      apply: ${{ github.event_name != 'pull_request' }}

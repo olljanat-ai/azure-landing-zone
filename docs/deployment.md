@@ -9,7 +9,8 @@ VNet. **Exit criterion: a stateless cell can be created and deleted by the pipel
  step 6  workflow "Platform"             ──► platform/ (ALZ: management groups, policy, management, hub)
                                           └► stacks/platform-extensions (management VNet + runners, client VNet,
                                              Firewall rules, AKS deployment identities)
- step 7  workflow "AKS dev"              ──► stacks/aks-environment (environments/dev/environment.tfvars)
+ step 7  workflow "AKS policy"           ──► stacks/aks-policy (environments/dev/policy.tfvars, GitHub-hosted)
+         workflow "AKS dev"              ──► stacks/aks-environment (environments/dev/environment.tfvars)
                                           └► stacks/aks-stateless-cell sl-az1, then sl-az2
  step 8  workflow "AKS cell"             ──► create / delete one cell + smoke test
 ```
@@ -64,7 +65,7 @@ Replace the placeholder subscription IDs (`00000000-0000-0000-0000-00000000000{1
 | [`accelerator/config/inputs.yaml`](../accelerator/config/inputs.yaml) | `subscription_ids`, `bootstrap_subscription_id`, `bootstrap_location`, the GitHub repository in `federated_credentials` |
 | [`accelerator/config/platform-landing-zone.tfvars`](../accelerator/config/platform-landing-zone.tfvars) | `subscription_id_aks_dev`, `defender_email_security_contact`, address prefixes |
 | [`stacks/platform-extensions/terraform.tfvars`](../stacks/platform-extensions/terraform.tfvars) | the same subscription IDs |
-| [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault names), `container_registry` (the registry aks-terraform creates), `dns_domain`, `admin_group_object_ids` |
+| [`environments/dev/*.tfvars`](../environments/dev) | the same subscription IDs, `name_suffix` (globally unique Key Vault names), `container_registry_name` in `policy.tfvars` (the registry aks-terraform creates), `dns_domain`, `admin_group_object_ids` |
 
 Choose the network mode (see above, e.g. `scripts/set-network-mode.sh sandbox` for a lab). Then regenerate the
 accelerator output and commit:
@@ -165,10 +166,11 @@ Protect `main` with a ruleset (pull request required, status checks of the **CI*
 |---|---|---|---|---|
 | Platform | `platform` | `terraform.tfstate` | GitHub-hosted | accelerator plan / apply |
 | Platform | `stacks/platform-extensions` | `platform-extensions.tfstate` | GitHub-hosted | accelerator plan / apply |
+| AKS policy | `stacks/aks-policy` + `environments/dev/policy.tfvars` | `aks-dev-policy.tfstate` | GitHub-hosted | `id-aks-dev-plan` / `-apply` |
 | AKS dev | `stacks/aks-environment` + `environments/dev/environment.tfvars` | `aks-dev-environment.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
 | AKS dev, AKS cell | `stacks/aks-stateless-cell` + `environments/dev/sl-az<N>.tfvars` | `aks-dev-sl-az<N>.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
 
-The AKS stacks need the self-hosted runners because Key Vault (keys, certificates) and the API servers have no
+The AKS stacks except `aks-policy` (control plane only) need the self-hosted runners because Key Vault (keys, certificates) and the API servers have no
 public endpoint.
 
 ## Lab SKUs
@@ -213,7 +215,7 @@ environment `dev` (variables `AZURE_CLIENT_ID` = the `aks-dev-apply` client ID, 
 `AZURE_SUBSCRIPTION_ID`; no secret).
 
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
-`aks-dev-plan` / `aks-dev-apply` environments. Check that the runner `aci-mgmt-runner-01` is online
+`aks-dev-plan` / `aks-dev-apply` environments – the **AKS policy** workflow needs only these. Check that the runner `aci-mgmt-runner-01` is online
 (Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
 
 Until `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` is set the Platform workflow skips its jobs, so pushes before the
@@ -221,8 +223,9 @@ bootstrap stay green.
 
 ## 7. dev environment and cells
 
-Run the **AKS dev** workflow. It applies the environment (backend and edge VNets, Key Vaults, identities,
-policies, Front Door when enabled), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
+Run the **AKS policy** workflow (also on every change to `stacks/aks-policy`): it assigns the AKS policies to
+`sub-aks-dev`, where every cluster with the Azure Policy add-on reports its compliance. Then run the **AKS dev**
+workflow. It applies the environment (backend and edge VNets, Key Vaults, identities, Front Door when enabled), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
 
 The API servers are private. Without a jump host, run kubectl through the AKS API (no network path needed, your
 Entra ID account needs a Kubernetes RBAC role on the cluster):
@@ -263,7 +266,8 @@ registrar, so its name servers must not change) and the GitHub settings stay. It
 Before acceptance testing every policy goes to its production effect (section 17, "Switch policies to deny first"):
 
 - `policy_enforcement_mode = "Default"` in `accelerator/config/platform-landing-zone.tfvars` (then
-  `scripts/sync-platform.sh`) and in `environments/dev/environment.tfvars`,
+  `scripts/sync-platform.sh`), in `environments/dev/policy.tfvars` and in `environments/dev/environment.tfvars`,
+- in `stacks/aks-policy`, the definitions still at effect `Audit` move to `Deny` one by one,
 - the design SKUs (see [Lab SKUs](#lab-skus)), in particular Firewall Premium with
   `intrusion_detection.mode = "Deny"` and `threat_intelligence_mode = "Deny"` in the Firewall policy,
 - the Front Door WAF policies follow `policy_enforcement_mode` (Detection → Prevention).

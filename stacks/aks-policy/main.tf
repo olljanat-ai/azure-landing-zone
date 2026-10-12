@@ -1,5 +1,7 @@
 # Azure Policy for the AKS platform (OneK8s design section 14), assigned to the environment subscription so that a
-# new or rebuilt cluster gets every policy automatically. Built-in definitions first; the platform's custom
+# new or rebuilt cluster gets every policy automatically. A stack of its own: assignments are control plane only, so
+# it runs on GitHub-hosted runners and applies whether or not the self-hosted runners and the AKS dev workflow are
+# up – the clusters of onek8s/aks-terraform report their compliance to these assignments. Built-in definitions first; the platform's custom
 # Microsoft.Kubernetes.Data definitions (zone pinning, FQDN egress, ESO-only secrets, Gateway API only, ...) are
 # added here in phase 2 and tested with `gator verify`.
 #
@@ -7,13 +9,14 @@
 # New definitions start with effect Audit regardless of the enforcement mode (section 14: audit in dev first, then
 # deny), so switching policy_enforcement_mode to Default does not turn them into Deny by accident.
 locals {
+  env     = var.environment
   enforce = var.policy_enforcement_mode == "Default"
 
   # Platform namespaces, left out of the application rules (section 14)
   platform_namespaces = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system", "kube-public", "aks-istio-system"]
 
   # Images by digest from the environment's ACR only
-  allowed_images_regex = "^${var.container_registry.name}\\.azurecr\\.io/[^@]+@sha256:[a-f0-9]{64}$"
+  allowed_images_regex = "^${var.container_registry_name}\\.azurecr\\.io/[^@]+@sha256:[a-f0-9]{64}$"
 
   policy_assignments = {
     # Kubernetes (Azure Policy add-on / Gatekeeper)
