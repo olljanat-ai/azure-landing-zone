@@ -74,18 +74,25 @@ jobs:
             echo "$name: client ID $client_id"
             [ -n "$client_id" ] || { echo "::error::No identity $name in sub-mgmt: apply stacks/platform-extensions first."; exit 1; }
             gh_env="aks-${ENVIRONMENT}-${role}"
-            if ! gh api "repos/$REPO/environments/$gh_env" --silent 2>/dev/null; then
-              gh api -X PUT "repos/$REPO/environments/$gh_env" --silent
-              echo "$gh_env: created"
+            if gh api "repos/$REPO/environments/$gh_env" --silent 2>/dev/null; then
+              echo "$gh_env: exists"
+            else
+              # Creating an environment takes Administration: read and write on a fine-grained token.
+              echo "$gh_env: missing, creating it"
+              gh api -X PUT "repos/$REPO/environments/$gh_env" --silent \
+                || { echo "::error::GH_OWNER cannot create the environment $gh_env (fine-grained token: Administration: read and write)."; exit 1; }
             fi
             for kv in "AZURE_CLIENT_ID=$client_id" "AZURE_TENANT_ID=$AZURE_TENANT_ID" "AZURE_SUBSCRIPTION_ID=$subscription"; do
               key=${kv%%=*}; value=${kv#*=}
               current=$(gh api "repos/$REPO/environments/$gh_env/variables/$key" --jq .value 2>/dev/null || true)
               if [ "$current" = "$value" ]; then echo "$gh_env: $key unchanged"; continue; fi
+              # Environment variables take Environments: read and write on a fine-grained token.
               if [ -n "$current" ]; then
-                gh api -X PATCH "repos/$REPO/environments/$gh_env/variables/$key" -f name="$key" -f value="$value" --silent
+                gh api -X PATCH "repos/$REPO/environments/$gh_env/variables/$key" -f name="$key" -f value="$value" --silent \
+                  || { echo "::error::GH_OWNER cannot update $key in $gh_env (fine-grained token: Environments: read and write)."; exit 1; }
               else
-                gh api -X POST "repos/$REPO/environments/$gh_env/variables" -f name="$key" -f value="$value" --silent
+                gh api -X POST "repos/$REPO/environments/$gh_env/variables" -f name="$key" -f value="$value" --silent \
+                  || { echo "::error::GH_OWNER cannot add $key to $gh_env (fine-grained token: Environments: read and write)."; exit 1; }
               fi
               echo "$gh_env: $key = $value"
             done
