@@ -2,7 +2,10 @@
 
 This is phase 1 (Foundation) of the [implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
 build tenant, management and hub, `sub-aks-dev`, pipelines with OIDC, Azure Policy in audit mode and the client
-VNet. **Exit criterion: a stateless cell can be created and deleted by the pipeline** (step 8).
+VNet. **Exit criterion: a stateless cell can be created and deleted by the pipeline** (step 8). The clusters
+themselves - the cells, their networks, Key Vaults and Traffic Manager - are
+[onek8s/aks-terraform](https://github.com/onek8s/aks-terraform)'s, deployed into `sub-aks-dev` with this
+repository's dev apply identity.
 
 ```text
  step 2  Deploy-Accelerator (alz_local)  ──► state storage + plan/apply identities, federated with GitHub
@@ -10,9 +13,8 @@ VNet. **Exit criterion: a stateless cell can be created and deleted by the pipel
                                           └► stacks/platform-extensions (management VNet + runners, client VNet,
                                              Firewall rules, AKS deployment identities)
  step 7  workflow "AKS policy"           ──► stacks/aks-policy (environments/dev/policy.tfvars, GitHub-hosted)
-         workflow "AKS dev"              ──► stacks/aks-environment (environments/dev/environment.tfvars)
-                                          └► stacks/aks-stateless-cell sl-az1, then sl-az2
- step 8  workflow "AKS cell"             ──► create / delete one cell + smoke test
+         onek8s/aks-terraform "Deploy"  ──► shared/ (cells' networks, vaults, Traffic Manager), then each cell
+ step 8  onek8s/aks-terraform "Deploy"  ──► destroy / apply one cell
 ```
 
 ## Network mode: firewall or sandbox
@@ -29,7 +31,7 @@ git add -A && git commit -m "Network mode sandbox" && git push
 | | `firewall` (the design) | `sandbox` (lab / prototype) |
 |---|---|---|
 | Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed |
-| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; direct peerings: cells ↔ backend, cells ↔ edge, management ↔ backend, client ↔ edge (plus hub peerings for DNS) |
+| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; the cells (aks-terraform) are networks of their own, not peered to the hub |
 | Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary |
 | Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies |
 | DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone |
@@ -143,7 +145,6 @@ Repository **variables** (Settings → Secrets and variables → Actions → Var
 | `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` | state storage account from step 2 |
 | `BACKEND_AZURE_STORAGE_ACCOUNT_CONTAINER_NAME` | state container from step 2 (`build-tfstate`) |
 | `RUNNER_APP_ID` | optional: GitHub App for runner registration |
-| `AKS_DEV_ENABLED` | `true` once the self-hosted runners are online (step 6); until then the AKS dev workflow is skipped |
 
 Repository **secrets**: `RUNNER_REGISTRATION_TOKEN` – a fine-grained PAT for this repository with
 *Administration: read and write* (or `RUNNER_APP_PRIVATE_KEY` with `RUNNER_APP_ID`). It is only used to register
@@ -167,11 +168,10 @@ Protect `main` with a ruleset (pull request required, status checks of the **CI*
 | Platform | `platform` | `terraform.tfstate` | GitHub-hosted | accelerator plan / apply |
 | Platform | `stacks/platform-extensions` | `platform-extensions.tfstate` | GitHub-hosted | accelerator plan / apply |
 | AKS policy | `stacks/aks-policy` + `environments/dev/policy.tfvars` | `aks-dev-policy.tfstate` | GitHub-hosted | `id-aks-dev-plan` / `-apply` |
-| AKS dev | `stacks/aks-environment` + `environments/dev/environment.tfvars` | `aks-dev-environment.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
-| AKS dev, AKS cell | `stacks/aks-stateless-cell` + `environments/dev/sl-az<N>.tfvars` | `aks-dev-sl-az<N>.tfstate` | self-hosted (management VNet) | `id-aks-dev-plan` / `-apply` |
+| onek8s/aks-terraform Deploy | `shared/`, the repository root + `envs/dev-<cluster>.tfvars` | `<stack>.tfstate` in `sub-aks-dev` | GitHub-hosted | `id-aks-dev-apply` (GitHub environment `dev` there) |
 
-The AKS stacks except `aks-policy` (control plane only) need the self-hosted runners because Key Vault (keys, certificates) and the API servers have no
-public endpoint.
+The dev lab's API servers are public (Entra ID only, local accounts disabled), so nothing of the clusters needs the
+self-hosted runners.
 
 ## Lab SKUs
 
@@ -186,9 +186,9 @@ the design:
 | GitHub runners | 1 | 2 | `github_runners.count` |
 | Runner ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku` |
 | Environment ACR | not part of the landing zone: created by [aks-terraform](https://github.com/onek8s/aks-terraform) (`shared/`) | | `environments.<env>.public_registry` in `stacks/platform-extensions` for the Firewall rules |
-| Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | `key_vault_sku` – changing it later replaces the cluster keys, so rebuild the cells |
-| Front Door | not deployed | Premium | `front_door_enabled` (Premium only: Private Link origins and managed WAF rules) |
-| AKS | Free tier, 1 system node | Standard tier, 3 system nodes | `sku_tier`, `system_pool.node_count` in `environments/dev/sl-az*.tfvars` |
+| Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | aks-terraform `shared/` – changing it later replaces the cluster keys, so rebuild the cells |
+| Traffic Manager | one profile per external hostname | the same | aks-terraform `shared/`: `global_hostnames` |
+| AKS | Free tier, 1 system node, public API server | Standard tier, 3 system nodes, private API server | `sku_tier`, `default_node_pool.node_count`, `private_cluster_enabled` in aks-terraform's `envs/dev-stateless-az*.tfvars` |
 | Monitoring | none for now - observability is set up later: no Log Analytics, no Container Insights, no VM Insights, no diagnostic settings, no Defender for Containers sensor | Log Analytics, Container Insights, Defender for Containers, control plane diagnostics | to be designed with the observability stack ([section 19](https://onek8s.github.io/docs/19-observability-with-grafana-cloud.html)) |
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
 | Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
@@ -196,7 +196,8 @@ the design:
 | Management VNet NAT gateway | only while runners or the jump host exist | always (sandbox mode) | follows `github_runner_token` / `github_runner_app_*` and `jump_host_enabled` |
 | Management resources | not deployed (`management_resources_enabled = false`), and the ALZ assignments that need them removed in `accelerator/config/lib` (activity log, diagnostics, SQL auditing, Defender for Cloud export, the AMA VM / VMSS / Arc monitoring and change tracking) | Log Analytics workspace, Azure Monitor Agent identity, VM data collection rules, those assignments | `management_resources_enabled` and `management_resource_settings` in the accelerator config, the overrides in `accelerator/config/lib/archetype_definitions` |
 
-Delete the cells (Actions → AKS cell → `delete`) when they are not needed: they are the largest cost of the lab.
+Destroy the cells (aks-terraform: Actions → Deploy → a cell, `destroy`) when they are not needed: they are the
+largest cost of the lab.
 Acceptance testing (phase 3) runs with the design values.
 
 ## 6. Platform
@@ -215,8 +216,7 @@ environment `dev` (variables `AZURE_CLIENT_ID` = the `aks-dev-apply` client ID, 
 `AZURE_SUBSCRIPTION_ID`; no secret).
 
 Copy the client IDs from the output `aks_environment_identities` of the extensions apply job into the
-`aks-dev-plan` / `aks-dev-apply` environments – the **AKS policy** workflow needs only these. Check that the runner `aci-mgmt-runner-01` is online
-(Settings → Actions → Runners), then set the repository variable `AKS_DEV_ENABLED` to `true`.
+`aks-dev-plan` / `aks-dev-apply` environments – the **AKS policy** workflow needs only these.
 
 Until `BACKEND_AZURE_STORAGE_ACCOUNT_NAME` is set the Platform workflow skips its jobs, so pushes before the
 bootstrap stay green.
@@ -224,26 +224,18 @@ bootstrap stay green.
 ## 7. dev environment and cells
 
 Run the **AKS policy** workflow (also on every change to `stacks/aks-policy`): it assigns the AKS policies to
-`sub-aks-dev`, where every cluster with the Azure Policy add-on reports its compliance. Then run the **AKS dev**
-workflow. It applies the environment (backend and edge VNets, Key Vaults, identities, Front Door when enabled), then `sl-az1` and, after it, `sl-az2`. A cell takes roughly 20–30 minutes.
-
-The API servers are private. Without a jump host, run kubectl through the AKS API (no network path needed, your
-Entra ID account needs a Kubernetes RBAC role on the cluster):
-
-```bash
-az aks command invoke -g rg-aks-dev-sl-az1-<region> -n aks-dev-sl-az1 --command "kubectl get nodes"
-```
-
-With the jump host enabled, connect with `az network bastion ssh --name bas-hub-<region> --resource-group
-rg-hub-<region> --target-resource-id <vm id> --auth-type AAD`, then `az aks get-credentials`,
-`kubelogin convert-kubeconfig -l azurecli` and `kubectl` as usual.
+`sub-aks-dev`, where every cluster with the Azure Policy add-on reports its compliance. Then deploy the clusters
+from [onek8s/aks-terraform](https://github.com/onek8s/aks-terraform): its **Deploy** workflow applies `dev-shared`
+(the cells' networks, the platform and zone Key Vaults, the internal zones' private DNS, the container registry,
+Traffic Manager) and then each cell, `dev-stateless-az1` and `dev-stateless-az2`; its **Renew Certificate**
+workflow issues the gateways' certificates. A cell takes roughly 15–20 minutes. Its **Cluster status** workflow
+reports what runs inside a cell.
 
 ## 8. Phase 1 exit criterion: create and delete a cell by the pipeline
 
-Actions → **AKS cell** → environment `dev`, cell `sl-az2`, action `delete` → approve. Then the same with
-`create`: the cell is rebuilt from IaC (new OIDC issuer, federated credentials replaced, the same keys reused with
-a new version) and the smoke test checks the cluster settings against the requirements and reaches the API
-server through the management VNet private endpoint.
+aks-terraform: Actions → **Deploy** → `dev-stateless-az2`, `destroy`. Then the same with `apply` and
+`allow_empty_state`: the cell is rebuilt from IaC (new OIDC issuer, federated credentials replaced, its keys
+created again in the platform vault) and Flux brings back everything inside it.
 
 ## Lab reset
 
@@ -257,17 +249,18 @@ registrar, so its name servers must not change) and the GitHub settings stay. It
 - Type `reset-lab` in *confirm*. *dry_run* (default) only lists what would be deleted.
 - Deletions run in passes: a failure is logged and retried in the next pass. The Terraform state is deleted only
   when nothing is left; otherwise the run fails with the list of leftovers and can simply be started again.
-- *redeploy* starts the Platform workflow afterwards; run AKS dev after it.
-- Key Vaults with purge protection stay soft-deleted for 90 days and keep their names: change `name_suffix` in
-  `environments/dev/*.tfvars` before redeploying the dev environment.
+- *redeploy* starts the Platform workflow afterwards; run AKS policy and aks-terraform's Deploy after it.
+- Key Vaults with purge protection (aks-terraform's platform vault) stay soft-deleted for 90 days and keep their
+  names; aks-terraform recovers a soft-deleted vault when it creates it again.
 
 ## Phase 3: switch from audit to deny
 
 Before acceptance testing every policy goes to its production effect (section 17, "Switch policies to deny first"):
 
 - `policy_enforcement_mode = "Default"` in `accelerator/config/platform-landing-zone.tfvars` (then
-  `scripts/sync-platform.sh`), in `environments/dev/policy.tfvars` and in `environments/dev/environment.tfvars`,
+  `scripts/sync-platform.sh`) and in `environments/dev/policy.tfvars`,
 - in `stacks/aks-policy`, the definitions still at effect `Audit` move to `Deny` one by one,
 - the design SKUs (see [Lab SKUs](#lab-skus)), in particular Firewall Premium with
   `intrusion_detection.mode = "Deny"` and `threat_intelligence_mode = "Deny"` in the Firewall policy,
-- the Front Door WAF policies follow `policy_enforcement_mode` (Detection → Prevention).
+- external applications are reached through Azure Traffic Manager (aks-terraform), which has no WAF; a WAF in front of the
+  external zones is an open question of the design.

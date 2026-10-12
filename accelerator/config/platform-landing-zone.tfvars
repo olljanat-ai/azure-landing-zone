@@ -168,7 +168,7 @@ management_resource_settings = {
 --- Management Groups and Policy ---
 The corporate landing zone initiatives (ALZ library, see lib/alz_library_metadata.json) assigned at the same
 scopes as in the corporate tenant. The AKS platform's own definitions are assigned per environment subscription
-by stacks/aks-environment (OneK8s design section 14).
+by stacks/aks-policy (OneK8s design section 14).
 */
 management_groups_enabled = true
 
