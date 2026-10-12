@@ -45,6 +45,12 @@ locals {
         effect                      = { value = "Audit" }
         excludedNamespaces          = { value = local.platform_namespaces }
         allowedContainerImagesRegex = { value = local.allowed_images_regex }
+        # What AKS itself passes when it turns deployment safeguards on: its own identities may edit
+        # nodes, and its labels and system-pool taint are reserved.
+        allowedUsers   = { value = ["nodeclient", "system:serviceaccount:kube-system:aci-connector-linux", "system:serviceaccount:kube-system:node-controller", "acsService", "aksService", "system:serviceaccount:kube-system:cloud-node-manager"] }
+        allowedGroups  = { value = ["system:nodes"] }
+        labels         = { value = ["kubernetes.azure.com"] }
+        reservedTaints = { value = ["CriticalAddonsOnly"] }
       }
     }
     k8s-read-only-root-filesystem = {
@@ -159,7 +165,12 @@ resource "azurerm_subscription_policy_assignment" "aks" {
   parameters           = jsonencode(each.value.parameters)
   location             = var.location
 
-  non_compliance_message {
-    content = "Violates the AKS platform design (OneK8s design section 14): ${each.value.description}."
+  # Not for the Kubernetes (Microsoft.Kubernetes.Data) definitions: Azure refuses a non-compliance
+  # message on them.
+  dynamic "non_compliance_message" {
+    for_each = startswith(each.key, "k8s-") ? [] : [each.value.description]
+    content {
+      content = "Violates the AKS platform design (OneK8s design section 14): ${non_compliance_message.value}."
+    }
   }
 }
