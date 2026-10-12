@@ -63,10 +63,15 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "$GH_TOKEN" ] || { echo "::error::The organization secret GH_OWNER is not available to this repository."; exit 1; }
+          # A token that cannot administer this repository sees its environments as 404.
+          admin=$(gh api "repos/$REPO" --jq .permissions.admin 2>/dev/null || echo "no access")
+          echo "GH_OWNER on $REPO: admin=$admin"
+          [ "$admin" = true ] || { echo "::error::GH_OWNER cannot administer $REPO (admin=$admin): give the token Administration and Environments: read and write on it."; exit 1; }
           subscription=$(sed -nE 's/^subscription_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$VAR_FILE")
           for role in plan apply; do
             name="id-aks-${ENVIRONMENT}-${role}-${LOCATION}"
             client_id=$(az identity list --subscription "$MANAGEMENT_SUBSCRIPTION" --query "[?name=='${name}'].clientId | [0]" --output tsv)
+            echo "$name: client ID $client_id"
             [ -n "$client_id" ] || { echo "::error::No identity $name in sub-mgmt: apply stacks/platform-extensions first."; exit 1; }
             gh_env="aks-${ENVIRONMENT}-${role}"
             if ! gh api "repos/$REPO/environments/$gh_env" --silent 2>/dev/null; then
