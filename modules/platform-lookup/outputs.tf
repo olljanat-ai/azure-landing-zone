@@ -34,8 +34,8 @@ output "dns_servers" {
 }
 
 output "private_dns_zones" {
-  description = "Every hub private DNS zone, name => resource ID. Sandbox mode links each spoke VNet to all of them."
-  value       = { for z in data.azurerm_resources.private_dns_zones.resources : z.name => z.id }
+  description = "Every private link zone of the hub (privatelink.*), name => resource ID. Sandbox mode links each spoke VNet to all of them."
+  value       = { for z in data.azurerm_resources.private_dns_zones.resources : z.name => z.id if startswith(z.name, "privatelink.") }
 }
 
 output "dns_resource_group_name" {

@@ -38,7 +38,7 @@ data "azurerm_firewall_policy" "hub" {
   resource_group_name = local.hub_resource_group_name
 }
 
-# Every private DNS zone of the hub (private link zones and the split-horizon zones of the isolation zones). In
+# Every private DNS zone of the hub (the private link zones). In
 # sandbox mode there is no DNS server in the hub: each spoke links its VNet to all of them and uses Azure DNS.
 data "azurerm_resources" "private_dns_zones" {
   provider            = azurerm.connectivity

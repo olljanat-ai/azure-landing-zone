@@ -30,8 +30,3 @@ module "management_resources" {
   user_assigned_managed_identities                           = module.config.outputs.management_resource_settings.user_assigned_managed_identities
 }
 
-moved {
-  from = module.management_resources[0].module.management_resources
-  to   = module.management_resources[0]
-}
-

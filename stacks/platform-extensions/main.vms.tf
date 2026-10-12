@@ -163,19 +163,3 @@ resource "azurerm_role_assignment" "client_admin_login" {
   role_definition_name = "Virtual Machine Administrator Login"
   principal_id         = var.admin_group_object_id
 }
-
-# Earlier addresses of the Entra ID login extensions. Azure refuses to delete an extension of a stopped VM (409
-# OperationNotAllowed), so Terraform forgets them instead: they are deleted together with their VM.
-removed {
-  from = azurerm_virtual_machine_extension.jump_aad_login
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = azurerm_virtual_machine_extension.client_aad_login
-  lifecycle {
-    destroy = false
-  }
-}

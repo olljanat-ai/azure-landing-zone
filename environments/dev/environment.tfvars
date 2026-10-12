@@ -9,8 +9,8 @@ platform_subscription_ids = {
 }
 
 countries   = { fi = 1, se = 2 }
-name_suffix = "b1" # makes kv-dev-<zone>-b1 globally unique – change if taken
-dns_domain  = "example-test.com"
+name_suffix = "b1"         # makes kv-dev-<zone>-b1 globally unique – change if taken
+dns_domain  = "onek8s.lol" # the one domain: its zone, public or private, is onek8s/aks-terraform's
 
 # DoNotEnforce until phase 3 (acceptance testing), then Default – together with policy_enforcement_mode in
 # accelerator/config/platform-landing-zone.tfvars

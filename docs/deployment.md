@@ -189,6 +189,7 @@ the design:
 | Monitoring | none for now - observability is set up later: no Log Analytics, no Container Insights, no VM Insights, no diagnostic settings, no Defender for Containers sensor | Log Analytics, Container Insights, Defender for Containers, control plane diagnostics | to be designed with the observability stack ([section 19](https://onek8s.github.io/docs/19-observability-with-grafana-cloud.html)) |
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
 | Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
+| Runner image registry | only while runners exist – without them the environment ACR of aks-terraform is the only registry | Premium, private endpoint | `github_runner_token` / `github_runner_app_*`, `runner_registry_sku` |
 | Management VNet NAT gateway | only while runners or the jump host exist | always (sandbox mode) | follows `github_runner_token` / `github_runner_app_*` and `jump_host_enabled` |
 | Management resources | not deployed (`management_resources_enabled = false`), and the ALZ assignments that need them removed in `accelerator/config/lib` (activity log, diagnostics, SQL auditing, Defender for Cloud export, the AMA VM / VMSS / Arc monitoring and change tracking) | Log Analytics workspace, Azure Monitor Agent identity, VM data collection rules, those assignments | `management_resources_enabled` and `management_resource_settings` in the accelerator config, the overrides in `accelerator/config/lib/archetype_definitions` |
 
@@ -202,7 +203,8 @@ Run the **Platform** workflow (Actions → Platform → Run workflow), approve t
 - management groups and all ALZ policy assignments with `enforcementMode: DoNotEnforce`,
 - the hub in `sub-hub`: the private link DNS zones and the split-horizon zones
   `<zone>.dev.<domain>`, plus Azure Firewall (DNS proxy) in `firewall` mode and Bastion when enabled,
-- the management VNet with an ACI GitHub runner (the jump host only when enabled), the client VNet (the test
+- the management VNet with an ACI GitHub runner and its image registry when a runner token or GitHub App is set
+  (the jump host only when enabled), the client VNet (the test
   client only when enabled), the Firewall rule collection groups and the dev deployment identities.
 
 `environments.<env>.deployment_repositories` federates the apply identity with other repositories too:
