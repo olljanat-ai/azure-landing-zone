@@ -172,8 +172,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = length(azurerm_virtual_network.cell.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2 && azurerm_nat_gateway.cell[0].zones == toset(["2"])
-    error_message = "sandbox mode resolves through Azure DNS with the cell VNet linked to every hub zone and uses a NAT gateway in the cell's AZ."
+    condition     = length(azurerm_virtual_network.cell.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 1 && azurerm_nat_gateway.cell[0].zones == toset(["2"])
+    error_message = "sandbox mode resolves through Azure DNS with the cell VNet linked to every hub private link zone, not to the other hub zones and uses a NAT gateway in the cell's AZ."
   }
 
   assert {

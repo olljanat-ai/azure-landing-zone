@@ -145,8 +145,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = length(azurerm_container_group.runners["01"].dns_config) == 0 && length(azurerm_virtual_network.management.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 4
-    error_message = "sandbox mode resolves through Azure DNS with the management and client VNets linked to every hub zone."
+    condition     = length(azurerm_container_group.runners["01"].dns_config) == 0 && length(azurerm_virtual_network.management.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2
+    error_message = "sandbox mode resolves through Azure DNS with the management and client VNets linked to every hub private link zone, not to the other hub zones."
   }
 }
 

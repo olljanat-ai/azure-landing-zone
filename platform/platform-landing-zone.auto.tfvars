@@ -8,10 +8,9 @@ Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` 
 - Hub: Azure Firewall (network mode `firewall` only; Standard in the lab – the design is Premium with IDPS:
   set primary_firewall_sku_tier and add intrusion_detection to firewall_policy), Bastion (off in the lab, needed
   only for the optional jump host / test client), the private link DNS zones of Key Vault and ACR (all ~90 in
-  the design). The applications' domain is not the hub's: onek8s/aks-terraform publishes them in one zone,
-  public or private (dns_zone_private there) – public onek8s.lol in the lab. No Private DNS Resolver in the lab:
-  spokes resolve through the Firewall DNS proxy, or in sandbox mode through Azure DNS with every hub zone linked
-  to the spoke VNet (the design forwards the corporate DNS to the resolver).
+  the design), plus the platform's own split-horizon zones `<zone>.<env>.<test domain>`. No Private DNS Resolver
+  in the lab: spokes resolve through the Firewall DNS proxy, or in sandbox mode through Azure DNS with every hub
+  zone linked to the spoke VNet (the design forwards the corporate DNS to the resolver).
   NO ExpressRoute / VPN gateway – the build tenant is never connected to the corporate network.
 - Management: the Log Analytics workspace only (daily cap 1 GB in the lab), no VM monitoring rules.
 - No DDoS protection plan (no public endpoints in any spoke, only Front Door).
@@ -36,6 +35,7 @@ custom_replacements = {
     # Build tenant switches
     policy_enforcement_mode         = "DoNotEnforce" # Default from phase 3 on
     defender_email_security_contact = "platform-security@example-test.com"
+    platform_dns_domain             = "example-test.com" # test domain of the build tenant, never the corporate one
 
     # Application landing zone subscriptions placed by this stack
     subscription_id_aks_dev = "" # sub-aks-dev ID once it exists (empty: not placed)
@@ -455,7 +455,7 @@ hub_virtual_networks = {
       name = "$${primary_firewall_policy_name}"
       sku  = "$${primary_firewall_sku_tier}"
       # Spokes use the Firewall as DNS server: FQDN-based network rules and the hub private DNS zones
-      # (privatelink.*) work in every spoke.
+      # (privatelink.* and the split-horizon zone domains) work in every spoke.
       dns = {
         proxy_enabled = true
       }
@@ -508,6 +508,26 @@ hub_virtual_networks = {
       }
       auto_registration_zone_enabled = "$${primary_private_dns_auto_registration_zone_enabled}"
       auto_registration_zone_name    = "$${primary_auto_registration_zone_name}"
+      # Split-horizon zones of the isolation zones (OneK8s design section 13): `*.<zone>.<env>.<domain>` resolve
+      # only here, to the zone's internal entry point (NGINXaaS) or Traefik internal load balancers.
+      private_link_private_dns_zones_additional = {
+        aks_dev_int_fi = {
+          zone_name                              = "int-fi.dev.$${platform_dns_domain}"
+          private_dns_zone_supports_private_link = false
+        }
+        aks_dev_int_se = {
+          zone_name                              = "int-se.dev.$${platform_dns_domain}"
+          private_dns_zone_supports_private_link = false
+        }
+        aks_dev_ext_fi = {
+          zone_name                              = "ext-fi.dev.$${platform_dns_domain}"
+          private_dns_zone_supports_private_link = false
+        }
+        aks_dev_ext_se = {
+          zone_name                              = "ext-se.dev.$${platform_dns_domain}"
+          private_dns_zone_supports_private_link = false
+        }
+      }
     }
     private_dns_resolver = {
       subnet_address_prefix = "$${primary_private_dns_resolver_subnet_address_prefix}"

@@ -147,8 +147,8 @@ run "sandbox_mode" {
   }
 
   assert {
-    condition     = length(azurerm_virtual_network.edge.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 4 && contains(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes, "10.200.0.0/22") && length(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes) == 1
-    error_message = "sandbox mode: Azure DNS with both VNets linked to every hub zone, entry points open to the client VNet only."
+    condition     = length(azurerm_virtual_network.edge.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2 && contains(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes, "10.200.0.0/22") && length(one(azurerm_network_security_group.edge["int-fi"].security_rule).source_address_prefixes) == 1
+    error_message = "sandbox mode: Azure DNS with both VNets linked to every hub private link zone, not to the other hub zones, entry points open to the client VNet only."
   }
   assert {
     condition     = length(azurerm_cdn_frontdoor_profile.this) == 0 && azurerm_key_vault.this["platform"].sku_name == "standard"
