@@ -22,6 +22,7 @@ spec:
     - external-secrets
     - external-dns
     - platform-gateway
+    - infra-observability
     - '*-gateway'
     - '*-secrets'
   parameters:
@@ -32,3 +33,5 @@ spec:
     allowedCapacities:
     - on-demand
     - spot
+    allowedAccelerators:
+    - nvidia-gpu

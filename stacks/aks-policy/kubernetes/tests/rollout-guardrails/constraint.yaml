@@ -27,6 +27,7 @@ spec:
     - external-secrets
     - external-dns
     - platform-gateway
+    - infra-observability
     - '*-gateway'
     - '*-secrets'
   parameters:

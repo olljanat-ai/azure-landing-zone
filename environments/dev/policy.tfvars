@@ -30,6 +30,8 @@ stateful_cluster_name       = "aks-dev-stateful"
 #   k8s-allowed-images               ESO, external-dns and Flux images come from upstream registries
 #   k8s-no-service-account-token-automount, k8s-internal-load-balancers (the external zones' gateways
 #   are public by design), k8s-image-integrity (preview, audit only)
+#   namespace-ownership              new (2026-10-13): promoted once every namespace names its team,
+#                                    cost centre and contact (Cluster status lists the rest)
 kubernetes_deny = [
   # The platform's own validations
   "fqdn-egress",

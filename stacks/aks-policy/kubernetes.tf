@@ -22,8 +22,13 @@ locals {
   # Platform namespaces of the cluster and of aks-fluxcd-platform: left out of the application
   # rules. The zones' own `<zone>-gateway` and `<zone>-secrets` run on the system pool.
   kubernetes_excluded_namespaces = concat(local.platform_namespaces, [
-    "kube-node-lease", "external-secrets", "external-dns", "platform-gateway", "*-gateway", "*-secrets",
+    "kube-node-lease", "external-secrets", "external-dns", "platform-gateway", "infra-observability", "*-gateway", "*-secrets",
   ])
+
+  # Namespaces AKS and its add-ons create, which carry no owner of their own: left out of the
+  # namespace-ownership rule. Every other namespace - the applications' and the platform's own in
+  # aks-fluxcd-platform - names its team, cost centre and contact.
+  aks_namespaces = concat(local.platform_namespaces, ["kube-node-lease", "default", "app-routing-system"])
 
   cluster_ids = {
     for name in concat(var.stateless_cluster_names, [var.stateful_cluster_name]) :
@@ -35,15 +40,17 @@ locals {
     stateful  = [for name in var.stateless_cluster_names : local.cluster_ids[name]]
   }
 
-  # The constraint templates: what they match, and the types of their parameters.
+  # The constraint templates: what they match, and the types of their parameters. A parameter added
+  # to a template whose definition is already assigned needs a default (Azure refuses the update of
+  # the definition otherwise): `defaults`.
   k8s_templates = {
     no-persistent-storage = { api_groups = ["", "storage.k8s.io"], kinds = ["Pod", "PersistentVolume", "PersistentVolumeClaim", "StorageClass"], parameters = {} }
     portable-storage-only = { api_groups = [""], kinds = ["Pod", "PersistentVolumeClaim"], parameters = { storageClassName = "String" } }
     zone-placement        = { api_groups = [""], kinds = ["Pod", "Namespace"], parameters = { zones = "Array" } }
-    placement-labels      = { api_groups = [""], kinds = ["Pod"], parameters = { allowedArchitectures = "Array", allowedCapacities = "Array" } }
+    placement-labels      = { api_groups = [""], kinds = ["Pod"], parameters = { allowedArchitectures = "Array", allowedCapacities = "Array", allowedAccelerators = "Array" }, defaults = { allowedAccelerators = [] } }
     fqdn-egress           = { api_groups = ["", "cilium.io", "networking.k8s.io"], kinds = ["Pod", "CiliumNetworkPolicy", "NetworkPolicy"], parameters = { sharedSuffixes = "Array" } }
     gateway-only          = { api_groups = ["", "gateway.networking.k8s.io"], kinds = ["Service", "Gateway", "HTTPRoute"], parameters = { zones = "Array", domainSuffix = "String" } }
-    node-pools            = { api_groups = ["karpenter.sh", "karpenter.azure.com"], kinds = ["NodePool", "AKSNodeClass"], parameters = { zones = "Array", allowedSkuSeries = "Array", exemptNames = "Array" } }
+    node-pools            = { api_groups = ["karpenter.sh", "karpenter.azure.com"], kinds = ["NodePool", "AKSNodeClass"], parameters = { zones = "Array", allowedSkuSeries = "Array", allowedGpuSkuSeries = "Array", exemptNames = "Array" }, defaults = { allowedGpuSkuSeries = [] } }
     secrets-via-eso       = { api_groups = [""], kinds = ["Secret"], parameters = { zones = "Array", exemptUsers = "Array" } }
     eso-objects           = { api_groups = ["external-secrets.io"], kinds = ["SecretStore", "ExternalSecret", "PushSecret"], parameters = { zones = "Array", keyVaultNamePrefix = "String", serviceAccount = "String" } }
     service-accounts      = { api_groups = [""], kinds = ["Pod", "ServiceAccount"], parameters = { readerServiceAccount = "String" } }
@@ -53,6 +60,7 @@ locals {
       parameters = { minReplicas = "Integer", spreadTopologyKey = "String", requireNoUnavailable = "Boolean" }
     }
     vertical-pod-autoscalers = { api_groups = ["autoscaling.k8s.io"], kinds = ["VerticalPodAutoscaler"], parameters = { allowedModes = "Array" } }
+    namespace-ownership      = { api_groups = [""], kinds = ["Namespace"], parameters = { requiredLabels = "Array", requiredAnnotations = "Array" } }
   }
 
   # The zone rules about secrets also cover the zones' gateway namespaces (their certificates come
@@ -88,19 +96,19 @@ locals {
       always_deny = false
     }
     placement-labels = {
-      display     = "Stateless clusters: architecture and spot only through the platform/arch and platform/capacity labels"
+      display     = "Stateless clusters: architecture, spot and GPUs only through the platform/arch, /capacity and /accelerator labels"
       template    = "placement-labels"
       clusters    = "stateless"
       excluded    = local.kubernetes_excluded_namespaces
-      values      = { allowedArchitectures = ["amd64", "arm64", "multi"], allowedCapacities = ["on-demand", "spot"] }
+      values      = { allowedArchitectures = ["amd64", "arm64", "multi"], allowedCapacities = ["on-demand", "spot"], allowedAccelerators = ["nvidia-gpu"] }
       always_deny = false
     }
     placement-labels-stateful = {
-      display     = "Stateful cluster: amd64 on-demand only"
+      display     = "Stateful cluster: amd64 on-demand only, no GPUs"
       template    = "placement-labels"
       clusters    = "stateful"
       excluded    = local.kubernetes_excluded_namespaces
-      values      = { allowedArchitectures = ["amd64"], allowedCapacities = ["on-demand"] }
+      values      = { allowedArchitectures = ["amd64"], allowedCapacities = ["on-demand"], allowedAccelerators = [] }
       always_deny = false
     }
     fqdn-egress = {
@@ -127,13 +135,15 @@ locals {
       always_deny = false
     }
     node-pools = {
-      display  = "Stateless clusters: NAP NodePools and AKSNodeClasses per zone, in its subnet, with its label, taints and VM series"
+      display  = "Stateless clusters: NodePools and AKSNodeClasses per zone (also GPU), in its subnet, with its label, taints, VM series"
       template = "node-pools"
       clusters = "stateless"
       excluded = []
       values = {
         zones            = var.isolation_zones
         allowedSkuSeries = var.allowed_sku_series
+        # The zone's GPU NodePool (design decision D42)
+        allowedGpuSkuSeries = var.allowed_gpu_sku_series
         # Created and managed by AKS itself
         exemptNames = ["default", "system-surge"]
       }
@@ -199,6 +209,17 @@ locals {
       values      = { allowedModes = ["Off", "Initial", "InPlaceOrRecreate"] }
       always_deny = false
     }
+    namespace-ownership = {
+      display  = "Namespaces name their owning team, cost centre and contact"
+      template = "namespace-ownership"
+      clusters = "all"
+      excluded = local.aks_namespaces
+      values = {
+        requiredLabels      = ["platform/team", "platform/cost-center"]
+        requiredAnnotations = ["platform/contact"]
+      }
+      always_deny = false
+    }
     vertical-pod-autoscalers-stateful = {
       display     = "Stateful cluster: VerticalPodAutoscalers recommend only (Off)"
       template    = "vertical-pod-autoscalers"
@@ -225,6 +246,7 @@ locals {
       arch-arm64      = { display = "platform/arch arm64: nodeSelector kubernetes.io/arch arm64", content = file("${path.module}/kubernetes/mutations/arch-arm64.yaml.tftpl") }
       spot-toleration = { display = "platform/capacity spot: the spot taint tolerated", content = file("${path.module}/kubernetes/mutations/spot-toleration.yaml.tftpl") }
       spot-affinity   = { display = "platform/capacity spot: spot nodes preferred", content = file("${path.module}/kubernetes/mutations/spot-affinity.yaml.tftpl") }
+      gpu-toleration  = { display = "platform/accelerator nvidia-gpu: the GPU taint tolerated", content = file("${path.module}/kubernetes/mutations/gpu-toleration.yaml.tftpl") }
     },
   )
 
@@ -256,7 +278,10 @@ resource "azurerm_policy_definition" "kubernetes" {
     }
     }, {
     # The constraint's own parameters
-    for name, type in each.value.parameters : name => { type = type, metadata = { displayName = name } }
+    for name, type in each.value.parameters : name => merge(
+      { type = type, metadata = { displayName = name } },
+      contains(keys(try(each.value.defaults, {})), name) ? { defaultValue = each.value.defaults[name] } : {},
+    )
   }))
 
   policy_rule = jsonencode({

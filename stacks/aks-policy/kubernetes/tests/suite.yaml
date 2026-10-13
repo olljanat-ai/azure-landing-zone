@@ -204,6 +204,30 @@ tests:
     object: placement-labels/spot-preference-without-label-refused.yaml
     assertions:
     - violations: 1
+  - name: gpu-allowed
+    object: placement-labels/gpu-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: gpu-request-without-label-refused
+    object: placement-labels/gpu-request-without-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-label-without-request-refused
+    object: placement-labels/gpu-label-without-request-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-arm64-refused
+    object: placement-labels/gpu-arm64-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-toleration-without-label-refused
+    object: placement-labels/gpu-toleration-without-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: unknown-accelerator-refused
+    object: placement-labels/unknown-accelerator-refused.yaml
+    assertions:
+    - violations: 1
 - name: fqdn-egress
   template: ../templates/fqdn-egress.yaml
   constraint: fqdn-egress/constraint.yaml
@@ -368,6 +392,62 @@ tests:
   template: ../templates/node-pools.yaml
   constraint: node-pools/constraint.yaml
   cases:
+  - name: fleet-aksnodeclass-extfigpu
+    object: node-pools/fleet-aksnodeclass-extfigpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-extsegpu
+    object: node-pools/fleet-aksnodeclass-extsegpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-intfigpu
+    object: node-pools/fleet-aksnodeclass-intfigpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-intsegpu
+    object: node-pools/fleet-aksnodeclass-intsegpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extfigpu
+    object: node-pools/fleet-nodepool-extfigpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extsegpu
+    object: node-pools/fleet-nodepool-extsegpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intfigpu
+    object: node-pools/fleet-nodepool-intfigpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intsegpu
+    object: node-pools/fleet-nodepool-intsegpu.yaml
+    assertions:
+    - violations: 'no'
+  - name: gpu-pool-without-gpu-taint-refused
+    object: node-pools/gpu-pool-without-gpu-taint-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-pool-other-sku-series-refused
+    object: node-pools/gpu-pool-other-sku-series-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-pool-arm64-refused
+    object: node-pools/gpu-pool-arm64-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-pool-ordinary-class-refused
+    object: node-pools/gpu-pool-ordinary-class-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gpu-pool-on-spot-refused
+    object: node-pools/gpu-pool-on-spot-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-gpu-sku-series-refused
+    object: node-pools/pool-gpu-sku-series-refused.yaml
+    assertions:
+    - violations: 1
   - name: fleet-aksnodeclass-extfi
     object: node-pools/fleet-aksnodeclass-extfi.yaml
     assertions:
@@ -484,6 +564,10 @@ tests:
   template: ../templates/placement-labels.yaml
   constraint: placement-labels/constraint-stateful.yaml
   cases:
+  - name: stateful-gpu-refused
+    object: placement-labels/gpu-allowed.yaml
+    assertions:
+    - violations: 1
   - name: default-allowed
     object: placement-labels/default-amd64-allowed.yaml
     assertions:
@@ -804,3 +888,55 @@ tests:
     object: vertical-pod-autoscalers/stateful-in-place-refused.yaml
     assertions:
     - violations: 1
+- name: namespace-ownership
+  template: ../templates/namespace-ownership.yaml
+  constraint: namespace-ownership/constraint.yaml
+  cases:
+  - name: fleet-ext-fi-gateway
+    object: namespace-ownership/fleet-ext-fi-gateway.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-ext-fi-secrets
+    object: namespace-ownership/fleet-ext-fi-secrets.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-external-secrets
+    object: namespace-ownership/fleet-external-secrets.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-external-dns
+    object: namespace-ownership/fleet-external-dns.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-platform-gateway
+    object: namespace-ownership/fleet-platform-gateway.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-infra-observability
+    object: namespace-ownership/fleet-infra-observability.yaml
+    assertions:
+    - violations: 'no'
+  - name: owned-allowed
+    object: namespace-ownership/owned-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: without-team-refused
+    object: namespace-ownership/without-team-refused.yaml
+    assertions:
+    - violations: 1
+  - name: empty-cost-center-refused
+    object: namespace-ownership/empty-cost-center-refused.yaml
+    assertions:
+    - violations: 1
+  - name: without-contact-refused
+    object: namespace-ownership/without-contact-refused.yaml
+    assertions:
+    - violations: 1
+  - name: unowned-refused
+    object: namespace-ownership/unowned-refused.yaml
+    assertions:
+    - violations: 3
+  - name: aks-namespace-excluded
+    object: namespace-ownership/aks-namespace-excluded.yaml
+    assertions:
+    - violations: 'no'

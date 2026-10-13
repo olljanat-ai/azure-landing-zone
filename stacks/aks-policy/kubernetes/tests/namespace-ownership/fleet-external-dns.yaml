@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    platform/contact: https://github.com/onek8s/aks-fluxcd-platform/issues
+  labels:
+    platform/cost-center: platform
+    platform/team: platform
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+  name: external-dns

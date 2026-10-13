@@ -27,6 +27,9 @@ spec:
     - Es_v6
     - Dps_v6
     - Eps_v6
+    allowedGpuSkuSeries:
+    - NCads_v5
+    - NCadis_v5
     exemptNames:
     - default
     - system-surge

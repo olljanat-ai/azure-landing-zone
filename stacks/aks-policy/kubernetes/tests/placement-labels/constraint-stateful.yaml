@@ -22,6 +22,7 @@ spec:
     - external-secrets
     - external-dns
     - platform-gateway
+    - infra-observability
     - '*-gateway'
     - '*-secrets'
   parameters:
@@ -29,3 +30,4 @@ spec:
     - amd64
     allowedCapacities:
     - on-demand
+    allowedAccelerators: []

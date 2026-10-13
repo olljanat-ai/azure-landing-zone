@@ -1,0 +1,57 @@
+# Who owns what runs in a namespace, and who pays for it (design section 7, "Ownership and cost"):
+# every namespace the assignment covers - application namespaces and the platform's own, all but
+# the ones AKS and its add-ons create - carries
+#
+#   label       platform/team         the owning team, as alerts are routed and costs are reported
+#   label       platform/cost-center  the cost centre its share of the cluster is charged to
+#   annotation  platform/contact      how to reach the team (a mailbox or a channel)
+#
+# with a value. Labels, so that OpenCost and the telemetry can group by them (kube-state-metrics
+# exports them as kube_namespace_labels); the contact is an annotation because a mailbox is not a
+# valid label value. aks-terraform sets them on an application namespace from its
+# managed_namespaces entry (`owner`), aks-fluxcd-platform on the platform's namespaces.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformnamespaceownership
+  annotations:
+    description: Namespaces name their owning team, cost centre and contact.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformNamespaceOwnership
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            requiredLabels:
+              type: array
+              description: Labels every namespace carries with a non-empty value.
+              items:
+                type: string
+            requiredAnnotations:
+              type: array
+              description: Annotations every namespace carries with a non-empty value.
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformnamespaceownership
+
+        ns := input.review.object {
+          input.review.object.kind == "Namespace"
+        }
+
+        violation[{"msg": msg}] {
+          key := input.parameters.requiredLabels[_]
+          object.get(ns.metadata, ["labels", key], "") == ""
+          msg := sprintf("Namespace %v must carry the label %v: who owns and pays for what runs in it (design section 7).", [ns.metadata.name, key])
+        }
+
+        violation[{"msg": msg}] {
+          key := input.parameters.requiredAnnotations[_]
+          object.get(ns.metadata, ["annotations", key], "") == ""
+          msg := sprintf("Namespace %v must carry the annotation %v: how to reach its owners (design section 7).", [ns.metadata.name, key])
+        }

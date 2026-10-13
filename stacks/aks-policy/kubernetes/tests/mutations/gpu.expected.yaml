@@ -1,0 +1,12 @@
+nodeSelector:
+  kubernetes.io/arch: amd64
+  platform/zone: ext-fi
+tolerations:
+- effect: NoSchedule
+  key: platform/accelerator
+  operator: Equal
+  value: nvidia-gpu
+- effect: NoSchedule
+  key: platform/zone
+  operator: Equal
+  value: ext-fi
