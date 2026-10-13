@@ -34,6 +34,15 @@ and where the code implements them. Four repositories share the work:
 | R21 | Customer-managed keys | aks-terraform `customer_managed_keys`: `key-<cluster>-kms` (KMS) and `key-<cluster>-disk` (disk encryption set) per cluster in the platform vault, encryption at host on every node | Built |
 | R24 | Health probes and `/healthz` | aks-fluxcd-example: aks-hello's readiness and liveness probes on `/healthz`; aks-terraform `global_hostnames.health_path = "/healthz"`: Traffic Manager probes it over HTTPS through each cell's gateway; `stacks/aks-policy` deployment safeguards (probes) in audit; the Isolation tests check `/healthz` per cell and on the global name | Built; probes enforced (deny) and synthetic monitoring: phase 2 |
 
+## Requirement tests
+
+aks-terraform's **Isolation tests** workflow is the pipeline stage of design section 17 ("Requirement and isolation
+tests"): after every apply of a stateless cell, every weekday, and by hand. Each check names the requirement it
+covers (the run's summary is the table): R1, R2–R6, R7b, R8, R9b, R12, R14, R17, R19, R20, R21 and R24 have
+automated checks; R7/R7a (ABAC 403, no Key Vault role on application identities), R9/R10 (stateful cluster),
+R11, R13, R15, R16, R18 and R22/R23 have none yet. Forbidden manifests refused by a rule still in audit are
+reported as *audit only*.
+
 ## Changed while building, to confirm in phase 2
 
 1. **Traffic Manager instead of Front Door.** External applications are published on a public load balancer of
@@ -48,11 +57,18 @@ and where the code implements them. Four repositories share the work:
 4. **Pod-to-pod NSG rule.** With Azure CNI Overlay, pod traffic between nodes keeps the overlay pod IPs, which
    the NSGs cannot attribute to a zone. Node-subnet NSGs therefore allow the pod range; zone separation
    between pods is enforced by Cilium.
+5. **Some platform policies enforce in the build tenant.** The stateless clusters' "no persistent storage" rule
+   denies already (it replaced a ValidatingAdmissionPolicy that refused the same), and the placement mutations
+   are on (they refuse nothing); every other assignment audits, as section 17 says.
 
 ## Not built yet (phase 2 backlog)
 
 - The backend network with the PaaS private endpoints, the edge network for the internal zones' entry points,
   and private endpoints for the vaults (all vaults are reached over their public endpoints with Entra ID).
+- Requirement tests for what the Isolation tests do not cover yet: Key Vault ABAC (application A's
+  `ExternalSecret` on B's secret gets 403), a Resource Graph check that no application identity has a Key
+  Vault data-plane role, the image promotion and signature tests, the API server reachable only from the
+  management VNet (after the lab's public API server goes), cross-cell tests while two cells run.
 - The rest of the platform's Kubernetes policies of design section 14: ESO-only secrets and the ESO object
   rules, the ServiceAccount rules, the VPA rules and the replica and rollout guardrails.
 - The version pipeline (section 12), observability (section 19), backups (section 20).
