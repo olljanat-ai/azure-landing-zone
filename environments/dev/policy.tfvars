@@ -12,6 +12,7 @@ container_registry_name = "acronek8sdev"
 
 # The platform's own Kubernetes policies (stacks/aks-policy/kubernetes.tf): the zones' domain and which
 # clusters are stateless or stateful, as onek8s/aks-terraform names them (envs/*.tfvars)
-zone_domain_suffix             = "dev.onek8s.lol"
-stateless_cluster_name_pattern = "aks-dev-stateless-*"
-stateful_cluster_name_pattern  = "aks-dev-stateful"
+zone_domain_suffix          = "dev.onek8s.lol"
+cluster_resource_group_name = "rg-aks-dev"
+stateless_cluster_names     = ["aks-dev-stateless-az1", "aks-dev-stateless-az2"]
+stateful_cluster_name       = "aks-dev-stateful"

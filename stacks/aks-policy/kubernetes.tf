@@ -4,8 +4,10 @@
 # add-on of every cluster pulls them in within 15 minutes. kubernetes/test.sh tests the templates
 # (gator, also in CI).
 #
-# Which clusters a definition reaches goes by the cluster's name (clusterNamePattern, Azure Policy
-# `like`): the stateless cells and the stateful cluster share the subscription.
+# The stateless cells and the stateful cluster share the subscription, and a Kubernetes definition's
+# rule can test only a cluster's type, location and tags. So the assignments draw the line with
+# not_scopes: the stateless rules leave out the stateful cluster (there is at most one, R9), the
+# stateful rules leave out the stateless cells.
 #
 # Effects:
 #   - new validations start as Audit, also when policy_enforcement_mode is Default (section 14:
@@ -22,7 +24,15 @@ locals {
     "kube-node-lease", "external-secrets", "external-dns", "platform-gateway", "*-gateway", "*-secrets",
   ])
 
-  all_clusters = "*"
+  cluster_ids = {
+    for name in concat(var.stateless_cluster_names, [var.stateful_cluster_name]) :
+    name => "/subscriptions/${var.subscription_id}/resourceGroups/${var.cluster_resource_group_name}/providers/Microsoft.ContainerService/managedClusters/${name}"
+  }
+  not_scopes = {
+    all       = []
+    stateless = [local.cluster_ids[var.stateful_cluster_name]]
+    stateful  = [for name in var.stateless_cluster_names : local.cluster_ids[name]]
+  }
 
   # The constraint templates: what they match, and the types of their parameters.
   k8s_templates = {
@@ -39,7 +49,7 @@ locals {
     no-persistent-storage = {
       display     = "Stateless clusters: no StorageClass, PersistentVolume, PersistentVolumeClaim, csi or ephemeral volume"
       template    = "no-persistent-storage"
-      clusters    = var.stateless_cluster_name_pattern
+      clusters    = "stateless"
       excluded    = ["kube-system"]
       values      = {}
       always_deny = true
@@ -47,7 +57,7 @@ locals {
     portable-storage-only = {
       display     = "Clusters with storage: claims only on the portable StorageClass, no inline csi volumes"
       template    = "portable-storage-only"
-      clusters    = var.stateful_cluster_name_pattern
+      clusters    = "stateful"
       excluded    = local.kubernetes_excluded_namespaces
       values      = { storageClassName = "portable-disk" }
       always_deny = true
@@ -55,7 +65,7 @@ locals {
     zone-placement = {
       display     = "Isolation zones: zone namespaces carry their label, their pods run on the zone's nodes only"
       template    = "zone-placement"
-      clusters    = local.all_clusters
+      clusters    = "all"
       excluded    = local.kubernetes_excluded_namespaces
       values      = { zones = var.isolation_zones }
       always_deny = false
@@ -63,7 +73,7 @@ locals {
     placement-labels = {
       display     = "Stateless clusters: architecture and spot only through the platform/arch and platform/capacity labels"
       template    = "placement-labels"
-      clusters    = var.stateless_cluster_name_pattern
+      clusters    = "stateless"
       excluded    = local.kubernetes_excluded_namespaces
       values      = { allowedArchitectures = ["amd64", "arm64", "multi"], allowedCapacities = ["on-demand", "spot"] }
       always_deny = false
@@ -71,7 +81,7 @@ locals {
     placement-labels-stateful = {
       display     = "Stateful cluster: amd64 on-demand only"
       template    = "placement-labels"
-      clusters    = var.stateful_cluster_name_pattern
+      clusters    = "stateful"
       excluded    = local.kubernetes_excluded_namespaces
       values      = { allowedArchitectures = ["amd64"], allowedCapacities = ["on-demand"] }
       always_deny = false
@@ -79,7 +89,7 @@ locals {
     fqdn-egress = {
       display  = "Egress only by FQDN: Cilium policies without CIDRs, entities or broad wildcards; pods use the cluster DNS"
       template = "fqdn-egress"
-      clusters = local.all_clusters
+      clusters = "all"
       excluded = local.kubernetes_excluded_namespaces
       values = {
         # Suffixes under which every customer has names (aks-fluxcd-platform scripts/check-egress.py)
@@ -94,7 +104,7 @@ locals {
     gateway-only = {
       display     = "Stateless clusters: applications published only through their zone's HTTPS Gateway"
       template    = "gateway-only"
-      clusters    = var.stateless_cluster_name_pattern
+      clusters    = "stateless"
       excluded    = local.kubernetes_excluded_namespaces
       values      = { zones = var.isolation_zones, domainSuffix = var.zone_domain_suffix }
       always_deny = false
@@ -102,7 +112,7 @@ locals {
     node-pools = {
       display  = "Stateless clusters: NAP NodePools and AKSNodeClasses per zone, in its subnet, with its label, taints and VM series"
       template = "node-pools"
-      clusters = var.stateless_cluster_name_pattern
+      clusters = "stateless"
       excluded = []
       values = {
         zones            = var.isolation_zones
@@ -130,20 +140,7 @@ locals {
     },
   )
 
-  cluster_rule = {
-    allOf = [
-      { field = "type", in = ["Microsoft.ContainerService/managedClusters"] },
-      { field = "name", like = "[parameters('clusterNamePattern')]" },
-    ]
-  }
-
-  cluster_name_parameter = {
-    clusterNamePattern = {
-      type         = "String"
-      defaultValue = "*"
-      metadata     = { displayName = "Clusters", description = "Names of the clusters the definition applies to, an Azure Policy `like` pattern." }
-    }
-  }
+  cluster_rule = { field = "type", in = ["Microsoft.ContainerService/managedClusters"] }
 }
 
 resource "azurerm_policy_definition" "kubernetes" {
@@ -157,7 +154,7 @@ resource "azurerm_policy_definition" "kubernetes" {
   mode         = "Microsoft.Kubernetes.Data"
   metadata     = jsonencode({ category = "Kubernetes", version = "1.0.0", source = "onek8s/azure-landing-zone stacks/aks-policy/kubernetes" })
 
-  parameters = jsonencode(merge(local.cluster_name_parameter, {
+  parameters = jsonencode(merge({
     effect = {
       type          = "String"
       defaultValue  = "Audit"
@@ -201,7 +198,7 @@ resource "azurerm_policy_definition" "kubernetes_mutation" {
   mode         = "Microsoft.Kubernetes.Data"
   metadata     = jsonencode({ category = "Kubernetes", version = "1.0.0", source = "onek8s/azure-landing-zone stacks/aks-policy/kubernetes/mutations" })
 
-  parameters = jsonencode(merge(local.cluster_name_parameter, {
+  parameters = jsonencode(merge({
     effect = {
       type          = "String"
       defaultValue  = "Mutate"
@@ -230,11 +227,11 @@ resource "azurerm_subscription_policy_assignment" "kubernetes" {
   display_name         = "AKS ${local.env}: ${each.value.display}"
   subscription_id      = "/subscriptions/${var.subscription_id}"
   policy_definition_id = azurerm_policy_definition.kubernetes[each.value.template].id
+  not_scopes           = local.not_scopes[each.value.clusters]
   enforce              = each.value.always_deny || local.enforce
   location             = var.location
   parameters = jsonencode(merge({
     effect             = { value = each.value.always_deny ? "Deny" : "Audit" }
-    clusterNamePattern = { value = each.value.clusters }
     excludedNamespaces = { value = each.value.excluded }
   }, { for name, value in each.value.values : name => { value = value } }))
 }
@@ -248,7 +245,6 @@ resource "azurerm_subscription_policy_assignment" "kubernetes_mutation" {
   enforce              = true
   location             = var.location
   parameters = jsonencode({
-    effect             = { value = "Mutate" }
-    clusterNamePattern = { value = local.all_clusters }
+    effect = { value = "Mutate" }
   })
 }

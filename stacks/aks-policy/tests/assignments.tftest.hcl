@@ -2,13 +2,14 @@
 mock_provider "azurerm" {}
 
 variables {
-  environment                    = "dev"
-  location                       = "swedencentral"
-  subscription_id                = "00000000-0000-0000-0000-000000000003"
-  container_registry_name        = "acronek8sdev"
-  zone_domain_suffix             = "dev.onek8s.lol"
-  stateless_cluster_name_pattern = "aks-dev-stateless-*"
-  stateful_cluster_name_pattern  = "aks-dev-stateful"
+  environment                 = "dev"
+  location                    = "swedencentral"
+  subscription_id             = "00000000-0000-0000-0000-000000000003"
+  container_registry_name     = "acronek8sdev"
+  zone_domain_suffix          = "dev.onek8s.lol"
+  cluster_resource_group_name = "rg-aks-dev"
+  stateless_cluster_names     = ["aks-dev-stateless-az1", "aks-dev-stateless-az2"]
+  stateful_cluster_name       = "aks-dev-stateful"
 }
 
 run "audit_in_the_build_tenant" {
@@ -64,11 +65,17 @@ run "platform_kubernetes_policies" {
 
   assert {
     condition = (
-      jsondecode(azurerm_subscription_policy_assignment.kubernetes["no-persistent-storage"].parameters).clusterNamePattern.value == "aks-dev-stateless-*" &&
-      jsondecode(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].parameters).clusterNamePattern.value == "aks-dev-stateful" &&
-      jsondecode(azurerm_subscription_policy_assignment.kubernetes["zone-placement"].parameters).clusterNamePattern.value == "*"
+      azurerm_subscription_policy_assignment.kubernetes["no-persistent-storage"].not_scopes == tolist(["/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev/providers/Microsoft.ContainerService/managedClusters/aks-dev-stateful"]) &&
+      length(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].not_scopes) == 2 &&
+      endswith(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].not_scopes[0], "/managedClusters/aks-dev-stateless-az1") &&
+      length(coalesce(azurerm_subscription_policy_assignment.kubernetes["zone-placement"].not_scopes, [])) == 0
     )
-    error_message = "Stateless rules reach the stateless clusters, storage rules the stateful one, zone rules every cluster."
+    error_message = "Stateless rules leave out the stateful cluster, stateful rules the stateless cells, zone rules reach every cluster."
+  }
+
+  assert {
+    condition     = alltrue([for d in azurerm_policy_definition.kubernetes : jsondecode(d.policy_rule).if.field == "type"])
+    error_message = "A Kubernetes definition's rule may test only type, location and tags."
   }
 
   assert {
