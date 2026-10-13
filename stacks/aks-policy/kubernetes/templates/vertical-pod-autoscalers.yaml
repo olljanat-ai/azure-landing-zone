@@ -1,0 +1,75 @@
+# VerticalPodAutoscalers (R11, design section 4, "Pod right-sizing"): the VPA add-on resizes the
+# running pods in place, within bounds the application states.
+#
+#   - `updatePolicy.updateMode` one of `allowedModes` (`Off`, `Initial`, `InPlaceOrRecreate` in a
+#     stateless cell; `Off` in the stateful cluster) - not `Auto` or `Recreate`, the default when it
+#     is left out, which evict pods to resize them;
+#   - every container policy that is not `mode: Off` has `controlledValues: RequestsOnly` (the
+#     limits stay what the application set) and a `maxAllowed` for every resource it controls
+#     (`controlledResources`, cpu and memory when left out), so a recommendation cannot grow a pod
+#     past what its node pool and quota were sized for;
+#   - at least one container policy.
+#
+# That every Deployment has a VerticalPodAutoscaler is a CI check on the rendered manifests.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformverticalpodautoscalers
+  annotations:
+    description: VerticalPodAutoscalers resize in place within stated bounds, requests only.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformVerticalPodAutoscalers
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedModes:
+              type: array
+              description: The update modes this cluster allows.
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformverticalpodautoscalers
+
+        vpa := input.review.object {
+          input.review.object.kind == "VerticalPodAutoscaler"
+        }
+
+        mode := object.get(vpa.spec, ["updatePolicy", "updateMode"], "Auto")
+
+        violation[{"msg": msg}] {
+          not mode_allowed
+          msg := sprintf("VerticalPodAutoscaler %v: updateMode %v; allowed: %v.", [vpa.metadata.name, mode, input.parameters.allowedModes])
+        }
+
+        mode_allowed {
+          mode == input.parameters.allowedModes[_]
+        }
+
+        violation[{"msg": msg}] {
+          count(object.get(vpa.spec, ["resourcePolicy", "containerPolicies"], [])) == 0
+          msg := sprintf("VerticalPodAutoscaler %v: no containerPolicies; state controlledValues RequestsOnly and maxAllowed.", [vpa.metadata.name])
+        }
+
+        active[policy] {
+          policy := vpa.spec.resourcePolicy.containerPolicies[_]
+          object.get(policy, "mode", "Auto") != "Off"
+        }
+
+        violation[{"msg": msg}] {
+          policy := active[_]
+          object.get(policy, "controlledValues", "RequestsAndLimits") != "RequestsOnly"
+          msg := sprintf("VerticalPodAutoscaler %v, container %v: controlledValues must be RequestsOnly.", [vpa.metadata.name, object.get(policy, "containerName", "*")])
+        }
+
+        violation[{"msg": msg}] {
+          policy := active[_]
+          resource := object.get(policy, "controlledResources", ["cpu", "memory"])[_]
+          object.get(policy, ["maxAllowed", resource], null) == null
+          msg := sprintf("VerticalPodAutoscaler %v, container %v: no maxAllowed for %v.", [vpa.metadata.name, object.get(policy, "containerName", "*"), resource])
+        }

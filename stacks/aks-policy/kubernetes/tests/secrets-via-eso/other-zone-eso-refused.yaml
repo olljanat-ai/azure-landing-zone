@@ -1,0 +1,27 @@
+# Another zone's operator writes into ext-fi.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: crossed
+  namespace: ext-fi-example
+  operation: CREATE
+  userInfo:
+    username: system:serviceaccount:int-fi-secrets:external-secrets-int-fi
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: crossed
+      namespace: ext-fi-example
+    type: Opaque
+    data:
+      k: dg==

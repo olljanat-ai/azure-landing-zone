@@ -11,7 +11,8 @@
 #
 # Effects:
 #   - new validations start as Audit, also when policy_enforcement_mode is Default (section 14:
-#     audit in dev first, then deny);
+#     audit in dev first, then deny), and are promoted to Deny one by one in var.kubernetes_deny -
+#     once the clusters report no violation of them (aks-terraform's Cluster status lists them);
 #   - the storage rules are enforced (Deny) in every mode: they replace the fleet's
 #     ValidatingAdmissionPolicies, which already refused this, so moving them to the one policy
 #     engine (R14) must not turn them into audit;
@@ -43,7 +44,23 @@ locals {
     fqdn-egress           = { api_groups = ["", "cilium.io", "networking.k8s.io"], kinds = ["Pod", "CiliumNetworkPolicy", "NetworkPolicy"], parameters = { sharedSuffixes = "Array" } }
     gateway-only          = { api_groups = ["", "gateway.networking.k8s.io"], kinds = ["Service", "Gateway", "HTTPRoute"], parameters = { zones = "Array", domainSuffix = "String" } }
     node-pools            = { api_groups = ["karpenter.sh", "karpenter.azure.com"], kinds = ["NodePool", "AKSNodeClass"], parameters = { zones = "Array", allowedSkuSeries = "Array", exemptNames = "Array" } }
+    secrets-via-eso       = { api_groups = [""], kinds = ["Secret"], parameters = { zones = "Array" } }
+    eso-objects           = { api_groups = ["external-secrets.io"], kinds = ["SecretStore", "ExternalSecret", "PushSecret"], parameters = { zones = "Array", keyVaultNamePrefix = "String", serviceAccount = "String" } }
+    service-accounts      = { api_groups = [""], kinds = ["Pod", "ServiceAccount"], parameters = { readerServiceAccount = "String" } }
+    rollout-guardrails = {
+      api_groups = ["apps", "autoscaling", "policy"]
+      kinds      = ["Deployment", "StatefulSet", "HorizontalPodAutoscaler", "PodDisruptionBudget"]
+      parameters = { minReplicas = "Integer", spreadTopologyKey = "String", requireNoUnavailable = "Boolean" }
+    }
+    vertical-pod-autoscalers = { api_groups = ["autoscaling.k8s.io"], kinds = ["VerticalPodAutoscaler"], parameters = { allowedModes = "Array" } }
   }
+
+  # The zone rules about secrets also cover the zones' gateway namespaces (their certificates come
+  # through ESO like an application's secrets); the operators' own `<zone>-secrets` stay out.
+  kubernetes_excluded_namespaces_with_gateways = [for ns in local.kubernetes_excluded_namespaces : ns if ns != "*-gateway"]
+
+  # The namespace's identity: the service account aks-terraform federates for its vault share.
+  key_vault_service_account = "key-vault"
 
   k8s_validations = {
     no-persistent-storage = {
@@ -122,7 +139,70 @@ locals {
       }
       always_deny = false
     }
+    secrets-via-eso = {
+      display     = "Isolation zones: only the zone's External Secrets Operator writes Secrets in its namespaces"
+      template    = "secrets-via-eso"
+      clusters    = "all"
+      excluded    = local.kubernetes_excluded_namespaces_with_gateways
+      values      = { zones = var.isolation_zones }
+      always_deny = false
+    }
+    eso-objects = {
+      display  = "Isolation zones: External Secrets objects read only the namespace's own share of its zone's or the platform vault"
+      template = "eso-objects"
+      clusters = "all"
+      excluded = local.kubernetes_excluded_namespaces_with_gateways
+      values = {
+        zones              = var.isolation_zones
+        keyVaultNamePrefix = var.key_vault_name_prefix
+        serviceAccount     = local.key_vault_service_account
+      }
+      always_deny = false
+    }
+    service-accounts = {
+      display     = "Application pods: not as the vault reader's service account, no image pull secrets"
+      template    = "service-accounts"
+      clusters    = "all"
+      excluded    = local.kubernetes_excluded_namespaces
+      values      = { readerServiceAccount = local.key_vault_service_account }
+      always_deny = false
+    }
+    rollout-guardrails = {
+      display     = "Stateless clusters: at least 2 replicas spread over nodes, rollouts with maxUnavailable 0, PDBs that allow a drain"
+      template    = "rollout-guardrails"
+      clusters    = "stateless"
+      excluded    = local.kubernetes_excluded_namespaces
+      values      = { minReplicas = 2, spreadTopologyKey = "kubernetes.io/hostname", requireNoUnavailable = true }
+      always_deny = false
+    }
+    rollout-guardrails-stateful = {
+      display     = "Stateful cluster: at least 3 replicas spread over availability zones, PDBs that allow a drain"
+      template    = "rollout-guardrails"
+      clusters    = "stateful"
+      excluded    = local.kubernetes_excluded_namespaces
+      values      = { minReplicas = 3, spreadTopologyKey = "topology.kubernetes.io/zone", requireNoUnavailable = false }
+      always_deny = false
+    }
+    vertical-pod-autoscalers = {
+      display     = "Stateless clusters: VerticalPodAutoscalers in place or off, requests only, with maxAllowed"
+      template    = "vertical-pod-autoscalers"
+      clusters    = "stateless"
+      excluded    = local.kubernetes_excluded_namespaces
+      values      = { allowedModes = ["Off", "Initial", "InPlaceOrRecreate"] }
+      always_deny = false
+    }
+    vertical-pod-autoscalers-stateful = {
+      display     = "Stateful cluster: VerticalPodAutoscalers recommend only (Off)"
+      template    = "vertical-pod-autoscalers"
+      clusters    = "stateful"
+      excluded    = local.kubernetes_excluded_namespaces
+      values      = { allowedModes = ["Off"] }
+      always_deny = false
+    }
   }
+
+  # Deny for the storage rules (always) and for each validation promoted in var.kubernetes_deny.
+  k8s_deny = { for k, v in local.k8s_validations : k => v.always_deny || contains(var.kubernetes_deny, k) }
 
   # One definition per mutation (Azure cannot parameterize them): the zone ones per zone.
   k8s_mutations = merge(
@@ -228,12 +308,19 @@ resource "azurerm_subscription_policy_assignment" "kubernetes" {
   subscription_id      = "/subscriptions/${var.subscription_id}"
   policy_definition_id = azurerm_policy_definition.kubernetes[each.value.template].id
   not_scopes           = local.not_scopes[each.value.clusters]
-  enforce              = each.value.always_deny || local.enforce
+  enforce              = local.k8s_deny[each.key] || local.enforce
   location             = var.location
   parameters = jsonencode(merge({
-    effect             = { value = each.value.always_deny ? "Deny" : "Audit" }
+    effect             = { value = local.k8s_deny[each.key] ? "Deny" : "Audit" }
     excludedNamespaces = { value = each.value.excluded }
   }, { for name, value in each.value.values : name => { value = value } }))
+
+  lifecycle {
+    precondition {
+      condition     = alltrue([for k in var.kubernetes_deny : contains(keys(local.k8s_validations), k) || contains(keys(local.policy_assignments), k)])
+      error_message = "kubernetes_deny names a rule that is neither a platform validation nor a built-in assignment: ${join(", ", setsubtract(var.kubernetes_deny, concat(keys(local.k8s_validations), keys(local.policy_assignments))))}."
+    }
+  }
 }
 
 resource "azurerm_subscription_policy_assignment" "kubernetes_mutation" {

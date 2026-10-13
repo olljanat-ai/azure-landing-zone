@@ -1,0 +1,11 @@
+# A store of another provider (here: another namespace's Secrets).
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: key-vault
+  namespace: ext-fi-example
+spec:
+  controller: ext-fi
+  provider:
+    kubernetes:
+      remoteNamespace: ext-fi-other

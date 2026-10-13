@@ -1,0 +1,28 @@
+# Deleting hands nothing to a pod.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: old
+  namespace: ext-fi-example
+  operation: DELETE
+  userInfo:
+    username: olli@example.com
+  object: &id001
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: old
+      namespace: ext-fi-example
+    type: Opaque
+    data:
+      k: dg==
+  oldObject: *id001

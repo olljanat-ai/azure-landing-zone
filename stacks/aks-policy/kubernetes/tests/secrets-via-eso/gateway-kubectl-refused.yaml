@@ -1,0 +1,27 @@
+# A certificate put into a gateway namespace by hand.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: gateway-tls
+  namespace: int-se-gateway
+  operation: CREATE
+  userInfo:
+    username: olli@example.com
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: gateway-tls
+      namespace: int-se-gateway
+    type: kubernetes.io/tls
+    data:
+      k: dg==

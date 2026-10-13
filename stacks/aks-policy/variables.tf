@@ -63,3 +63,20 @@ variable "allowed_sku_series" {
   default     = ["Ds_v5", "Ds_v6", "Es_v5", "Es_v6", "Dps_v6", "Eps_v6"]
   description = "VM series (karpenter.azure.com/sku-series) a zone's NAP NodePools may use: amd64 and arm64 series that support Azure Virtual Network encryption (design section 4)."
 }
+
+variable "key_vault_name_prefix" {
+  type        = string
+  description = "The environment's Key Vault names without their suffix: the zone vaults are <prefix>-<zone>, the platform vault <prefix>-platform (onek8s/aks-terraform shared/envs/*.tfvars). The ESO rules allow a zone's SecretStores these two only."
+}
+
+variable "kubernetes_deny" {
+  type        = list(string)
+  default     = []
+  description = <<DESCRIPTION
+The Kubernetes rules promoted from Audit to Deny (design section 14: audit first, then deny, rule by
+rule), whatever policy_enforcement_mode says: keys of kubernetes.tf's validations (zone-placement,
+eso-objects, ...) or of main.tf's built-in `k8s-*` assignments (k8s-no-ingress, ...). A rule goes
+here only once every cluster of the environment reports no violation of it - aks-terraform's Cluster
+status lists them per object - and the isolation tests then expect it to refuse.
+DESCRIPTION
+}

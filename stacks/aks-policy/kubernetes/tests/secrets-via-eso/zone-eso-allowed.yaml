@@ -1,0 +1,27 @@
+# The zone's External Secrets Operator writes the application's Secret (the ext-fi-example webhook token).
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: github-webhook-token
+  namespace: ext-fi-example
+  operation: CREATE
+  userInfo:
+    username: system:serviceaccount:ext-fi-secrets:external-secrets-ext-fi
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: github-webhook-token
+      namespace: ext-fi-example
+    type: Opaque
+    data:
+      k: dg==

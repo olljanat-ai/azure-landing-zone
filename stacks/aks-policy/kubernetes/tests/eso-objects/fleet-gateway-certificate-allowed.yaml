@@ -1,0 +1,17 @@
+# aks-fluxcd-platform infrastructure/zones/certificate.yaml for ext-fi.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: s
+  namespace: ext-fi-gateway
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: key-vault
+  target:
+    name: s
+  data:
+  - secretKey: k0
+    remoteRef:
+      key: secret/ext-fi-gateway--wildcard

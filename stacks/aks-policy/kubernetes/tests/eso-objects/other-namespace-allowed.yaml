@@ -1,0 +1,17 @@
+# A namespace outside the isolation zones.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: s
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: key-vault
+  target:
+    name: s
+  data:
+  - secretKey: k0
+    remoteRef:
+      key: anything

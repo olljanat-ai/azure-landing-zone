@@ -10,6 +10,9 @@ policy_enforcement_mode = "DoNotEnforce"
 # The environment's container registry: created by onek8s/aks-terraform (shared/envs/dev.tfvars)
 container_registry_name = "acronek8sdev"
 
+# The environment's Key Vaults, <prefix>-<zone> and <prefix>-platform (onek8s/aks-terraform shared/envs/dev.tfvars)
+key_vault_name_prefix = "kv-onek8s-dev"
+
 # The platform's own Kubernetes policies (stacks/aks-policy/kubernetes.tf): the zones' domain and which
 # clusters are stateless or stateful, as onek8s/aks-terraform names them (envs/*.tfvars)
 zone_domain_suffix          = "dev.onek8s.lol"

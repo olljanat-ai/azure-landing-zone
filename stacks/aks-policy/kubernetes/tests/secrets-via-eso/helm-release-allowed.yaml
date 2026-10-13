@@ -1,0 +1,27 @@
+# Helm's release storage is not a secret.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: sh.helm.release.v1.app.v1
+  namespace: ext-fi-example
+  operation: CREATE
+  userInfo:
+    username: olli@example.com
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: sh.helm.release.v1.app.v1
+      namespace: ext-fi-example
+    type: helm.sh/release.v1
+    data:
+      k: dg==

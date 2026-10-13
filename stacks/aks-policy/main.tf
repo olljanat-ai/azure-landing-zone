@@ -163,8 +163,8 @@ resource "azurerm_subscription_policy_assignment" "aks" {
   display_name         = "AKS ${local.env}: ${each.value.description}"
   subscription_id      = "/subscriptions/${var.subscription_id}"
   policy_definition_id = each.value.id
-  enforce              = local.enforce
-  parameters           = jsonencode(each.value.parameters)
+  enforce              = local.enforce || contains(var.kubernetes_deny, each.key)
+  parameters           = jsonencode(merge(each.value.parameters, contains(var.kubernetes_deny, each.key) ? { effect = { value = "Deny" } } : {}))
   location             = var.location
 
   # Not for the Kubernetes (Microsoft.Kubernetes.Data) definitions: Azure refuses a non-compliance

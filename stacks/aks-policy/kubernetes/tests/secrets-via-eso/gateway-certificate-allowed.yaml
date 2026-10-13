@@ -1,0 +1,27 @@
+# The zone's operator writes the gateway's certificate.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: gateway-tls
+  namespace: ext-fi-gateway
+  operation: CREATE
+  userInfo:
+    username: system:serviceaccount:ext-fi-secrets:external-secrets-ext-fi
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: gateway-tls
+      namespace: ext-fi-gateway
+    type: kubernetes.io/tls
+    data:
+      k: dg==

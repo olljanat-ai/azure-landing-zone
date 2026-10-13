@@ -496,3 +496,287 @@ tests:
     object: placement-labels/stateful-spot-refused.yaml
     assertions:
     - violations: 1
+- name: secrets-via-eso
+  template: ../templates/secrets-via-eso.yaml
+  constraint: secrets-via-eso/constraint.yaml
+  cases:
+  - name: zone-eso-allowed
+    object: secrets-via-eso/zone-eso-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: gateway-certificate-allowed
+    object: secrets-via-eso/gateway-certificate-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: kubectl-refused
+    object: secrets-via-eso/kubectl-refused.yaml
+    assertions:
+    - violations: 1
+  - name: flux-refused
+    object: secrets-via-eso/flux-refused.yaml
+    assertions:
+    - violations: 1
+  - name: other-zone-eso-refused
+    object: secrets-via-eso/other-zone-eso-refused.yaml
+    assertions:
+    - violations: 1
+  - name: gateway-kubectl-refused
+    object: secrets-via-eso/gateway-kubectl-refused.yaml
+    assertions:
+    - violations: 1
+  - name: helm-release-allowed
+    object: secrets-via-eso/helm-release-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: delete-allowed
+    object: secrets-via-eso/delete-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: other-namespace-allowed
+    object: secrets-via-eso/other-namespace-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: audit-without-user-allowed
+    object: secrets-via-eso/audit-without-user-allowed.yaml
+    assertions:
+    - violations: 'no'
+- name: eso-objects
+  template: ../templates/eso-objects.yaml
+  constraint: eso-objects/constraint.yaml
+  cases:
+  - name: example-store-allowed
+    object: eso-objects/example-store-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-webhook-token-allowed
+    object: eso-objects/example-webhook-token-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-gateway-store-allowed
+    object: eso-objects/fleet-gateway-store-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-gateway-certificate-allowed
+    object: eso-objects/fleet-gateway-certificate-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: store-other-zone-vault-refused
+    object: eso-objects/store-other-zone-vault-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-foreign-vault-refused
+    object: eso-objects/store-foreign-vault-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-other-controller-refused
+    object: eso-objects/store-other-controller-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-no-controller-refused
+    object: eso-objects/store-no-controller-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-service-principal-refused
+    object: eso-objects/store-service-principal-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-other-account-refused
+    object: eso-objects/store-other-account-refused.yaml
+    assertions:
+    - violations: 1
+  - name: store-other-provider-refused
+    object: eso-objects/store-other-provider-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-other-namespace-key-refused
+    object: eso-objects/external-other-namespace-key-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-unprefixed-key-refused
+    object: eso-objects/external-unprefixed-key-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-prefix-lookalike-refused
+    object: eso-objects/external-prefix-lookalike-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-cluster-store-refused
+    object: eso-objects/external-cluster-store-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-find-refused
+    object: eso-objects/external-find-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-extract-other-refused
+    object: eso-objects/external-extract-other-refused.yaml
+    assertions:
+    - violations: 1
+  - name: external-generator-refused
+    object: eso-objects/external-generator-refused.yaml
+    assertions:
+    - violations: 1
+  - name: push-secret-refused
+    object: eso-objects/push-secret-refused.yaml
+    assertions:
+    - violations: 1
+  - name: other-namespace-allowed
+    object: eso-objects/other-namespace-allowed.yaml
+    assertions:
+    - violations: 'no'
+- name: service-accounts
+  template: ../templates/service-accounts.yaml
+  constraint: service-accounts/constraint.yaml
+  cases:
+  - name: pod-own-account-allowed
+    object: service-accounts/pod-own-account-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pod-default-account-allowed
+    object: service-accounts/pod-default-account-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pod-reader-account-refused
+    object: service-accounts/pod-reader-account-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pod-pull-secret-refused
+    object: service-accounts/pod-pull-secret-refused.yaml
+    assertions:
+    - violations: 1
+  - name: account-pull-secret-refused
+    object: service-accounts/account-pull-secret-refused.yaml
+    assertions:
+    - violations: 1
+  - name: example-reader-account-allowed
+    object: service-accounts/example-reader-account-allowed.yaml
+    assertions:
+    - violations: 'no'
+- name: rollout-guardrails
+  template: ../templates/rollout-guardrails.yaml
+  constraint: rollout-guardrails/constraint.yaml
+  cases:
+  - name: deployment-allowed
+    object: rollout-guardrails/deployment-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: deployment-off-allowed
+    object: rollout-guardrails/deployment-off-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: deployment-one-replica-refused
+    object: rollout-guardrails/deployment-one-replica-refused.yaml
+    assertions:
+    - violations: 1
+  - name: deployment-no-spread-refused
+    object: rollout-guardrails/deployment-no-spread-refused.yaml
+    assertions:
+    - violations: 1
+  - name: deployment-recreate-refused
+    object: rollout-guardrails/deployment-recreate-refused.yaml
+    assertions:
+    - violations: 1
+  - name: deployment-max-unavailable-refused
+    object: rollout-guardrails/deployment-max-unavailable-refused.yaml
+    assertions:
+    - violations: 1
+  - name: deployment-default-strategy-refused
+    object: rollout-guardrails/deployment-default-strategy-refused.yaml
+    assertions:
+    - violations: 1
+  - name: statefulset-one-replica-refused
+    object: rollout-guardrails/statefulset-one-replica-refused.yaml
+    assertions:
+    - violations: 1
+  - name: hpa-allowed
+    object: rollout-guardrails/hpa-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: hpa-default-refused
+    object: rollout-guardrails/hpa-default-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pdb-allowed
+    object: rollout-guardrails/pdb-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pdb-percentage-allowed
+    object: rollout-guardrails/pdb-percentage-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pdb-zero-refused
+    object: rollout-guardrails/pdb-zero-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pdb-min-available-refused
+    object: rollout-guardrails/pdb-min-available-refused.yaml
+    assertions:
+    - violations: 1
+- name: rollout-guardrails-stateful
+  template: ../templates/rollout-guardrails.yaml
+  constraint: rollout-guardrails/constraint-stateful.yaml
+  cases:
+  - name: stateful-three-zones-allowed
+    object: rollout-guardrails/stateful-three-zones-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: stateful-two-replicas-refused
+    object: rollout-guardrails/stateful-two-replicas-refused.yaml
+    assertions:
+    - violations: 1
+  - name: stateful-node-spread-refused
+    object: rollout-guardrails/stateful-node-spread-refused.yaml
+    assertions:
+    - violations: 1
+- name: vertical-pod-autoscalers
+  template: ../templates/vertical-pod-autoscalers.yaml
+  constraint: vertical-pod-autoscalers/constraint.yaml
+  cases:
+  - name: example-aks-hello-allowed
+    object: vertical-pod-autoscalers/example-aks-hello-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: initial-allowed
+    object: vertical-pod-autoscalers/initial-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: default-mode-refused
+    object: vertical-pod-autoscalers/default-mode-refused.yaml
+    assertions:
+    - violations: 1
+  - name: recreate-refused
+    object: vertical-pod-autoscalers/recreate-refused.yaml
+    assertions:
+    - violations: 1
+  - name: no-policies-refused
+    object: vertical-pod-autoscalers/no-policies-refused.yaml
+    assertions:
+    - violations: 1
+  - name: limits-too-refused
+    object: vertical-pod-autoscalers/limits-too-refused.yaml
+    assertions:
+    - violations: 1
+  - name: no-memory-bound-refused
+    object: vertical-pod-autoscalers/no-memory-bound-refused.yaml
+    assertions:
+    - violations: 1
+  - name: cpu-only-allowed
+    object: vertical-pod-autoscalers/cpu-only-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: off-container-allowed
+    object: vertical-pod-autoscalers/off-container-allowed.yaml
+    assertions:
+    - violations: 'no'
+- name: vertical-pod-autoscalers-stateful
+  template: ../templates/vertical-pod-autoscalers.yaml
+  constraint: vertical-pod-autoscalers/constraint-stateful.yaml
+  cases:
+  - name: stateful-off-allowed
+    object: vertical-pod-autoscalers/stateful-off-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: stateful-in-place-refused
+    object: vertical-pod-autoscalers/stateful-in-place-refused.yaml
+    assertions:
+    - violations: 1

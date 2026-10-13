@@ -1,0 +1,14 @@
+# aks-fluxcd-platform infrastructure/zones/certificate.yaml for ext-fi: the platform vault.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: key-vault
+  namespace: ext-fi-gateway
+spec:
+  controller: ext-fi
+  provider:
+    azurekv:
+      authType: WorkloadIdentity
+      vaultUrl: https://kv-onek8s-dev-platform.vault.azure.net/
+      serviceAccountRef:
+        name: key-vault

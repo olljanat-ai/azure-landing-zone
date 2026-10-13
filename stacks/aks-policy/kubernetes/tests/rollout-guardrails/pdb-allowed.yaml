@@ -1,0 +1,11 @@
+# aks-fluxcd-example apps/aks-hello/poddisruptionbudget.yaml.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app
+  namespace: ext-fi-example
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: app

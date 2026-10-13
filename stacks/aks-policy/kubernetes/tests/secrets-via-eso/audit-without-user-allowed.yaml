@@ -1,0 +1,9 @@
+# Gatekeeper's background audit sees no request user: nothing is reported.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-webhook-token
+  namespace: ext-fi-example
+type: Opaque
+data:
+  k: dg==

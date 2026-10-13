@@ -1,0 +1,14 @@
+# A store without a controller (any operator's).
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: key-vault
+  namespace: ext-fi-example
+spec:
+  controller: ''
+  provider:
+    azurekv:
+      authType: WorkloadIdentity
+      vaultUrl: https://kv-onek8s-dev-ext-fi.vault.azure.net/
+      serviceAccountRef:
+        name: key-vault

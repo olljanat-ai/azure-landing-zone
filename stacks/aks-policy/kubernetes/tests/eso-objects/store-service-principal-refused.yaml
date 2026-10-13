@@ -1,0 +1,14 @@
+# A store with a client secret instead of workload identity.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: key-vault
+  namespace: ext-fi-example
+spec:
+  controller: ext-fi
+  provider:
+    azurekv:
+      authType: ServicePrincipal
+      vaultUrl: https://kv-onek8s-dev-ext-fi.vault.azure.net/
+      serviceAccountRef:
+        name: key-vault
