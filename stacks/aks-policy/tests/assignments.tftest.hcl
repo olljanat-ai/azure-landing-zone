@@ -42,7 +42,7 @@ run "platform_kubernetes_policies" {
   command = plan
 
   assert {
-    condition     = length(azurerm_policy_definition.kubernetes) == 12 && alltrue([for d in azurerm_policy_definition.kubernetes : d.mode == "Microsoft.Kubernetes.Data"])
+    condition     = length(azurerm_policy_definition.kubernetes) == 13 && alltrue([for d in azurerm_policy_definition.kubernetes : d.mode == "Microsoft.Kubernetes.Data"])
     error_message = "One Microsoft.Kubernetes.Data definition per constraint template."
   }
 
@@ -55,8 +55,8 @@ run "platform_kubernetes_policies" {
   }
 
   assert {
-    condition     = length(azurerm_policy_definition.kubernetes_mutation) == 12 && alltrue([for a in azurerm_subscription_policy_assignment.kubernetes_mutation : a.enforce && jsondecode(a.parameters).effect.value == "Mutate"])
-    error_message = "Two mutations per zone and four for architecture and spot, all enforced."
+    condition     = length(azurerm_policy_definition.kubernetes_mutation) == 13 && alltrue([for a in azurerm_subscription_policy_assignment.kubernetes_mutation : a.enforce && jsondecode(a.parameters).effect.value == "Mutate"])
+    error_message = "Two mutations per zone and five for architecture, spot and GPU, all enforced."
   }
 
   assert {

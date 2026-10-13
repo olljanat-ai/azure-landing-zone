@@ -1,0 +1,29 @@
+# GPU chosen by the application (R17, design section 4): a pod labelled platform/accelerator:
+# nvidia-gpu tolerates the zone's GPU NodePool's taint, platform/accelerator=nvidia-gpu:NoSchedule.
+# The pod still asks for the GPUs themselves as a resource (nvidia.com/gpu); that request is what
+# makes NAP create a GPU node, and the validation refuses the label without it.
+apiVersion: mutations.gatekeeper.sh/v1
+kind: ModifySet
+metadata:
+  name: platform-gpu-toleration
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    # Platform namespaces (the add-on also skips kube-system and gatekeeper-system)
+    excludedNamespaces: ["kube-system", "gatekeeper-system", "kube-public", "kube-node-lease", "azure-arc", "azure-extensions-usage-system", "aks-istio-system", "flux-system", "external-secrets", "external-dns", "platform-gateway", "infra-observability", "*-gateway", "*-secrets"]
+    labelSelector:
+      matchLabels:
+        platform/accelerator: nvidia-gpu
+  location: spec.tolerations
+  parameters:
+    operation: merge
+    values:
+      fromList:
+        - {key: platform/accelerator, operator: Equal, value: nvidia-gpu, effect: NoSchedule}

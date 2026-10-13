@@ -3,6 +3,7 @@
 #
 #   platform/arch      amd64 (default) | arm64 | multi   -> nodeSelector kubernetes.io/arch
 #   platform/capacity  on-demand (default) | spot        -> spot toleration + preferred affinity
+#   platform/accelerator  nvidia-gpu                       -> GPU toleration (the zone's GPU NodePool)
 #
 # This validation is what keeps the labels the only way in, after the mutations ran:
 #
@@ -13,13 +14,16 @@
 #   - nothing selects or requires a capacity type (karpenter.sh/capacity-type,
 #     kubernetes.azure.com/scalesetpriority); only the preferred affinity the spot mutation adds may
 #     name it;
-#   - the spot taint (platform/capacity=spot) is tolerated only by a pod labelled spot.
+#   - the spot taint (platform/capacity=spot) is tolerated only by a pod labelled spot;
+#   - a GPU (nvidia.com/gpu) is asked for only by a pod labelled platform/accelerator: nvidia-gpu,
+#     and such a pod asks for one, so a GPU node is never held by a pod that does not use it; the
+#     GPU taint is tolerated only by a labelled pod; GPU nodes are amd64, so the pod is amd64 too.
 apiVersion: templates.gatekeeper.sh/v1
 kind: ConstraintTemplate
 metadata:
   name: k8splatformplacementlabels
   annotations:
-    description: Pods choose architecture and spot with the platform/arch and platform/capacity labels only.
+    description: Pods choose architecture, spot and GPUs with the platform/arch, platform/capacity and platform/accelerator labels only.
 spec:
   crd:
     spec:
@@ -39,6 +43,11 @@ spec:
               description: Values of platform/capacity this cluster offers (on-demand, spot).
               items:
                 type: string
+            allowedAccelerators:
+              type: array
+              description: Values of platform/accelerator this cluster offers (nvidia-gpu); empty for none.
+              items:
+                type: string
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -53,6 +62,8 @@ spec:
         arch := object.get(pod.metadata, ["labels", "platform/arch"], "amd64")
 
         capacity := object.get(pod.metadata, ["labels", "platform/capacity"], "on-demand")
+
+        accelerator := object.get(pod.metadata, ["labels", "platform/accelerator"], "none")
 
         violation[{"msg": msg}] {
           not arch_allowed
@@ -70,6 +81,16 @@ spec:
 
         capacity_allowed {
           capacity == input.parameters.allowedCapacities[_]
+        }
+
+        violation[{"msg": msg}] {
+          accelerator != "none"
+          not accelerator_allowed
+          msg := sprintf("Pod %v: platform/accelerator %v is not offered here; allowed: %v.", [pod.metadata.name, accelerator, object.get(input.parameters, "allowedAccelerators", [])])
+        }
+
+        accelerator_allowed {
+          accelerator == input.parameters.allowedAccelerators[_]
         }
 
         # Architecture
@@ -129,6 +150,51 @@ spec:
         tolerates_spot(toleration) {
           object.get(toleration, "key", "") == ""
           toleration.operator == "Exists"
+        }
+
+        # Accelerator
+
+        gpu_resources := {"nvidia.com/gpu"}
+
+        containers[c] {
+          c := pod.spec.containers[_]
+        }
+
+        containers[c] {
+          c := pod.spec.initContainers[_]
+        }
+
+        asks_for_gpu {
+          c := containers[_]
+          kind := ["requests", "limits"][_]
+          resources := object.get(c, ["resources", kind], {})
+          resources[name]
+          gpu_resources[name]
+        }
+
+        violation[{"msg": msg}] {
+          accelerator == "none"
+          asks_for_gpu
+          msg := sprintf("Pod %v asks for nvidia.com/gpu without the platform/accelerator: nvidia-gpu label, which is what lets it onto the GPU nodes.", [pod.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          accelerator != "none"
+          not asks_for_gpu
+          msg := sprintf("Pod %v is labelled platform/accelerator: %v but asks for no nvidia.com/gpu; a GPU node is for pods that use its GPUs.", [pod.metadata.name, accelerator])
+        }
+
+        violation[{"msg": msg}] {
+          accelerator != "none"
+          arch != "amd64"
+          msg := sprintf("Pod %v: the GPU nodes are amd64, so a pod labelled platform/accelerator cannot be platform/arch %v.", [pod.metadata.name, arch])
+        }
+
+        violation[{"msg": msg}] {
+          accelerator == "none"
+          toleration := pod.spec.tolerations[_]
+          toleration.key == "platform/accelerator"
+          msg := sprintf("Pod %v tolerates the GPU taint but is not labelled platform/accelerator: nvidia-gpu.", [pod.metadata.name])
         }
 
         required_expressions[expression] {

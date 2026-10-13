@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu
+  namespace: ext-fi-inference
+spec:
+  selector:
+    matchLabels: {app: gpu}
+  template:
+    metadata:
+      labels: {app: gpu, platform/accelerator: nvidia-gpu}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          resources:
+            limits:
+              nvidia.com/gpu: 1

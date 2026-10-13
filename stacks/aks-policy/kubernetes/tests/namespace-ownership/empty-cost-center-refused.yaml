@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ext-fi-example
+  labels:
+    platform/zone: ext-fi
+    platform/team: example
+    platform/cost-center: ''
+  annotations:
+    platform/contact: example-team@onek8s.lol

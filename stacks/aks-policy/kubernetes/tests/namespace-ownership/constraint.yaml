@@ -1,0 +1,29 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformNamespaceOwnership
+metadata:
+  name: namespace-ownership
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - ''
+      kinds:
+      - Namespace
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - default
+    - app-routing-system
+  parameters:
+    requiredLabels:
+    - platform/team
+    - platform/cost-center
+    requiredAnnotations:
+    - platform/contact

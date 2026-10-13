@@ -64,6 +64,12 @@ variable "allowed_sku_series" {
   description = "VM series (karpenter.azure.com/sku-series) a zone's NAP NodePools may use: amd64 and arm64 series that support Azure Virtual Network encryption (design section 4)."
 }
 
+variable "allowed_gpu_sku_series" {
+  type        = list(string)
+  default     = ["NCads_v5", "NCadis_v5"]
+  description = "VM series (karpenter.azure.com/sku-series) a zone's GPU NodePool may use: NVIDIA H100 v5 (NC40ads_H100_v5, NC80adis_H100_v5), the GPU VMs that support Azure Virtual Network encryption and encryption at host (design decision D42)."
+}
+
 variable "key_vault_name_prefix" {
   type        = string
   description = "The environment's Key Vault names without their suffix: the zone vaults are <prefix>-<zone>, the platform vault <prefix>-platform (onek8s/aks-terraform shared/envs/*.tfvars). The ESO rules allow a zone's SecretStores these two only."
