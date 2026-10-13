@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    platform/contact: https://github.com/onek8s/aks-fluxcd-platform/issues
+  labels:
+    platform/cost-center: platform
+    platform/role: platform
+    platform/team: platform
+    platform/zone: ext-fi
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+  name: ext-fi-gateway

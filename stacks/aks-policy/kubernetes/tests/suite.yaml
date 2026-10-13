@@ -892,6 +892,30 @@ tests:
   template: ../templates/namespace-ownership.yaml
   constraint: namespace-ownership/constraint.yaml
   cases:
+  - name: fleet-ext-fi-gateway
+    object: namespace-ownership/fleet-ext-fi-gateway.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-ext-fi-secrets
+    object: namespace-ownership/fleet-ext-fi-secrets.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-external-secrets
+    object: namespace-ownership/fleet-external-secrets.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-external-dns
+    object: namespace-ownership/fleet-external-dns.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-platform-gateway
+    object: namespace-ownership/fleet-platform-gateway.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-infra-observability
+    object: namespace-ownership/fleet-infra-observability.yaml
+    assertions:
+    - violations: 'no'
   - name: owned-allowed
     object: namespace-ownership/owned-allowed.yaml
     assertions:
