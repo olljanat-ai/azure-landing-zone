@@ -32,6 +32,7 @@ and where the code implements them. Four repositories share the work:
 | R19 | ACNS + eBPF host routing | aks-terraform `advanced_networking`: Hubble, FQDN policies, `BpfVeth`; Azure Linux 3.0 on every node | Built |
 | R20 | FQDN egress per application | ACNS FQDN policies; the zone baseline denies all egress but cluster DNS; the application's `egress` policy; `check-egress.py` against the zone's allow-list in the team's CI | Built (CI check); Azure Policy admission: phase 2 |
 | R21 | Customer-managed keys | aks-terraform `customer_managed_keys`: `key-<cluster>-kms` (KMS) and `key-<cluster>-disk` (disk encryption set) per cluster in the platform vault, encryption at host on every node | Built |
+| R24 | Health probes and `/healthz` | aks-fluxcd-example: aks-hello's readiness and liveness probes on `/healthz`; aks-terraform `global_hostnames.health_path = "/healthz"`: Traffic Manager probes it over HTTPS through each cell's gateway; `stacks/aks-policy` deployment safeguards (probes) in audit; the Isolation tests check `/healthz` per cell and on the global name | Built; probes enforced (deny) and synthetic monitoring: phase 2 |
 
 ## Changed while building, to confirm in phase 2
 
