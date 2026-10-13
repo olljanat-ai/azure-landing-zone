@@ -249,7 +249,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
       destination_ports     = ["443"]
     }
 
-    # Internal entry point of zone X -> Traefik of zone X in every cell. Network rule: no SNAT, so NGINX sees
+    # Internal entry point of zone X -> the gateway of zone X in every cell. Network rule: no SNAT, so NGINX sees
     # the client address for client-IP affinity (OneK8s design section 8).
     dynamic "rule" {
       for_each = each.value.edge.zones

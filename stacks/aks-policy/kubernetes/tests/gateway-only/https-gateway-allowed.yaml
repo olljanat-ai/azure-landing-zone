@@ -4,7 +4,7 @@ metadata:
   name: ext-fi
   namespace: ext-fi-gateway
 spec:
-  gatewayClassName: traefik-ext-fi
+  gatewayClassName: approuting-istio
   listeners:
   - name: https
     protocol: HTTPS

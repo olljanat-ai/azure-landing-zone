@@ -2,7 +2,7 @@
 # design sections 13 and 14). Ingress is refused by the built-in definition (k8s-no-ingress); this
 # adds:
 #
-#   - no LoadBalancer or NodePort Service: only the gateways' Traefik has one, and the gateway
+#   - no LoadBalancer or NodePort Service: only App Routing's gateways have one, and the gateway
 #     namespaces are platform namespaces the assignment leaves out;
 #   - every Gateway listener is HTTPS and terminates TLS;
 #   - an HTTPRoute in a zone namespace `<zone>-<app>` attaches only to its zone's Gateway (`<zone>` in
