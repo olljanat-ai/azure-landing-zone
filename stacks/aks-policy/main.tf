@@ -91,7 +91,7 @@ locals {
     }
     k8s-image-integrity = {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/cf426bb8-b320-4321-8545-1b784a5df3a4"
-      description = "Images signed with Notation, audited at admission with Image Integrity (preview, audit only)"
+      description = "Images signed with Notation by the platform's certificate (aks-terraform Sign images), checked by Image Integrity's Ratify at admission (preview, audit only)"
       parameters = {
         effect             = { value = "Audit" }
         excludedNamespaces = { value = local.platform_namespaces }
