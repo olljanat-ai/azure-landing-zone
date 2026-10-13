@@ -1,0 +1,13 @@
+# aks-fluxcd-example stateless/ (kustomize build), as Flux applies it to the stateless cells.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/name: aks-hello
+  name: aks-hello
+  namespace: ext-fi-example
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aks-hello

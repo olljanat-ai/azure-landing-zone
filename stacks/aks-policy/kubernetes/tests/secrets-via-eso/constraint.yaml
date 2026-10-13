@@ -29,3 +29,6 @@ spec:
     - int-se
     - ext-fi
     - ext-se
+    exemptUsers:
+    - system:serviceaccount:flux-system:fluxconfig-agent-sa
+    - system:serviceaccount:flux-system:fluxconfig-controller-sa

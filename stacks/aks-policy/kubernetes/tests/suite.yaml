@@ -540,6 +540,18 @@ tests:
     object: secrets-via-eso/audit-without-user-allowed.yaml
     assertions:
     - violations: 'no'
+  - name: flux-extension-controller-allowed
+    object: secrets-via-eso/flux-extension-controller-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: flux-extension-agent-allowed
+    object: secrets-via-eso/flux-extension-agent-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-kustomize-refused
+    object: secrets-via-eso/fleet-kustomize-refused.yaml
+    assertions:
+    - violations: 1
 - name: eso-objects
   template: ../templates/eso-objects.yaml
   constraint: eso-objects/constraint.yaml
@@ -656,6 +668,14 @@ tests:
   template: ../templates/rollout-guardrails.yaml
   constraint: rollout-guardrails/constraint.yaml
   cases:
+  - name: example-aks-hello-pdb-allowed
+    object: rollout-guardrails/example-aks-hello-pdb-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-aks-hello-deployment-allowed
+    object: rollout-guardrails/example-aks-hello-deployment-allowed.yaml
+    assertions:
+    - violations: 'no'
   - name: deployment-allowed
     object: rollout-guardrails/deployment-allowed.yaml
     assertions:
@@ -732,6 +752,10 @@ tests:
   template: ../templates/vertical-pod-autoscalers.yaml
   constraint: vertical-pod-autoscalers/constraint.yaml
   cases:
+  - name: example-aks-hello-stateless-allowed
+    object: vertical-pod-autoscalers/example-aks-hello-stateless-allowed.yaml
+    assertions:
+    - violations: 'no'
   - name: example-aks-hello-allowed
     object: vertical-pod-autoscalers/example-aks-hello-allowed.yaml
     assertions:

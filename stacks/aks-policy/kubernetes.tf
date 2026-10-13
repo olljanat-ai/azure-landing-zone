@@ -44,7 +44,7 @@ locals {
     fqdn-egress           = { api_groups = ["", "cilium.io", "networking.k8s.io"], kinds = ["Pod", "CiliumNetworkPolicy", "NetworkPolicy"], parameters = { sharedSuffixes = "Array" } }
     gateway-only          = { api_groups = ["", "gateway.networking.k8s.io"], kinds = ["Service", "Gateway", "HTTPRoute"], parameters = { zones = "Array", domainSuffix = "String" } }
     node-pools            = { api_groups = ["karpenter.sh", "karpenter.azure.com"], kinds = ["NodePool", "AKSNodeClass"], parameters = { zones = "Array", allowedSkuSeries = "Array", exemptNames = "Array" } }
-    secrets-via-eso       = { api_groups = [""], kinds = ["Secret"], parameters = { zones = "Array" } }
+    secrets-via-eso       = { api_groups = [""], kinds = ["Secret"], parameters = { zones = "Array", exemptUsers = "Array" } }
     eso-objects           = { api_groups = ["external-secrets.io"], kinds = ["SecretStore", "ExternalSecret", "PushSecret"], parameters = { zones = "Array", keyVaultNamePrefix = "String", serviceAccount = "String" } }
     service-accounts      = { api_groups = [""], kinds = ["Pod", "ServiceAccount"], parameters = { readerServiceAccount = "String" } }
     rollout-guardrails = {
@@ -140,11 +140,19 @@ locals {
       always_deny = false
     }
     secrets-via-eso = {
-      display     = "Isolation zones: only the zone's External Secrets Operator writes Secrets in its namespaces"
-      template    = "secrets-via-eso"
-      clusters    = "all"
-      excluded    = local.kubernetes_excluded_namespaces_with_gateways
-      values      = { zones = var.isolation_zones }
+      display  = "Isolation zones: only the zone's External Secrets Operator writes Secrets in its namespaces"
+      template = "secrets-via-eso"
+      clusters = "all"
+      excluded = local.kubernetes_excluded_namespaces_with_gateways
+      values = {
+        zones = var.isolation_zones
+        # The AKS Flux extension keeps its configuration's -auth, -genkey and -protected-parameters
+        # Secrets in the team's namespace (aks-terraform's Cluster status lists who writes each).
+        exemptUsers = [
+          "system:serviceaccount:flux-system:fluxconfig-agent-sa",
+          "system:serviceaccount:flux-system:fluxconfig-controller-sa",
+        ]
+      }
       always_deny = false
     }
     eso-objects = {
