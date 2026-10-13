@@ -1,0 +1,35 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformRolloutGuardrails
+metadata:
+  name: rollout-guardrails
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - apps
+      - autoscaling
+      - policy
+      kinds:
+      - Deployment
+      - StatefulSet
+      - HorizontalPodAutoscaler
+      - PodDisruptionBudget
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - external-secrets
+    - external-dns
+    - platform-gateway
+    - '*-gateway'
+    - '*-secrets'
+  parameters:
+    minReplicas: 2
+    spreadTopologyKey: kubernetes.io/hostname
+    requireNoUnavailable: true

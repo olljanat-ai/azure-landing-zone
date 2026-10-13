@@ -1,0 +1,17 @@
+# aks-fluxcd-platform tenants/ext-fi-example/webhook.yaml, rendered.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: s
+  namespace: ext-fi-example
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: key-vault
+  target:
+    name: s
+  data:
+  - secretKey: k0
+    remoteRef:
+      key: secret/ext-fi-example--github-webhook-token

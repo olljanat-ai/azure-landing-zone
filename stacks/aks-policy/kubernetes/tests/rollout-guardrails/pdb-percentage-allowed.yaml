@@ -1,0 +1,11 @@
+# maxUnavailable as a percentage.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app
+  namespace: ext-fi-example
+spec:
+  maxUnavailable: 50%
+  selector:
+    matchLabels:
+      app: app

@@ -10,6 +10,7 @@ variables {
   cluster_resource_group_name = "rg-aks-dev"
   stateless_cluster_names     = ["aks-dev-stateless-az1", "aks-dev-stateless-az2"]
   stateful_cluster_name       = "aks-dev-stateful"
+  key_vault_name_prefix       = "kv-onek8s-dev"
 }
 
 run "audit_in_the_build_tenant" {
@@ -41,7 +42,7 @@ run "platform_kubernetes_policies" {
   command = plan
 
   assert {
-    condition     = length(azurerm_policy_definition.kubernetes) == 7 && alltrue([for d in azurerm_policy_definition.kubernetes : d.mode == "Microsoft.Kubernetes.Data"])
+    condition     = length(azurerm_policy_definition.kubernetes) == 12 && alltrue([for d in azurerm_policy_definition.kubernetes : d.mode == "Microsoft.Kubernetes.Data"])
     error_message = "One Microsoft.Kubernetes.Data definition per constraint template."
   }
 
@@ -115,5 +116,66 @@ run "new_definitions_stay_audit_when_enforced" {
   assert {
     condition     = jsondecode(azurerm_subscription_policy_assignment.aks["k8s-allowed-images"].parameters).allowedContainerImagesRegex.value == "^acronek8sdev\\.azurecr\\.io/[^@]+@sha256:[a-f0-9]{64}$"
     error_message = "Images by digest from the environment's registry only."
+  }
+}
+
+run "promoted_rules_deny" {
+  command = plan
+
+  variables {
+    kubernetes_deny = ["gateway-only", "eso-objects", "k8s-no-ingress"]
+  }
+
+  assert {
+    condition = alltrue([
+      for k, a in azurerm_subscription_policy_assignment.kubernetes :
+      a.enforce == contains(["no-persistent-storage", "portable-storage-only", "gateway-only", "eso-objects"], k) &&
+      jsondecode(a.parameters).effect.value == (a.enforce ? "Deny" : "Audit")
+    ])
+    error_message = "A validation in kubernetes_deny denies and is enforced also with DoNotEnforce; the others still audit."
+  }
+
+  assert {
+    condition = (
+      azurerm_subscription_policy_assignment.aks["k8s-no-ingress"].enforce &&
+      jsondecode(azurerm_subscription_policy_assignment.aks["k8s-no-ingress"].parameters).effect.value == "Deny" &&
+      !azurerm_subscription_policy_assignment.aks["k8s-read-only-root-filesystem"].enforce &&
+      jsondecode(azurerm_subscription_policy_assignment.aks["k8s-read-only-root-filesystem"].parameters).effect.value == "Audit"
+    )
+    error_message = "A built-in Kubernetes assignment in kubernetes_deny denies; the others keep their effect."
+  }
+}
+
+run "unknown_rule_refused" {
+  command = plan
+
+  variables {
+    kubernetes_deny = ["no-such-rule"]
+  }
+
+  expect_failures = [azurerm_subscription_policy_assignment.kubernetes]
+}
+
+run "new_rules_parameters" {
+  command = plan
+
+  assert {
+    condition = (
+      jsondecode(azurerm_subscription_policy_assignment.kubernetes["eso-objects"].parameters).keyVaultNamePrefix.value == "kv-onek8s-dev" &&
+      contains(jsondecode(azurerm_subscription_policy_assignment.kubernetes["eso-objects"].parameters).excludedNamespaces.value, "*-secrets") &&
+      !contains(jsondecode(azurerm_subscription_policy_assignment.kubernetes["secrets-via-eso"].parameters).excludedNamespaces.value, "*-gateway") &&
+      contains(jsondecode(azurerm_subscription_policy_assignment.kubernetes["service-accounts"].parameters).excludedNamespaces.value, "*-gateway")
+    )
+    error_message = "The secret rules cover the zones' gateway namespaces, not the operators'; the application rules leave both out."
+  }
+
+  assert {
+    condition = (
+      jsondecode(azurerm_subscription_policy_assignment.kubernetes["rollout-guardrails"].parameters).minReplicas.value == 2 &&
+      jsondecode(azurerm_subscription_policy_assignment.kubernetes["rollout-guardrails-stateful"].parameters).minReplicas.value == 3 &&
+      length(azurerm_subscription_policy_assignment.kubernetes["rollout-guardrails-stateful"].not_scopes) == 2 &&
+      jsondecode(azurerm_subscription_policy_assignment.kubernetes["vertical-pod-autoscalers-stateful"].parameters).allowedModes.value == ["Off"]
+    )
+    error_message = "Stateless and stateful guardrails get their own parameters and scopes."
   }
 }

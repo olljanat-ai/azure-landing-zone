@@ -1,0 +1,35 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformEsoObjects
+metadata:
+  name: eso-objects
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - external-secrets.io
+      kinds:
+      - SecretStore
+      - ExternalSecret
+      - PushSecret
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - external-secrets
+    - external-dns
+    - platform-gateway
+    - '*-secrets'
+  parameters:
+    zones:
+    - int-fi
+    - int-se
+    - ext-fi
+    - ext-se
+    keyVaultNamePrefix: kv-onek8s-dev
+    serviceAccount: key-vault

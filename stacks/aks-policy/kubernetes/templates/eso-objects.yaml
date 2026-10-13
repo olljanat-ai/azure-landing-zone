@@ -1,0 +1,174 @@
+# External Secrets Operator objects of an isolation zone's namespaces (R7, R7b, design sections 6
+# and 14): each namespace reads its own share of a vault through its own identity, and nothing else.
+#
+#   SecretStore     provider `azurekv` only, `authType: WorkloadIdentity` with the namespace's
+#                   `key-vault` service account (the identity aks-terraform federates and grants the
+#                   share), `vaultUrl` the zone's own vault or the platform vault, `controller` the
+#                   zone's External Secrets Operator.
+#   ExternalSecret  against a namespaced SecretStore only (not a ClusterSecretStore, not a
+#                   generator); every key it reads (`data[].remoteRef.key`, `dataFrom[].extract.key`)
+#                   is one of the namespace's own, `[secret/|cert/|key/]<namespace>--...`; no
+#                   `dataFrom[].find` (a search over the vault's names).
+#   PushSecret      not in a zone's namespaces: the platform's only.
+#
+# Key Vault's ABAC condition refuses another namespace's secret anyway; this refuses the manifest
+# before it reaches Key Vault, and says why. The cluster-scoped kinds (ClusterSecretStore,
+# ClusterExternalSecret, ClusterPushSecret) are not processed by the zones' operators
+# (aks-fluxcd-platform, infrastructure/zones/external-secrets.yaml).
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformesoobjects
+  annotations:
+    description: External Secrets objects in a zone's namespaces read only that namespace's share of the zone or platform vault.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformEsoObjects
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            zones:
+              type: array
+              description: The isolation zones; the namespaces <zone>-* are theirs.
+              items:
+                type: string
+            keyVaultNamePrefix:
+              type: string
+              description: The environment's vault names without the suffix - <prefix>-<zone> and <prefix>-platform.
+            serviceAccount:
+              type: string
+              description: The service account a namespace's identity is federated with.
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformesoobjects
+
+        obj := input.review.object
+
+        namespace := obj.metadata.namespace
+
+        zone := z {
+          z := input.parameters.zones[_]
+          startswith(namespace, sprintf("%v-", [z]))
+        }
+
+        allowed_vaults := {
+          sprintf("https://%v-%v.vault.azure.net", [input.parameters.keyVaultNamePrefix, zone]),
+          sprintf("https://%v-platform.vault.azure.net", [input.parameters.keyVaultNamePrefix]),
+        }
+
+        # SecretStore
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          provider := object.get(obj.spec, "provider", {})
+          name := object.keys(provider)[_]
+          name != "azurekv"
+          msg := sprintf("SecretStore %v/%v: provider %v; a zone's stores use azurekv only.", [namespace, obj.metadata.name, name])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          kv := obj.spec.provider.azurekv
+          object.get(kv, "authType", "ServicePrincipal") != "WorkloadIdentity"
+          msg := sprintf("SecretStore %v/%v: authType must be WorkloadIdentity.", [namespace, obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          kv := obj.spec.provider.azurekv
+          account := object.get(kv, ["serviceAccountRef", "name"], "")
+          account != input.parameters.serviceAccount
+          msg := sprintf("SecretStore %v/%v: serviceAccountRef must be %v, the namespace's federated identity, not %v.", [namespace, obj.metadata.name, input.parameters.serviceAccount, account])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          kv := obj.spec.provider.azurekv
+          object.get(kv, ["serviceAccountRef", "namespace"], namespace) != namespace
+          msg := sprintf("SecretStore %v/%v: serviceAccountRef must be in its own namespace.", [namespace, obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          kv := obj.spec.provider.azurekv
+          url := trim_suffix(lower(object.get(kv, "vaultUrl", "")), "/")
+          not allowed_vaults[url]
+          msg := sprintf("SecretStore %v/%v: vaultUrl %v; allowed are zone %v's vault and the platform vault: %v.", [namespace, obj.metadata.name, kv.vaultUrl, zone, allowed_vaults])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "SecretStore"
+          object.get(obj.spec, "controller", "") != zone
+          msg := sprintf("SecretStore %v/%v: controller must be %v, the zone's External Secrets Operator.", [namespace, obj.metadata.name, zone])
+        }
+
+        # ExternalSecret
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "ExternalSecret"
+          object.get(obj.spec, ["secretStoreRef", "kind"], "SecretStore") != "SecretStore"
+          msg := sprintf("ExternalSecret %v/%v: only a namespaced SecretStore, not a %v.", [namespace, obj.metadata.name, obj.spec.secretStoreRef.kind])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "ExternalSecret"
+          key := read_keys[_]
+          not own_key(key)
+          msg := sprintf("ExternalSecret %v/%v reads %v; a namespace reads only its own secrets, named %v--...", [namespace, obj.metadata.name, key, namespace])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "ExternalSecret"
+          object.get(obj.spec.dataFrom[_], "find", null) != null
+          msg := sprintf("ExternalSecret %v/%v: dataFrom find (a search of the vault) is not allowed; name each secret.", [namespace, obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "ExternalSecret"
+          entry := object.get(obj.spec, "dataFrom", [])[_]
+          object.get(entry, "sourceRef", null) != null
+          msg := sprintf("ExternalSecret %v/%v: dataFrom sourceRef (generators, other stores) is not allowed.", [namespace, obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "ExternalSecret"
+          entry := object.get(obj.spec, "data", [])[_]
+          object.get(entry, "sourceRef", null) != null
+          msg := sprintf("ExternalSecret %v/%v: data sourceRef (generators, other stores) is not allowed.", [namespace, obj.metadata.name])
+        }
+
+        read_keys[key] {
+          key := object.get(obj.spec, "data", [])[_].remoteRef.key
+        }
+
+        read_keys[key] {
+          key := object.get(obj.spec, "dataFrom", [])[_].extract.key
+        }
+
+        own_key(key) {
+          name := trim_prefix(trim_prefix(trim_prefix(key, "secret/"), "cert/"), "key/")
+          startswith(name, sprintf("%v--", [namespace]))
+        }
+
+        # PushSecret
+
+        violation[{"msg": msg}] {
+          zone
+          obj.kind == "PushSecret"
+          msg := sprintf("PushSecret %v/%v: writing to a vault from a cluster is the platform's only.", [namespace, obj.metadata.name])
+        }

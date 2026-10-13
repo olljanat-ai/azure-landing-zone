@@ -1,0 +1,14 @@
+# A store on a vault outside the environment.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: key-vault
+  namespace: ext-fi-example
+spec:
+  controller: ext-fi
+  provider:
+    azurekv:
+      authType: WorkloadIdentity
+      vaultUrl: https://somebody-else.vault.azure.net/
+      serviceAccountRef:
+        name: key-vault

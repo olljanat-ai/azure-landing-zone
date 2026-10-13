@@ -1,0 +1,17 @@
+# An ExternalSecret against a ClusterSecretStore.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: s
+  namespace: ext-fi-example
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: key-vault
+  target:
+    name: s
+  data:
+  - secretKey: k0
+    remoteRef:
+      key: secret/ext-fi-example--x

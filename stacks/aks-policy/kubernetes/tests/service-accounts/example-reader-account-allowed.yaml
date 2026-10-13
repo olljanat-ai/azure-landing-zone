@@ -1,0 +1,9 @@
+# aks-fluxcd-platform tenants/ext-fi-example/key-vault.yaml: the reader's service account itself.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: key-vault
+  namespace: ext-fi-example
+  annotations:
+    azure.workload.identity/client-id: 00000000-0000-0000-0000-000000000000
+automountServiceAccountToken: false

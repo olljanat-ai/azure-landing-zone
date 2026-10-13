@@ -1,0 +1,29 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformServiceAccounts
+metadata:
+  name: service-accounts
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - ''
+      kinds:
+      - Pod
+      - ServiceAccount
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - external-secrets
+    - external-dns
+    - platform-gateway
+    - '*-gateway'
+    - '*-secrets'
+  parameters:
+    readerServiceAccount: key-vault

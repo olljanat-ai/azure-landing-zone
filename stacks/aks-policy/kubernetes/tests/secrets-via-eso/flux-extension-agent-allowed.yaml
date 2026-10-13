@@ -1,0 +1,28 @@
+# The AKS Flux extension's agent keeps the configuration's -protected-parameters Secret (seen on az1).
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: ext-fi-example-protected-parameters
+  namespace: ext-fi-example
+  operation: UPDATE
+  userInfo:
+    username: system:serviceaccount:flux-system:fluxconfig-agent-sa
+  object: &id001
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ext-fi-example-protected-parameters
+      namespace: ext-fi-example
+    type: Opaque
+    data:
+      k: dg==
+  oldObject: *id001

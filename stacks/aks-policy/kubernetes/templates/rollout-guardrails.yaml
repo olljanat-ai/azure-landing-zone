@@ -1,0 +1,115 @@
+# Replica and rollout guardrails (R11, R12, design section 11): an application survives the loss of
+# a node, a rollout and a node drain without an outage.
+#
+#   - Deployment and StatefulSet `replicas`, and HorizontalPodAutoscaler `minReplicas`, at least
+#     `minReplicas` (2 in a stateless cell, 3 in the stateful cluster); 0 is allowed - an application
+#     switched off on purpose;
+#   - their pods spread with a topologySpreadConstraint over `spreadTopologyKey` (the node in a
+#     stateless cell, the availability zone in the stateful cluster);
+#   - a Deployment rolls out with `RollingUpdate` and `maxUnavailable: 0`, so a release never has
+#     fewer ready pods than before (when `requireNoUnavailable`);
+#   - a PodDisruptionBudget states `maxUnavailable` of at least 1 (or a percentage above 0): a
+#     `minAvailable`, or a `maxUnavailable` of 0, would block every node drain and so every cluster
+#     upgrade.
+#
+# That every Deployment has a PodDisruptionBudget cannot be checked here (no lookups of other
+# objects); CI checks it on the rendered manifests.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformrolloutguardrails
+  annotations:
+    description: Applications run enough replicas, spread them, roll out without losing capacity and never block a drain.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformRolloutGuardrails
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            minReplicas:
+              type: integer
+              description: The least replicas (and HPA minReplicas) of an application.
+            spreadTopologyKey:
+              type: string
+              description: The topology key the pods must spread over.
+            requireNoUnavailable:
+              type: boolean
+              description: Deployments roll out with maxUnavailable 0.
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformrolloutguardrails
+
+        obj := input.review.object
+
+        workloads := {"Deployment", "StatefulSet"}
+
+        violation[{"msg": msg}] {
+          workloads[obj.kind]
+          replicas := object.get(obj.spec, "replicas", 1)
+          replicas != 0
+          replicas < input.parameters.minReplicas
+          msg := sprintf("%v %v: %v replica(s); at least %v, so that losing a node or a rollout is no outage.", [obj.kind, obj.metadata.name, replicas, input.parameters.minReplicas])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HorizontalPodAutoscaler"
+          minimum := object.get(obj.spec, "minReplicas", 1)
+          minimum < input.parameters.minReplicas
+          msg := sprintf("HorizontalPodAutoscaler %v: minReplicas %v; at least %v.", [obj.metadata.name, minimum, input.parameters.minReplicas])
+        }
+
+        violation[{"msg": msg}] {
+          workloads[obj.kind]
+          object.get(obj.spec, "replicas", 1) != 0
+          not spread(obj.spec.template.spec)
+          msg := sprintf("%v %v: its pods need a topologySpreadConstraint over %v.", [obj.kind, obj.metadata.name, input.parameters.spreadTopologyKey])
+        }
+
+        spread(spec) {
+          spec.topologySpreadConstraints[_].topologyKey == input.parameters.spreadTopologyKey
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "Deployment"
+          input.parameters.requireNoUnavailable
+          object.get(obj.spec, ["strategy", "type"], "RollingUpdate") != "RollingUpdate"
+          msg := sprintf("Deployment %v: strategy %v; RollingUpdate with maxUnavailable 0.", [obj.metadata.name, obj.spec.strategy.type])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "Deployment"
+          input.parameters.requireNoUnavailable
+          object.get(obj.spec, ["strategy", "type"], "RollingUpdate") == "RollingUpdate"
+          unavailable := object.get(obj.spec, ["strategy", "rollingUpdate", "maxUnavailable"], "25%")
+          not zero(unavailable)
+          msg := sprintf("Deployment %v: maxUnavailable %v; a rollout must not drop below the ready replicas it has (maxUnavailable 0, maxSurge above 0).", [obj.metadata.name, unavailable])
+        }
+
+        zero(value) {
+          value == 0
+        }
+
+        zero(value) {
+          value == "0%"
+        }
+
+        zero(value) {
+          value == "0"
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "PodDisruptionBudget"
+          object.get(obj.spec, "minAvailable", null) != null
+          msg := sprintf("PodDisruptionBudget %v: minAvailable can block every drain; state maxUnavailable (1, or a percentage).", [obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "PodDisruptionBudget"
+          object.get(obj.spec, "minAvailable", null) == null
+          zero(object.get(obj.spec, "maxUnavailable", 0))
+          msg := sprintf("PodDisruptionBudget %v: maxUnavailable 0 blocks every node drain and cluster upgrade; at least 1.", [obj.metadata.name])
+        }

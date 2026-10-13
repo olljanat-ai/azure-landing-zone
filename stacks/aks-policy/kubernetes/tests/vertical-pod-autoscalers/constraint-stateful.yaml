@@ -1,0 +1,29 @@
+# The parameters stacks/aks-policy assigns to the stateful cluster (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformVerticalPodAutoscalers
+metadata:
+  name: vertical-pod-autoscalers
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - autoscaling.k8s.io
+      kinds:
+      - VerticalPodAutoscaler
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - external-secrets
+    - external-dns
+    - platform-gateway
+    - '*-gateway'
+    - '*-secrets'
+  parameters:
+    allowedModes:
+    - 'Off'

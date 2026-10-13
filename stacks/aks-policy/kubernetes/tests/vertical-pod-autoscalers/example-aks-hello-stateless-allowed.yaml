@@ -1,0 +1,28 @@
+# aks-fluxcd-example stateless/ (kustomize build), as Flux applies it to the stateless cells.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/name: aks-hello
+  name: aks-hello
+  namespace: ext-fi-example
+spec:
+  resourcePolicy:
+    containerPolicies:
+    - containerName: aks-hello
+      controlledResources:
+      - cpu
+      - memory
+      controlledValues: RequestsOnly
+      maxAllowed:
+        cpu: 20m
+        memory: 128Mi
+      minAllowed:
+        cpu: 3m
+        memory: 64Mi
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aks-hello
+  updatePolicy:
+    updateMode: InPlaceOrRecreate

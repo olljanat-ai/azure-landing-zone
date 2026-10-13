@@ -1,0 +1,11 @@
+# minAvailable equal to the replicas blocks every drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app
+  namespace: ext-fi-example
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: app

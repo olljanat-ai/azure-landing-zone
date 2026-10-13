@@ -1,0 +1,27 @@
+# The team's Flux configuration applies a Secret from Git.
+kind: AdmissionReview
+apiVersion: admission.k8s.io/v1
+request:
+  uid: test
+  kind:
+    group: ''
+    version: v1
+    kind: Secret
+  resource:
+    group: ''
+    version: v1
+    resource: secrets
+  name: from-git
+  namespace: ext-fi-example
+  operation: CREATE
+  userInfo:
+    username: system:serviceaccount:ext-fi-example:flux-applier
+  object:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: from-git
+      namespace: ext-fi-example
+    type: Opaque
+    data:
+      k: dg==
