@@ -179,3 +179,16 @@ run "new_rules_parameters" {
     error_message = "Stateless and stateful guardrails get their own parameters and scopes."
   }
 }
+
+run "display_names_fit" {
+  command = plan
+
+  assert {
+    condition = alltrue(concat(
+      [for a in azurerm_subscription_policy_assignment.aks : length(a.display_name) <= 128],
+      [for a in azurerm_subscription_policy_assignment.kubernetes : length(a.display_name) <= 128],
+      [for a in azurerm_subscription_policy_assignment.kubernetes_mutation : length(a.display_name) <= 128],
+    ))
+    error_message = "Azure refuses an assignment display name longer than 128 characters (only at apply)."
+  }
+}
