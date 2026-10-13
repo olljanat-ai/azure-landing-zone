@@ -21,7 +21,7 @@ and where the code implements them. Four repositories share the work:
 | R8, R8a, R9 | Stateless + optional stateful cluster | The stateless cells are built; `envs/dev-stateful.tfvars` defines a stateful cluster, not deployed | Stateful: later, with the first exception |
 | R9b | Overlay CNI, Cilium, TLS-only Gateway API | Azure CNI Overlay + Cilium, VNet encryption on every cell VNet; a Traefik and a Gateway per zone with HTTPS only (no port 80), NSGs allow 443 only | Built |
 | R10 | Stateful cluster zone-redundant + LTS | – | Later |
-| R11 | One cluster per AZ, NAP | `aks-dev-stateless-az1` / `-az2`, system pool in one AZ, NAP with no default NodePools, zone NodePools on-demand and spot | Built |
+| R11 | One cluster per AZ, NAP | `aks-dev-stateless-az1` / `-az2`, system pool in one AZ, NAP with no default NodePools, zone NodePools on-demand and spot that scale to zero (the zones' gateways and ESOs run on the system pool) | Built; az2 is destroyed while not needed and rebuilt from its tfvars |
 | R12, R12a | Automated zero-downtime upgrades, two speeds | Auto-upgrade channels `none` / `None`, every cell on 1.36 | Version pipeline: phase 2 (aks-ai-agents) |
 | R13 | dev, acc, prd in sync | Same modules with one tfvars set per environment; dev only in the build tenant | dev built |
 | R14 | One policy engine | Azure Policy add-on on every cluster; `stacks/aks-policy` built-ins in audit | Custom definitions: phase 2. The stateless storage rules are still ValidatingAdmissionPolicies |
