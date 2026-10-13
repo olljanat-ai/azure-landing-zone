@@ -58,8 +58,10 @@ locals {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/df49d893-a74c-421d-bc95-c663042e5b80"
       description = "readOnlyRootFilesystem for application containers"
       parameters = {
-        effect             = { value = "Audit" }
-        excludedNamespaces = { value = local.platform_namespaces }
+        effect = { value = "Audit" }
+        # An application rule: the platform's own pods (App Routing's gateways, the operators) stay
+        # out, as in the platform's validations - AKS shapes the gateway pods, not this platform.
+        excludedNamespaces = { value = local.kubernetes_excluded_namespaces }
       }
     }
     k8s-no-service-account-token-automount = {
