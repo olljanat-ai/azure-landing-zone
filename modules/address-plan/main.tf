@@ -53,7 +53,7 @@ locals {
         for k, z in local.zones : k => {
           prefix     = z.slots[s]
           snet_nodes = cidrsubnet(z.slots[s], 1, 0)  # /21 NAP nodes of the zone
-          snet_ilb   = cidrsubnet(z.slots[s], 7, 64) # /27 Traefik internal load balancer (+ Private Link Service for ext zones)
+          snet_ilb   = cidrsubnet(z.slots[s], 7, 64) # /27 zone gateway internal load balancer (+ Private Link Service for ext zones)
           snet_pe    = cidrsubnet(z.slots[s], 7, 65) # /27 zone Key Vault private endpoint
         }
       }

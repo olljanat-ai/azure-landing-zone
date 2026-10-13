@@ -4,7 +4,7 @@ metadata:
   name: web
   namespace: ext-fi-app
 spec:
-  gatewayClassName: traefik-ext-fi
+  gatewayClassName: approuting-istio
   listeners:
   - name: http
     protocol: HTTP
