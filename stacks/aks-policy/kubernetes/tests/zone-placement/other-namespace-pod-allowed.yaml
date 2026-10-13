@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: plain
+  namespace: tools
+spec:
+  containers:
+  - name: app
+    image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

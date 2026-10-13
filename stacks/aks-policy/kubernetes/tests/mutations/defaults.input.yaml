@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: defaults
+  namespace: ext-fi-app
+spec:
+  selector:
+    matchLabels: {app: defaults}
+  template:
+    metadata:
+      labels: {app: defaults}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

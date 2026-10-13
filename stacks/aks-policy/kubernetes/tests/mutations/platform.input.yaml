@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform
+  namespace: flux-system
+spec:
+  selector:
+    matchLabels: {app: platform}
+  template:
+    metadata:
+      labels: {app: platform}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

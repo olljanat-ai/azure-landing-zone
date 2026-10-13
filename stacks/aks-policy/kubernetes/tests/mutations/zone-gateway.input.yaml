@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zone-gateway
+  namespace: ext-fi-gateway
+spec:
+  selector:
+    matchLabels: {app: zone-gateway}
+  template:
+    metadata:
+      labels: {app: zone-gateway}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

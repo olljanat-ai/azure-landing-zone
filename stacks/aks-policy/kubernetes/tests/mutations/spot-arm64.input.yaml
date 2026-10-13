@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spot-arm64
+  namespace: int-se-app
+spec:
+  selector:
+    matchLabels: {app: spot-arm64}
+  template:
+    metadata:
+      labels: {app: spot-arm64, platform/arch: arm64, platform/capacity: spot}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

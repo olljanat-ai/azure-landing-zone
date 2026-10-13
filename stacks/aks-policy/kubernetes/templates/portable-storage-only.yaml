@@ -1,0 +1,55 @@
+# A cluster with storage (the stateful cluster): the applications' claims use the platform's
+# StorageClass, whose disks outlive the cluster (aks-fluxcd-platform infrastructure/storage), and
+# nothing else - a claim with no class gets AKS's `default` from the API server and is refused like
+# any other; an inline `csi` volume, which reaches a driver without a claim, is refused too. The
+# restricted Pod Security Standard already refuses the in-tree azureDisk and azureFile volumes.
+#
+# Only creation is checked (and the audit of what exists). Platform namespaces are left out by the
+# assignment. Replaces the fleet's ValidatingAdmissionPolicy `portable-storage-only` (R14).
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformportablestorage
+  annotations:
+    description: PersistentVolumeClaims use the platform's portable StorageClass; no inline csi volumes.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformPortableStorage
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            storageClassName:
+              type: string
+              description: The one StorageClass application claims may use.
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformportablestorage
+
+        updating {
+          input.review.operation == "UPDATE"
+        }
+
+        class_name(claim) := name {
+          name := claim.spec.storageClassName
+        } else := "none"
+
+        violation[{"msg": msg}] {
+          not updating
+          input.review.object.kind == "PersistentVolumeClaim"
+          wanted := input.parameters.storageClassName
+          got := class_name(input.review.object)
+          got != wanted
+          msg := sprintf("PersistentVolumeClaim %v must use storageClassName: %v, whose disks outlive the cluster; %v is not allowed.", [input.review.object.metadata.name, wanted, got])
+        }
+
+        violation[{"msg": msg}] {
+          not updating
+          input.review.object.kind == "Pod"
+          volume := input.review.object.spec.volumes[_]
+          volume.csi
+          msg := sprintf("Pod %v cannot mount the inline csi volume %v. Use a PersistentVolumeClaim on the %v StorageClass.", [input.review.object.metadata.name, volume.name, input.parameters.storageClassName])
+        }

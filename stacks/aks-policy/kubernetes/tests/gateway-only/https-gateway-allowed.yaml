@@ -1,0 +1,13 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ext-fi
+  namespace: ext-fi-gateway
+spec:
+  gatewayClassName: traefik-ext-fi
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 8443
+    tls:
+      mode: Terminate

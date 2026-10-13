@@ -1,0 +1,137 @@
+# CPU architecture and spot are the application's choice (R17, design section 4), stated with two
+# pod labels and turned into node selection by the platform's mutations:
+#
+#   platform/arch      amd64 (default) | arm64 | multi   -> nodeSelector kubernetes.io/arch
+#   platform/capacity  on-demand (default) | spot        -> spot toleration + preferred affinity
+#
+# This validation is what keeps the labels the only way in, after the mutations ran:
+#
+#   - the labels have known values (a cluster can allow fewer: the stateful cluster only the
+#     defaults);
+#   - nodeSelector kubernetes.io/arch is the one the label asks for (amd64 without a label, none for
+#     multi), and no required node affinity names kubernetes.io/arch;
+#   - nothing selects or requires a capacity type (karpenter.sh/capacity-type,
+#     kubernetes.azure.com/scalesetpriority); only the preferred affinity the spot mutation adds may
+#     name it;
+#   - the spot taint (platform/capacity=spot) is tolerated only by a pod labelled spot.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformplacementlabels
+  annotations:
+    description: Pods choose architecture and spot with the platform/arch and platform/capacity labels only.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformPlacementLabels
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedArchitectures:
+              type: array
+              description: Values of platform/arch this cluster offers (amd64, arm64, multi).
+              items:
+                type: string
+            allowedCapacities:
+              type: array
+              description: Values of platform/capacity this cluster offers (on-demand, spot).
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformplacementlabels
+
+        capacity_keys := {"karpenter.sh/capacity-type", "kubernetes.azure.com/scalesetpriority"}
+
+        pod := input.review.object {
+          input.review.object.kind == "Pod"
+        }
+
+        arch := object.get(pod.metadata, ["labels", "platform/arch"], "amd64")
+
+        capacity := object.get(pod.metadata, ["labels", "platform/capacity"], "on-demand")
+
+        violation[{"msg": msg}] {
+          not arch_allowed
+          msg := sprintf("Pod %v: platform/arch %v is not offered here; allowed: %v.", [pod.metadata.name, arch, input.parameters.allowedArchitectures])
+        }
+
+        arch_allowed {
+          arch == input.parameters.allowedArchitectures[_]
+        }
+
+        violation[{"msg": msg}] {
+          not capacity_allowed
+          msg := sprintf("Pod %v: platform/capacity %v is not offered here; allowed: %v.", [pod.metadata.name, capacity, input.parameters.allowedCapacities])
+        }
+
+        capacity_allowed {
+          capacity == input.parameters.allowedCapacities[_]
+        }
+
+        # Architecture
+
+        violation[{"msg": msg}] {
+          arch != "multi"
+          selected := object.get(pod.spec, ["nodeSelector", "kubernetes.io/arch"], "")
+          selected != arch
+          msg := sprintf("Pod %v must run on %v nodes (label platform/arch), but selects kubernetes.io/arch %v. Choose the architecture with the platform/arch label.", [pod.metadata.name, arch, selected])
+        }
+
+        violation[{"msg": msg}] {
+          arch == "multi"
+          pod.spec.nodeSelector["kubernetes.io/arch"]
+          msg := sprintf("Pod %v is labelled platform/arch: multi and cannot select an architecture.", [pod.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          expression := required_expressions[_]
+          expression.key == "kubernetes.io/arch"
+          msg := sprintf("Pod %v cannot require kubernetes.io/arch in its node affinity. Choose the architecture with the platform/arch label.", [pod.metadata.name])
+        }
+
+        # Capacity
+
+        violation[{"msg": msg}] {
+          key := capacity_keys[_]
+          pod.spec.nodeSelector[key]
+          msg := sprintf("Pod %v cannot select %v. Choose spot with the platform/capacity label.", [pod.metadata.name, key])
+        }
+
+        violation[{"msg": msg}] {
+          expression := required_expressions[_]
+          capacity_keys[expression.key]
+          msg := sprintf("Pod %v cannot require %v in its node affinity. Choose spot with the platform/capacity label.", [pod.metadata.name, expression.key])
+        }
+
+        violation[{"msg": msg}] {
+          capacity != "spot"
+          preference := pod.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[_].preference
+          expression := preference.matchExpressions[_]
+          capacity_keys[expression.key]
+          msg := sprintf("Pod %v prefers a capacity type without the platform/capacity: spot label.", [pod.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          capacity != "spot"
+          toleration := pod.spec.tolerations[_]
+          tolerates_spot(toleration)
+          msg := sprintf("Pod %v tolerates the spot taint but is not labelled platform/capacity: spot.", [pod.metadata.name])
+        }
+
+        tolerates_spot(toleration) {
+          toleration.key == "platform/capacity"
+        }
+
+        tolerates_spot(toleration) {
+          object.get(toleration, "key", "") == ""
+          toleration.operator == "Exists"
+        }
+
+        required_expressions[expression] {
+          term := pod.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[_]
+          expression := term.matchExpressions[_]
+        }

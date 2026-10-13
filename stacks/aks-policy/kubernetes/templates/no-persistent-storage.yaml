@@ -1,0 +1,51 @@
+# Stateless clusters keep no state (design section 8, policy table of section 14: "Reject
+# PersistentVolumeClaim"). aks-terraform turns off every CSI driver of a stateless cluster
+# (persistent_storage_enabled = false); this keeps it that way:
+#
+#   - no StorageClass, PersistentVolume or PersistentVolumeClaim is created, by anyone - AKS's
+#     addon-manager included, so once AKS's two classes (`default`, `managed-csi-premium-v2`) are
+#     deleted they stay deleted;
+#   - no pod mounts an inline `csi` or `ephemeral` volume (a generic ephemeral volume is a claim the
+#     cluster creates for the pod; refused on the pod, with a clearer message). emptyDir, configMap,
+#     secret, projected and downwardAPI stay allowed.
+#
+# Only creation is checked (and the audit of what exists): deleting, or removing a finalizer from,
+# an existing object is never refused. Replaces the fleet's ValidatingAdmissionPolicy
+# `no-persistent-storage`, so there is one policy engine (R14).
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformnopersistentstorage
+  annotations:
+    description: A stateless cluster has no StorageClass, PersistentVolume, PersistentVolumeClaim, csi or ephemeral volume.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformNoPersistentStorage
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformnopersistentstorage
+
+        storage_kinds := {"StorageClass", "PersistentVolume", "PersistentVolumeClaim"}
+
+        updating {
+          input.review.operation == "UPDATE"
+        }
+
+        violation[{"msg": msg}] {
+          not updating
+          kind := input.review.object.kind
+          storage_kinds[kind]
+          msg := sprintf("This cluster is stateless: it has no persistent storage, so %v %v cannot be created.", [kind, input.review.object.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          not updating
+          input.review.object.kind == "Pod"
+          volume := input.review.object.spec.volumes[_]
+          inline := {"csi", "ephemeral"}[_]
+          volume[inline]
+          msg := sprintf("This cluster is stateless: pod %v cannot mount the %v volume %v. Use emptyDir for scratch space.", [input.review.object.metadata.name, inline, volume.name])
+        }

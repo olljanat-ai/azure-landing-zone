@@ -1,0 +1,498 @@
+# gator verify suite of the platform's constraint templates (OneK8s design section 14):
+#   gator verify stacks/aks-policy/kubernetes/tests
+# Every case is a manifest the template must refuse (with the number of findings) or accept;
+# the cases named fleet-* and example-* are the real manifests of aks-fluxcd-platform and
+# aks-fluxcd-example, rendered.
+apiVersion: test.gatekeeper.sh/v1alpha1
+kind: Suite
+metadata:
+  name: aks-platform
+tests:
+- name: no-persistent-storage
+  template: ../templates/no-persistent-storage.yaml
+  constraint: no-persistent-storage/constraint.yaml
+  cases:
+  - name: pvc-refused
+    object: no-persistent-storage/pvc-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pv-refused
+    object: no-persistent-storage/pv-refused.yaml
+    assertions:
+    - violations: 1
+  - name: storageclass-refused
+    object: no-persistent-storage/storageclass-refused.yaml
+    assertions:
+    - violations: 1
+  - name: csi-volume-refused
+    object: no-persistent-storage/csi-volume-refused.yaml
+    assertions:
+    - violations: 1
+  - name: ephemeral-volume-refused
+    object: no-persistent-storage/ephemeral-volume-refused.yaml
+    assertions:
+    - violations: 1
+  - name: emptydir-allowed
+    object: no-persistent-storage/emptydir-allowed.yaml
+    assertions:
+    - violations: 'no'
+- name: portable-storage-only
+  template: ../templates/portable-storage-only.yaml
+  constraint: portable-storage-only/constraint.yaml
+  cases:
+  - name: portable-claim-allowed
+    object: portable-storage-only/portable-claim-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: other-class-refused
+    object: portable-storage-only/other-class-refused.yaml
+    assertions:
+    - violations: 1
+  - name: no-class-refused
+    object: portable-storage-only/no-class-refused.yaml
+    assertions:
+    - violations: 1
+  - name: inline-csi-refused
+    object: portable-storage-only/inline-csi-refused.yaml
+    assertions:
+    - violations: 1
+  - name: claim-volume-allowed
+    object: portable-storage-only/claim-volume-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-apps-aks-hello
+    object: portable-storage-only/example-apps-aks-hello.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-apps-boot-log
+    object: portable-storage-only/example-apps-boot-log.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-apps-claim
+    object: portable-storage-only/example-apps-claim.yaml
+    assertions:
+    - violations: 'no'
+- name: zone-placement
+  template: ../templates/zone-placement.yaml
+  constraint: zone-placement/constraint.yaml
+  cases:
+  - name: zone-pod-allowed
+    object: zone-placement/zone-pod-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: zone-pod-without-selector-refused
+    object: zone-placement/zone-pod-without-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-other-zone-selector-refused
+    object: zone-placement/zone-pod-other-zone-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-other-zone-toleration-refused
+    object: zone-placement/zone-pod-other-zone-toleration-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-any-zone-toleration-refused
+    object: zone-placement/zone-pod-any-zone-toleration-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-tolerate-everything-refused
+    object: zone-placement/zone-pod-tolerate-everything-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-system-pool-refused
+    object: zone-placement/zone-pod-system-pool-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-critical-addons-refused
+    object: zone-placement/zone-pod-critical-addons-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-pod-affinity-other-zone-refused
+    object: zone-placement/zone-pod-affinity-other-zone-refused.yaml
+    assertions:
+    - violations: 1
+  - name: other-namespace-pod-allowed
+    object: zone-placement/other-namespace-pod-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: other-namespace-zone-selector-refused
+    object: zone-placement/other-namespace-zone-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: other-namespace-zone-toleration-refused
+    object: zone-placement/other-namespace-zone-toleration-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-namespace-allowed
+    object: zone-placement/zone-namespace-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: zone-namespace-without-label-refused
+    object: zone-placement/zone-namespace-without-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: zone-namespace-wrong-label-refused
+    object: zone-placement/zone-namespace-wrong-label-refused.yaml
+    assertions:
+    - violations: 2
+  - name: labelled-namespace-wrong-name-refused
+    object: zone-placement/labelled-namespace-wrong-name-refused.yaml
+    assertions:
+    - violations: 1
+  - name: plain-namespace-allowed
+    object: zone-placement/plain-namespace-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-stateless-lab-exception-reported
+    object: zone-placement/example-stateless-lab-exception-reported.yaml
+    assertions:
+    - violations: 2
+- name: placement-labels
+  template: ../templates/placement-labels.yaml
+  constraint: placement-labels/constraint.yaml
+  cases:
+  - name: default-amd64-allowed
+    object: placement-labels/default-amd64-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: arm64-allowed
+    object: placement-labels/arm64-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: multi-allowed
+    object: placement-labels/multi-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: spot-allowed
+    object: placement-labels/spot-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: unknown-arch-refused
+    object: placement-labels/unknown-arch-refused.yaml
+    assertions:
+    - violations: 1
+  - name: unknown-capacity-refused
+    object: placement-labels/unknown-capacity-refused.yaml
+    assertions:
+    - violations: 1
+  - name: own-arch-selector-against-label-refused
+    object: placement-labels/own-arch-selector-against-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: multi-with-selector-refused
+    object: placement-labels/multi-with-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: missing-arch-selector-refused
+    object: placement-labels/missing-arch-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: arch-affinity-refused
+    object: placement-labels/arch-affinity-refused.yaml
+    assertions:
+    - violations: 1
+  - name: capacity-selector-refused
+    object: placement-labels/capacity-selector-refused.yaml
+    assertions:
+    - violations: 1
+  - name: spot-toleration-without-label-refused
+    object: placement-labels/spot-toleration-without-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: spot-preference-without-label-refused
+    object: placement-labels/spot-preference-without-label-refused.yaml
+    assertions:
+    - violations: 1
+- name: fqdn-egress
+  template: ../templates/fqdn-egress.yaml
+  constraint: fqdn-egress/constraint.yaml
+  cases:
+  - name: fqdn-policy-allowed
+    object: fqdn-egress/fqdn-policy-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: specs-list-allowed
+    object: fqdn-egress/specs-list-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pattern-allowed
+    object: fqdn-egress/pattern-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: to-cidr-refused
+    object: fqdn-egress/to-cidr-refused.yaml
+    assertions:
+    - violations: 1
+  - name: to-cidr-set-refused
+    object: fqdn-egress/to-cidr-set-refused.yaml
+    assertions:
+    - violations: 1
+  - name: to-entities-refused
+    object: fqdn-egress/to-entities-refused.yaml
+    assertions:
+    - violations: 1
+  - name: to-services-selector-less-refused
+    object: fqdn-egress/to-services-selector-less-refused.yaml
+    assertions:
+    - violations: 1
+  - name: fqdn-without-ports-refused
+    object: fqdn-egress/fqdn-without-ports-refused.yaml
+    assertions:
+    - violations: 1
+  - name: bare-wildcard-refused
+    object: fqdn-egress/bare-wildcard-refused.yaml
+    assertions:
+    - violations: 1
+  - name: short-wildcard-refused
+    object: fqdn-egress/short-wildcard-refused.yaml
+    assertions:
+    - violations: 1
+  - name: inner-wildcard-refused
+    object: fqdn-egress/inner-wildcard-refused.yaml
+    assertions:
+    - violations: 1
+  - name: cloud-wide-wildcard-refused
+    object: fqdn-egress/cloud-wide-wildcard-refused.yaml
+    assertions:
+    - violations: 1
+  - name: key-vault-refused
+    object: fqdn-egress/key-vault-refused.yaml
+    assertions:
+    - violations: 1
+  - name: dns-anything-refused
+    object: fqdn-egress/dns-anything-refused.yaml
+    assertions:
+    - violations: 1
+  - name: dns-undeclared-name-refused
+    object: fqdn-egress/dns-undeclared-name-refused.yaml
+    assertions:
+    - violations: 1
+  - name: dns-key-vault-refused
+    object: fqdn-egress/dns-key-vault-refused.yaml
+    assertions:
+    - violations: 1
+  - name: network-policy-ip-block-refused
+    object: fqdn-egress/network-policy-ip-block-refused.yaml
+    assertions:
+    - violations: 1
+  - name: network-policy-pods-allowed
+    object: fqdn-egress/network-policy-pods-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pod-cluster-dns-allowed
+    object: fqdn-egress/pod-cluster-dns-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: pod-dns-default-refused
+    object: fqdn-egress/pod-dns-default-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pod-own-nameserver-refused
+    object: fqdn-egress/pod-own-nameserver-refused.yaml
+    assertions:
+    - violations: 2
+- name: gateway-only
+  template: ../templates/gateway-only.yaml
+  constraint: gateway-only/constraint.yaml
+  cases:
+  - name: cluster-ip-allowed
+    object: gateway-only/cluster-ip-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: load-balancer-refused
+    object: gateway-only/load-balancer-refused.yaml
+    assertions:
+    - violations: 1
+  - name: node-port-refused
+    object: gateway-only/node-port-refused.yaml
+    assertions:
+    - violations: 1
+  - name: https-gateway-allowed
+    object: gateway-only/https-gateway-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: http-listener-refused
+    object: gateway-only/http-listener-refused.yaml
+    assertions:
+    - violations: 1
+  - name: tls-passthrough-refused
+    object: gateway-only/tls-passthrough-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-allowed
+    object: gateway-only/route-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: route-section-allowed
+    object: gateway-only/route-section-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: route-other-zone-gateway-refused
+    object: gateway-only/route-other-zone-gateway-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-other-listener-refused
+    object: gateway-only/route-other-listener-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-other-domain-refused
+    object: gateway-only/route-other-domain-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-lookalike-domain-refused
+    object: gateway-only/route-lookalike-domain-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-wildcard-refused
+    object: gateway-only/route-wildcard-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-without-hostnames-refused
+    object: gateway-only/route-without-hostnames-refused.yaml
+    assertions:
+    - violations: 1
+  - name: route-outside-zone-refused
+    object: gateway-only/route-outside-zone-refused.yaml
+    assertions:
+    - violations: 1
+  - name: example-aks-hello
+    object: gateway-only/example-aks-hello.yaml
+    assertions:
+    - violations: 'no'
+  - name: example-aks-hello-global
+    object: gateway-only/example-aks-hello-global.yaml
+    assertions:
+    - violations: 'no'
+- name: node-pools
+  template: ../templates/node-pools.yaml
+  constraint: node-pools/constraint.yaml
+  cases:
+  - name: fleet-aksnodeclass-extfi
+    object: node-pools/fleet-aksnodeclass-extfi.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-extse
+    object: node-pools/fleet-aksnodeclass-extse.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-intfi
+    object: node-pools/fleet-aksnodeclass-intfi.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-aksnodeclass-intse
+    object: node-pools/fleet-aksnodeclass-intse.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extfi
+    object: node-pools/fleet-nodepool-extfi.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extfispot
+    object: node-pools/fleet-nodepool-extfispot.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extse
+    object: node-pools/fleet-nodepool-extse.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-extsespot
+    object: node-pools/fleet-nodepool-extsespot.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intfi
+    object: node-pools/fleet-nodepool-intfi.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intfispot
+    object: node-pools/fleet-nodepool-intfispot.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intse
+    object: node-pools/fleet-nodepool-intse.yaml
+    assertions:
+    - violations: 'no'
+  - name: fleet-nodepool-intsespot
+    object: node-pools/fleet-nodepool-intsespot.yaml
+    assertions:
+    - violations: 'no'
+  - name: class-other-subnet-refused
+    object: node-pools/class-other-subnet-refused.yaml
+    assertions:
+    - violations: 1
+  - name: class-ubuntu-refused
+    object: node-pools/class-ubuntu-refused.yaml
+    assertions:
+    - violations: 1
+  - name: class-no-encryption-at-host-refused
+    object: node-pools/class-no-encryption-at-host-refused.yaml
+    assertions:
+    - violations: 1
+  - name: class-unknown-refused
+    object: node-pools/class-unknown-refused.yaml
+    assertions:
+    - violations: 1
+  - name: class-aks-default-exempt
+    object: node-pools/class-aks-default-exempt.yaml
+    assertions:
+    - violations: 'no'
+  - name: pool-unknown-refused
+    object: node-pools/pool-unknown-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-aks-system-surge-exempt
+    object: node-pools/pool-aks-system-surge-exempt.yaml
+    assertions:
+    - violations: 'no'
+  - name: pool-other-class-refused
+    object: node-pools/pool-other-class-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-other-zone-label-refused
+    object: node-pools/pool-other-zone-label-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-without-zone-taint-refused
+    object: node-pools/pool-without-zone-taint-refused.yaml
+    assertions:
+    - violations: 1
+  - name: spot-pool-without-spot-taint-refused
+    object: node-pools/spot-pool-without-spot-taint-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-on-spot-refused
+    object: node-pools/pool-on-spot-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-two-availability-zones-refused
+    object: node-pools/pool-two-availability-zones-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-other-arch-refused
+    object: node-pools/pool-other-arch-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-other-sku-series-refused
+    object: node-pools/pool-other-sku-series-refused.yaml
+    assertions:
+    - violations: 1
+  - name: pool-without-sku-series-refused
+    object: node-pools/pool-without-sku-series-refused.yaml
+    assertions:
+    - violations: 1
+- name: placement-labels-stateful
+  template: ../templates/placement-labels.yaml
+  constraint: placement-labels/constraint-stateful.yaml
+  cases:
+  - name: default-allowed
+    object: placement-labels/default-amd64-allowed.yaml
+    assertions:
+    - violations: 'no'
+  - name: arm64-refused
+    object: placement-labels/stateful-arm64-refused.yaml
+    assertions:
+    - violations: 1
+  - name: spot-refused
+    object: placement-labels/stateful-spot-refused.yaml
+    assertions:
+    - violations: 1

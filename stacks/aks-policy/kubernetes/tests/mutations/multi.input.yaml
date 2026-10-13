@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi
+  namespace: ext-se-app
+spec:
+  selector:
+    matchLabels: {app: multi}
+  template:
+    metadata:
+      labels: {app: multi, platform/arch: multi}
+    spec:
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

@@ -1,0 +1,28 @@
+# Spot chosen by the application (R17, design section 4): a pod labelled platform/capacity: spot
+# tolerates the spot NodePools' taint, platform/capacity=spot:NoSchedule. NAP falls back to the
+# on-demand NodePool when Azure has no spot capacity.
+apiVersion: mutations.gatekeeper.sh/v1
+kind: ModifySet
+metadata:
+  name: platform-spot-toleration
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    # Platform namespaces (the add-on also skips kube-system and gatekeeper-system)
+    excludedNamespaces: ["kube-system", "gatekeeper-system", "kube-public", "kube-node-lease", "azure-arc", "azure-extensions-usage-system", "aks-istio-system", "flux-system", "external-secrets", "external-dns", "platform-gateway", "*-gateway", "*-secrets"]
+    labelSelector:
+      matchLabels:
+        platform/capacity: spot
+  location: spec.tolerations
+  parameters:
+    operation: merge
+    values:
+      fromList:
+        - {key: platform/capacity, operator: Equal, value: spot, effect: NoSchedule}

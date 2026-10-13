@@ -1,0 +1,112 @@
+# Stateless clusters publish applications only through their zone's Gateway, over HTTPS (R9b,
+# design sections 13 and 14). Ingress is refused by the built-in definition (k8s-no-ingress); this
+# adds:
+#
+#   - no LoadBalancer or NodePort Service: only the gateways' Traefik has one, and the gateway
+#     namespaces are platform namespaces the assignment leaves out;
+#   - every Gateway listener is HTTPS and terminates TLS;
+#   - an HTTPRoute in a zone namespace `<zone>-<app>` attaches only to its zone's Gateway (`<zone>` in
+#     `<zone>-gateway`, its https listener) and names hostnames only below the zone's domain
+#     `<zone>.<domainSuffix>`; an HTTPRoute outside a zone namespace is refused.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformgatewayonly
+  annotations:
+    description: Applications are published only through their zone's HTTPS Gateway.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformGatewayOnly
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            zones:
+              type: array
+              description: The isolation zones, e.g. int-fi, ext-fi.
+              items:
+                type: string
+            domainSuffix:
+              type: string
+              description: The environment's domain; zone <zone> publishes names below <zone>.<domainSuffix>.
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformgatewayonly
+
+        obj := input.review.object
+
+        zone_of(name) := zone {
+          zone := input.parameters.zones[_]
+          startswith(name, concat("", [zone, "-"]))
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "Service"
+          type := obj.spec.type
+          {"LoadBalancer", "NodePort"}[type]
+          msg := sprintf("Service %v: type %v is not allowed - publish the application with an HTTPRoute on its zone's Gateway.", [obj.metadata.name, type])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "Gateway"
+          listener := obj.spec.listeners[_]
+          listener.protocol != "HTTPS"
+          msg := sprintf("Gateway %v: listener %v is %v - only HTTPS listeners are allowed.", [obj.metadata.name, listener.name, listener.protocol])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "Gateway"
+          listener := obj.spec.listeners[_]
+          listener.protocol == "HTTPS"
+          object.get(listener, ["tls", "mode"], "Terminate") != "Terminate"
+          msg := sprintf("Gateway %v: listener %v must terminate TLS.", [obj.metadata.name, listener.name])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HTTPRoute"
+          not zone_of(obj.metadata.namespace)
+          msg := sprintf("HTTPRoute %v: only an isolation zone's application namespace (<zone>-<app>) may publish routes.", [obj.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HTTPRoute"
+          zone := zone_of(obj.metadata.namespace)
+          parent := obj.spec.parentRefs[_]
+          not own_gateway(parent, zone)
+          msg := sprintf("HTTPRoute %v: may attach only to the zone's Gateway %v in %v-gateway (listener https), not %v.", [obj.metadata.name, zone, zone, parent])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HTTPRoute"
+          zone := zone_of(obj.metadata.namespace)
+          count(object.get(obj.spec, "hostnames", [])) == 0
+          msg := sprintf("HTTPRoute %v: names no hostnames - name them below %v.%v.", [obj.metadata.name, zone, input.parameters.domainSuffix])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HTTPRoute"
+          zone := zone_of(obj.metadata.namespace)
+          hostname := obj.spec.hostnames[_]
+          domain := concat(".", [zone, input.parameters.domainSuffix])
+          not endswith(lower(hostname), concat("", [".", domain]))
+          msg := sprintf("HTTPRoute %v: hostname %v is not below the zone's domain %v.", [obj.metadata.name, hostname, domain])
+        }
+
+        violation[{"msg": msg}] {
+          obj.kind == "HTTPRoute"
+          zone_of(obj.metadata.namespace)
+          hostname := obj.spec.hostnames[_]
+          contains(hostname, "*")
+          msg := sprintf("HTTPRoute %v: hostname %v - routes name exact hostnames, no wildcards.", [obj.metadata.name, hostname])
+        }
+
+        own_gateway(parent, zone) {
+          object.get(parent, "group", "gateway.networking.k8s.io") == "gateway.networking.k8s.io"
+          object.get(parent, "kind", "Gateway") == "Gateway"
+          parent.namespace == concat("", [zone, "-gateway"])
+          parent.name == zone
+          object.get(parent, "sectionName", "https") == "https"
+        }

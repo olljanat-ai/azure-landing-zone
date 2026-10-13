@@ -1,0 +1,6 @@
+nodeSelector:
+  kubernetes.azure.com/mode: system
+  kubernetes.io/arch: amd64
+tolerations:
+- key: CriticalAddonsOnly
+  operator: Exists
