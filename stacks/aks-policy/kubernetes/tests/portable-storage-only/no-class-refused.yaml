@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+  namespace: ext-fi-app
+spec:
+  accessModes:
+  - ReadWriteOnce

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sneak2
+  namespace: tools
+spec:
+  tolerations:
+  - key: platform/zone
+    operator: Equal
+    value: ext-fi
+    effect: NoSchedule
+  containers:
+  - name: app
+    image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

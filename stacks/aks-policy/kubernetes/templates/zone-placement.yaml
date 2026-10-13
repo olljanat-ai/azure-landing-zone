@@ -1,0 +1,144 @@
+# Isolation zones (R2-R4, design sections 4 and 14): an application of zone <zone> lives in a
+# namespace `<zone>-<app>` and runs on its zone's nodes only.
+#
+#   - A namespace named `<zone>-*` carries `platform/zone: <zone>`; a namespace carrying
+#     `platform/zone` is named after that zone.
+#   - A pod in `<zone>-*` selects `platform/zone: <zone>` (the zone mutation adds it to a pod that
+#     states none), tolerates no other zone's taint, and neither selects nor tolerates the system
+#     pool (`kubernetes.azure.com/mode`, `CriticalAddonsOnly`).
+#   - A pod in any other namespace the assignment covers neither selects nor tolerates a zone.
+#
+# The zones' own platform namespaces (`<zone>-gateway`, `<zone>-secrets`) run on the system pool so
+# that a zone without applications has no nodes; the assignment leaves them out, like every
+# platform namespace. Zone rules go by the namespace name prefix: Azure Policy's definitions cannot
+# look up other objects (section 14).
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8splatformzoneplacement
+  annotations:
+    description: Zone namespaces carry their zone label and their pods run on the zone's nodes only.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPlatformZonePlacement
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            zones:
+              type: array
+              description: The isolation zones, e.g. int-fi, ext-fi.
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8splatformzoneplacement
+
+        zone_of(name) := zone {
+          zone := input.parameters.zones[_]
+          startswith(name, concat("", [zone, "-"]))
+        }
+
+        # Namespaces
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          name := input.review.object.metadata.name
+          zone := zone_of(name)
+          object.get(input.review.object.metadata, ["labels", "platform/zone"], "") != zone
+          msg := sprintf("Namespace %v is in isolation zone %v and must carry the label platform/zone: %v.", [name, zone, zone])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Namespace"
+          name := input.review.object.metadata.name
+          label := input.review.object.metadata.labels["platform/zone"]
+          not startswith(name, concat("", [label, "-"]))
+          msg := sprintf("Namespace %v carries platform/zone: %v, so its name must start with %v-.", [name, label, label])
+        }
+
+        # Pods in a zone namespace
+
+        pod_zone := zone {
+          input.review.object.kind == "Pod"
+          zone := zone_of(input.review.object.metadata.namespace)
+        }
+
+        violation[{"msg": msg}] {
+          zone := pod_zone
+          object.get(input.review.object.spec, ["nodeSelector", "platform/zone"], "") != zone
+          msg := sprintf("Pod %v is in isolation zone %v and must select its nodes: nodeSelector platform/zone: %v.", [input.review.object.metadata.name, zone, zone])
+        }
+
+        violation[{"msg": msg}] {
+          zone := pod_zone
+          toleration := input.review.object.spec.tolerations[_]
+          not own_zone_toleration(toleration, zone)
+          tolerates_zone(toleration)
+          msg := sprintf("Pod %v is in isolation zone %v and may tolerate only its own zone's taint, not %v.", [input.review.object.metadata.name, zone, toleration])
+        }
+
+        violation[{"msg": msg}] {
+          zone := pod_zone
+          system_pool
+          msg := sprintf("Pod %v is in isolation zone %v and runs on the zone's nodes, not on the system pool.", [input.review.object.metadata.name, zone])
+        }
+
+        violation[{"msg": msg}] {
+          zone := pod_zone
+          term := input.review.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[_]
+          expression := term.matchExpressions[_]
+          expression.key == "platform/zone"
+          not own_zone_expression(expression, zone)
+          msg := sprintf("Pod %v is in isolation zone %v and its node affinity may name only that zone.", [input.review.object.metadata.name, zone])
+        }
+
+        # Pods anywhere else
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          not zone_of(input.review.object.metadata.namespace)
+          input.review.object.spec.nodeSelector["platform/zone"]
+          msg := sprintf("Pod %v is not in an isolation zone's namespace and cannot select a zone's nodes.", [input.review.object.metadata.name])
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.kind == "Pod"
+          not zone_of(input.review.object.metadata.namespace)
+          toleration := input.review.object.spec.tolerations[_]
+          tolerates_zone(toleration)
+          msg := sprintf("Pod %v is not in an isolation zone's namespace and cannot tolerate a zone's taint (%v).", [input.review.object.metadata.name, toleration])
+        }
+
+        own_zone_toleration(toleration, zone) {
+          toleration.key == "platform/zone"
+          object.get(toleration, "operator", "Equal") == "Equal"
+          toleration.value == zone
+        }
+
+        own_zone_expression(expression, zone) {
+          expression.operator == "In"
+          count(expression.values) == 1
+          expression.values[0] == zone
+        }
+
+        # A toleration that lets the pod onto a zone's nodes: the zone key, or every key.
+        tolerates_zone(toleration) {
+          toleration.key == "platform/zone"
+        }
+
+        tolerates_zone(toleration) {
+          object.get(toleration, "key", "") == ""
+          toleration.operator == "Exists"
+        }
+
+        system_pool {
+          input.review.object.spec.nodeSelector["kubernetes.azure.com/mode"]
+        }
+
+        system_pool {
+          input.review.object.spec.tolerations[_].key == "CriticalAddonsOnly"
+        }

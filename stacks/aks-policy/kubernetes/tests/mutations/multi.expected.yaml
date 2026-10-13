@@ -1,0 +1,7 @@
+nodeSelector:
+  platform/zone: ext-se
+tolerations:
+- effect: NoSchedule
+  key: platform/zone
+  operator: Equal
+  value: ext-se

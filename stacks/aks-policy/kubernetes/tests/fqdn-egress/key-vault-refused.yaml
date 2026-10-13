@@ -1,0 +1,14 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: ext-fi-app
+spec:
+  endpointSelector: {}
+  egress:
+  - toFQDNs:
+    - matchName: kv-onek8s-dev-ext-fi.vault.azure.net
+    toPorts:
+    - ports:
+      - port: '443'
+        protocol: TCP

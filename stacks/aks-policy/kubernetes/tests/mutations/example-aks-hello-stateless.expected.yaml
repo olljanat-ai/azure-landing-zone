@@ -1,0 +1,20 @@
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - preference:
+        matchExpressions:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values:
+          - spot
+      weight: 50
+nodeSelector:
+  kubernetes.azure.com/mode: system
+  kubernetes.io/arch: amd64
+tolerations:
+- key: CriticalAddonsOnly
+  operator: Exists
+- effect: NoSchedule
+  key: platform/capacity
+  operator: Equal
+  value: spot

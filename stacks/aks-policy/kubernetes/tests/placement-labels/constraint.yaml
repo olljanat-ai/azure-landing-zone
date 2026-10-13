@@ -1,0 +1,34 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformPlacementLabels
+metadata:
+  name: placement-labels
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - ''
+      kinds:
+      - Pod
+    excludedNamespaces:
+    - kube-system
+    - gatekeeper-system
+    - azure-arc
+    - azure-extensions-usage-system
+    - flux-system
+    - kube-public
+    - aks-istio-system
+    - kube-node-lease
+    - external-secrets
+    - external-dns
+    - platform-gateway
+    - '*-gateway'
+    - '*-secrets'
+  parameters:
+    allowedArchitectures:
+    - amd64
+    - arm64
+    - multi
+    allowedCapacities:
+    - on-demand
+    - spot

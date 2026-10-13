@@ -1,0 +1,30 @@
+# Zone pinning (design section 4): a pod in a namespace of zone ${zone} that names no zone gets
+# nodeSelector platform/zone: ${zone}. The zone's platform namespaces run on the system pool and are
+# left out; so is a pod labelled platform/zone-placement: "off" (a recorded exception - the
+# validation still reports it). Rendered per zone by stacks/aks-policy (kubernetes.tf).
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: platform-zone-${zone}-node-selector
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["${zone}-*"]
+    excludedNamespaces: ["${zone}-gateway", "${zone}-secrets"]
+    labelSelector:
+      matchExpressions:
+        - {key: platform/zone-placement, operator: NotIn, values: ["off"]}
+  location: 'spec.nodeSelector."platform/zone"'
+  parameters:
+    pathTests:
+      - subPath: 'spec.nodeSelector."platform/zone"'
+        condition: MustNotExist
+    assign:
+      value: "${zone}"

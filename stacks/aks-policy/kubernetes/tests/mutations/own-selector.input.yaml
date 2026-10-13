@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: own-selector
+  namespace: ext-fi-app
+spec:
+  selector:
+    matchLabels: {app: own-selector}
+  template:
+    metadata:
+      labels: {app: own-selector}
+    spec:
+      nodeSelector: {kubernetes.io/arch: amd64, platform/zone: ext-fi}
+      tolerations: [{key: platform/zone, operator: Equal, value: ext-fi, effect: NoSchedule}]
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

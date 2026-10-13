@@ -1,6 +1,7 @@
 ---
-# Pull request checks: formatting, validation of every root module, and that ./platform is exactly what the ALZ
-# accelerator generates from ./accelerator/config. Plans of the changed stacks run in the stack workflows.
+# Pull request checks: formatting, validation of every root module, the AKS platform's Kubernetes policies
+# (gator), and that ./platform is exactly what the ALZ accelerator generates from ./accelerator/config. Plans of
+# the changed stacks run in the stack workflows.
 name: CI
 
 on:
@@ -43,6 +44,27 @@ jobs:
       - name: terraform test (mocked plans in both network modes)
         if: hashFiles(format('{0}/tests/*.tftest.hcl', matrix.root_module)) != ''
         run: terraform -chdir="${{ matrix.root_module }}" test
+
+  kubernetes-policies:
+    name: Kubernetes policies (gator)
+    runs-on: ubuntu-latest
+    env:
+      GATOR_VERSION: v3.21.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install gator
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gator.tgz" \
+            "https://github.com/open-policy-agent/gatekeeper/releases/download/${GATOR_VERSION}/gator-${GATOR_VERSION}-linux-amd64.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gator.tgz" -C "$RUNNER_TEMP" gator
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Constraint templates and mutations
+        run: |
+          pip install --quiet pyyaml
+          stacks/aks-policy/kubernetes/test.sh
 
   accelerator-output:
     name: platform/ matches accelerator/config

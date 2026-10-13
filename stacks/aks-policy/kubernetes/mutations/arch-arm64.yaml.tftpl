@@ -1,0 +1,29 @@
+# CPU architecture chosen by the application (R17, design section 4): a pod labelled
+# platform/arch: arm64 gets nodeSelector kubernetes.io/arch: arm64 unless it states one (the validation refuses one that
+# disagrees with the label). platform/arch: multi gets no architecture.
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: platform-arch-arm64
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    # Platform namespaces (the add-on also skips kube-system and gatekeeper-system)
+    excludedNamespaces: ["kube-system", "gatekeeper-system", "kube-public", "kube-node-lease", "azure-arc", "azure-extensions-usage-system", "aks-istio-system", "flux-system", "external-secrets", "external-dns", "platform-gateway", "*-gateway", "*-secrets"]
+    labelSelector:
+      matchExpressions:
+        - {key: platform/arch, operator: In, values: ["arm64"]}
+  location: 'spec.nodeSelector."kubernetes.io/arch"'
+  parameters:
+    pathTests:
+      - subPath: 'spec.nodeSelector."kubernetes.io/arch"'
+        condition: MustNotExist
+    assign:
+      value: arm64

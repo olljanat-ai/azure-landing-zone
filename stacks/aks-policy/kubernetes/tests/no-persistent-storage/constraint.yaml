@@ -1,0 +1,18 @@
+# The parameters stacks/aks-policy assigns (kubernetes.tf).
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPlatformNoPersistentStorage
+metadata:
+  name: no-persistent-storage
+spec:
+  match:
+    kinds:
+    - apiGroups:
+      - ''
+      kinds:
+      - Pod
+      - PersistentVolume
+      - PersistentVolumeClaim
+    - apiGroups:
+      - storage.k8s.io
+      kinds:
+      - StorageClass

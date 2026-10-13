@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zone-placement-off
+  namespace: ext-fi-app
+spec:
+  selector:
+    matchLabels: {app: zone-placement-off}
+  template:
+    metadata:
+      labels: {app: zone-placement-off, platform/zone-placement: "off"}
+    spec:
+      nodeSelector: {kubernetes.azure.com/mode: system}
+      tolerations: [{key: CriticalAddonsOnly, operator: Exists}]
+      containers:
+        - name: app
+          image: acronek8sdev.azurecr.io/app@sha256:0000000000000000000000000000000000000000000000000000000000000000

@@ -1,9 +1,10 @@
 # Azure Policy for the AKS platform (OneK8s design section 14), assigned to the environment subscription so that a
 # new or rebuilt cluster gets every policy automatically. A stack of its own: assignments are control plane only, so
 # it runs on GitHub-hosted runners and applies whether or not the self-hosted runners and the AKS dev workflow are
-# up – the clusters of onek8s/aks-terraform report their compliance to these assignments. Built-in definitions first; the platform's custom
-# Microsoft.Kubernetes.Data definitions (zone pinning, FQDN egress, ESO-only secrets, Gateway API only, ...) are
-# added here in phase 2 and tested with `gator verify`.
+# up – the clusters of onek8s/aks-terraform report their compliance to these assignments. Built-in definitions
+# here; the platform's own Microsoft.Kubernetes.Data definitions (storage, zone pinning, architecture and spot,
+# FQDN egress, Gateway API only, NAP NodePools) and mutations in kubernetes.tf, tested with gator
+# (kubernetes/test.sh).
 #
 # Build tenant: every assignment uses var.policy_enforcement_mode (DoNotEnforce = audit only, section 17).
 # New definitions start with effect Audit regardless of the enforcement mode (section 14: audit in dev first, then

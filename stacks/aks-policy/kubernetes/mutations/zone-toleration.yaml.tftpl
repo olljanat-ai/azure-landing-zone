@@ -1,0 +1,27 @@
+# Zone pinning (design section 4): a pod in a namespace of zone ${zone} tolerates the zone's taint,
+# platform/zone=${zone}:NoSchedule. Same scope as zone-node-selector.
+apiVersion: mutations.gatekeeper.sh/v1
+kind: ModifySet
+metadata:
+  name: platform-zone-${zone}-toleration
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["${zone}-*"]
+    excludedNamespaces: ["${zone}-gateway", "${zone}-secrets"]
+    labelSelector:
+      matchExpressions:
+        - {key: platform/zone-placement, operator: NotIn, values: ["off"]}
+  location: spec.tolerations
+  parameters:
+    operation: merge
+    values:
+      fromList:
+        - {key: platform/zone, operator: Equal, value: "${zone}", effect: NoSchedule}

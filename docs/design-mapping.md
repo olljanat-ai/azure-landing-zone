@@ -24,13 +24,13 @@ and where the code implements them. Four repositories share the work:
 | R11 | One cluster per AZ, NAP | `aks-dev-stateless-az1` / `-az2`, system pool in one AZ, NAP with no default NodePools, zone NodePools on-demand and spot that scale to zero (the zones' gateways and ESOs run on the system pool) | Built; az2 is destroyed while not needed and rebuilt from its tfvars |
 | R12, R12a | Automated zero-downtime upgrades, two speeds | Auto-upgrade channels `none` / `None`, every cell on 1.36 | Version pipeline: phase 2 (aks-ai-agents) |
 | R13 | dev, acc, prd in sync | Same modules with one tfvars set per environment; dev only in the build tenant | dev built |
-| R14 | One policy engine | Azure Policy add-on on every cluster; `stacks/aks-policy` built-ins in audit | Custom definitions: phase 2. The stateless storage rules are still ValidatingAdmissionPolicies |
+| R14 | One policy engine | Azure Policy add-on on every cluster; `stacks/aks-policy`: built-ins in audit, and the platform's own `Microsoft.Kubernetes.Data` definitions (`kubernetes.tf`, templates in `kubernetes/`, tested with `gator` in CI): storage, zone pinning, architecture and spot, FQDN egress, Gateway API only, NAP NodePools | Built. The storage rules deny (they replaced the fleet's ValidatingAdmissionPolicies), the mutations are on, the other validations audit until phase 3. Still to come: ESO-only secrets and the ESO object rules, rollout guardrails |
 | R15 | Certificates through the platform Key Vault | One wildcard per zone (`<zone>-gateway--wildcard`) and one for the platform gateway in the platform vault, issued by aks-terraform's Renew Certificate workflow, read by each gateway's own identity | Built |
 | R16 | Countries added online | A new zone is a new index in `isolation_zones` (new subnets, NSGs, vault) and a `zone-<zone>` Kustomization; existing zones are untouched | Built |
-| R17 | amd64 / arm64, on-demand / spot | NAP NodePools per zone with both architectures and spot | NodePools built; Azure Policy mutations: phase 2 (teams state placement themselves) |
+| R17 | amd64 / arm64, on-demand / spot | NAP NodePools per zone with both architectures and spot; `stacks/aks-policy` mutations turn the pod labels `platform/arch` and `platform/capacity` into the architecture selector and the spot toleration and preference, and put pods of `<zone>-*` on their zone's nodes; validations refuse placement stated any other way (audit) | Built |
 | R18 | AI-driven day 2 operations | aks-ai-agents | Phase 2 |
 | R19 | ACNS + eBPF host routing | aks-terraform `advanced_networking`: Hubble, FQDN policies, `BpfVeth`; Azure Linux 3.0 on every node | Built |
-| R20 | FQDN egress per application | ACNS FQDN policies; the zone baseline denies all egress but cluster DNS; the application's `egress` policy; `check-egress.py` against the zone's allow-list in the team's CI | Built (CI check); Azure Policy admission: phase 2 |
+| R20 | FQDN egress per application | ACNS FQDN policies; the zone baseline denies all egress but cluster DNS; the application's `egress` policy; `check-egress.py` against the zone's allow-list in the team's CI; `stacks/aks-policy` `fqdn-egress` at admission (no CIDRs, entities or broad wildcards, DNS rules only for declared names, cluster DNS only) | Built; admission in audit until phase 3 |
 | R21 | Customer-managed keys | aks-terraform `customer_managed_keys`: `key-<cluster>-kms` (KMS) and `key-<cluster>-disk` (disk encryption set) per cluster in the platform vault, encryption at host on every node | Built |
 | R24 | Health probes and `/healthz` | aks-fluxcd-example: aks-hello's readiness and liveness probes on `/healthz`; aks-terraform `global_hostnames.health_path = "/healthz"`: Traffic Manager probes it over HTTPS through each cell's gateway; `stacks/aks-policy` deployment safeguards (probes) in audit; the Isolation tests check `/healthz` per cell and on the global name | Built; probes enforced (deny) and synthetic monitoring: phase 2 |
 
@@ -53,7 +53,7 @@ and where the code implements them. Four repositories share the work:
 
 - The backend network with the PaaS private endpoints, the edge network for the internal zones' entry points,
   and private endpoints for the vaults (all vaults are reached over their public endpoints with Entra ID).
-- The platform's custom Azure Policy definitions for Kubernetes (zone pinning and placement mutations, FQDN
-  egress, ESO-only secrets, Gateway API only, NAP NodePool validation) with `gator verify` in CI.
+- The rest of the platform's Kubernetes policies of design section 14: ESO-only secrets and the ESO object
+  rules, the ServiceAccount rules, the VPA rules and the replica and rollout guardrails.
 - The version pipeline (section 12), observability (section 19), backups (section 20).
 - The stateful cluster (only when the first exception is approved).
