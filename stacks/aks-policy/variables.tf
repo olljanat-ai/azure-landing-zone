@@ -43,14 +43,19 @@ variable "zone_domain_suffix" {
   description = "The environment's domain: zone <zone> publishes its applications' names below <zone>.<zone_domain_suffix> (e.g. ext-fi.dev.onek8s.lol)."
 }
 
-variable "stateless_cluster_name_pattern" {
+variable "cluster_resource_group_name" {
   type        = string
-  description = "The names of the environment's stateless clusters, an Azure Policy `like` pattern with at most one `*` (e.g. aks-dev-stateless-*)."
+  description = "The resource group of the environment's clusters (onek8s/aks-terraform envs/*.tfvars resource_group_name)."
 }
 
-variable "stateful_cluster_name_pattern" {
+variable "stateless_cluster_names" {
+  type        = list(string)
+  description = "The environment's stateless cells (onek8s/aks-terraform envs/*.tfvars name), left out of the stateful cluster's rules. A cell missing here gets the stateful rules too - stricter, never looser."
+}
+
+variable "stateful_cluster_name" {
   type        = string
-  description = "The name of the environment's stateful cluster, an Azure Policy `like` pattern with at most one `*`."
+  description = "The environment's stateful cluster (at most one, R9), left out of the stateless rules - whether it exists yet or not."
 }
 
 variable "allowed_sku_series" {
