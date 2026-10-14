@@ -188,3 +188,61 @@ run "sandbox_mode_without_runners" {
     error_message = "no runners: no runner registry, so the environment's registry is the only one."
   }
 }
+
+run "firewall_policies_without_firewall" {
+  command = plan
+
+  variables {
+    network_mode = "sandbox"
+    firewall_exposures = {
+      ext = {
+        environments = {
+          dev = {
+            system_prefixes     = ["172.21.0.0/24", "172.21.16.0/24"]
+            platform_key_vault  = "kv-onek8s-dev-platform"
+            container_registry  = "acronek8sdev"
+            observability_fqdns = ["*.grafana.net"]
+            zones = {
+              ext-fi = { prefixes = ["172.21.3.0/24", "172.21.19.0/24"], key_vault = "kv-onek8s-dev-ext-fi", fqdn_allow_list = ["api.github.com"] }
+              ext-se = { prefixes = ["172.21.4.0/24", "172.21.20.0/24"], key_vault = "kv-onek8s-dev-ext-se" }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_firewall_policy.parent) == 1 && azurerm_firewall_policy.parent[0].sku == "Premium" && keys(azurerm_firewall_policy.exposure) == ["ext"]
+    error_message = "sandbox mode still builds the parent policy and the ext child policy."
+  }
+
+  assert {
+    condition     = length(azurerm_ip_group.policy_cells["dev-ext"].cidrs) == 6 && toset(azurerm_ip_group.policy_zone["dev-ext-fi"].cidrs) == toset(["172.21.3.0/24", "172.21.19.0/24"])
+    error_message = "IP groups of the cells' real prefixes."
+  }
+
+  assert {
+    condition     = anytrue([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].network_rule_collection : c.action == "Deny" && c.priority == 100])
+    error_message = "the parent denies ext -> the corporate network."
+  }
+
+  assert {
+    condition     = length([for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-ext"].application_rule_collection : c if c.name == "dev-ext-zones"]) == 1
+    error_message = "a zone allow-list collection when a zone has an allow-list."
+  }
+}
+
+run "firewall_policies_off" {
+  command = plan
+
+  variables {
+    network_mode              = "sandbox"
+    firewall_policies_enabled = false
+  }
+
+  assert {
+    condition     = length(azurerm_firewall_policy.parent) == 0 && length(azurerm_firewall_policy.exposure) == 0 && length(azurerm_resource_group.firewall_policies) == 0
+    error_message = "no policies when turned off."
+  }
+}

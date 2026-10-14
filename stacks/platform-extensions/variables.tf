@@ -165,3 +165,32 @@ variable "network_mode" {
     error_message = "firewall or sandbox."
   }
 }
+
+variable "firewall_policies_enabled" {
+  type        = bool
+  default     = true
+  description = "The parent Firewall Policy and a child per exposure (main.firewall.policies.tf, design D53), in every network mode: without an associated Firewall they cost nothing and can be reviewed in the Azure portal."
+}
+
+variable "firewall_exposures" {
+  type = map(object({
+    # The internal exposure has the corporate path (the client VNet); every other exposure gets a parent deny to it
+    corporate = optional(bool, false)
+    # Environment => its cells of this exposure (onek8s/aks-terraform shared/envs/<env>.tfvars, cells.tf)
+    environments = map(object({
+      system_prefixes    = list(string) # every cell's snet-system
+      platform_key_vault = string
+      container_registry = optional(string) # public environment ACR (lab); null with its private endpoint
+      # The Grafana collectors' destinations on the Internet (D48); empty with a private endpoint in the hub
+      observability_fqdns = optional(list(string), [])
+      zones = map(object({
+        prefixes  = list(string) # the zone's /24 in every cell: nodes and internal load balancer
+        key_vault = string
+        # aks-fluxcd-platform policy/egress-allow-lists.yaml: what the zone's applications may reach
+        fqdn_allow_list = optional(list(string), [])
+      }))
+    }))
+  }))
+  default     = {}
+  description = "Exposure (int / ext) => the environments' cells whose rules its child Firewall Policy holds."
+}
