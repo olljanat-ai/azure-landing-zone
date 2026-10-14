@@ -68,16 +68,10 @@ reported as *audit only*.
    reported no violation of was promoted to deny (`kubernetes_deny`), ahead of phase 3; the rest - and every
    corporate and Azure resource assignment - audits, as section 17 says.
 
-## Not built yet (phase 2 backlog)
+## Not built yet
 
-- The backend network with the PaaS private endpoints, the edge network for the internal zones' entry points,
-  and private endpoints for the vaults (all vaults are reached over their public endpoints with Entra ID).
-- Requirement tests for what the Isolation tests do not cover yet: the image promotion tests (dev has one registry; its signatures are tested), the API server reachable only from the
-  management VNet (after the lab's public API server goes), cross-cell tests while two cells run.
-- The CI checks of design section 14 on rendered manifests (a PDB and a VPA for every Deployment).
-- The version pipeline (section 12), observability (section 19), backups (section 20).
-- The stateful cluster (only when the first exception is approved).
-- A hub VNet and Azure Firewall Premium per exposure (design D53): the external hub in `firewall` mode first, the
-  internal hub (gateway, resolver, Bastion, client VNet) with `sub-aks-dev-int`; the management VNet peered to both;
-  `main.firewall.tf` rewritten as a parent Firewall Policy with a child per exposure, without the edge / NGINXaaS rules.
-  IPv6 (design D54): not planned.
+The backlog of the whole platform, in priority order, is in design section 17
+([Backlog, in priority order](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md#backlog-in-priority-order)).
+This repository's items: #1 promote the remaining Azure Policy rules to deny, #2 the external hub and Firewall in
+`firewall` mode with `main.firewall.tf` rewritten (parent policy + child per exposure, no edge / NGINXaaS rules),
+#4 the management VNet path to a private API server, #7 the internal hub and `sub-aks-dev-int`.
