@@ -188,7 +188,7 @@ the design:
 | Environment ACR | not part of the landing zone: created by [aks-terraform](https://github.com/onek8s/aks-terraform) (`shared/`) | | `environments.<env>.public_registry` in `stacks/platform-extensions` for the Firewall rules |
 | Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | aks-terraform `shared/` – changing it later replaces the cluster keys, so rebuild the cells |
 | Traffic Manager | one profile per external hostname | the same | aks-terraform `shared/`: `global_hostnames` |
-| AKS | Free tier, 1 system node, public API server | Standard tier, 3 system nodes, private API server | `sku_tier`, `default_node_pool.node_count`, `private_cluster_enabled` in aks-terraform's `envs/dev-stateless-az*.tfvars` |
+| AKS | Free tier, 1 system node, public API server | Standard tier, 3 system nodes, private API server | `sku_tier`, `default_node_pool.node_count`, `private_cluster_enabled` in aks-terraform's `envs/dev-ext-stateless-az*.tfvars` |
 | Monitoring | none for now - observability is set up later: no Log Analytics, no Container Insights, no VM Insights, no diagnostic settings, no Defender for Containers sensor | Log Analytics, Container Insights, Defender for Containers, control plane diagnostics | to be designed with the observability stack ([section 19](https://onek8s.github.io/docs/19-observability-with-grafana-cloud.html)) |
 | Private link DNS zones | Key Vault and ACR only | all ~90 ALZ zones | `private_link_private_dns_zones` in the accelerator config (remove it for all zones); add a zone there and in `modules/platform-lookup` before a stack uses it |
 | Private DNS Resolver | not deployed – sandbox spokes use Azure DNS with the hub zones linked | inbound endpoint for the corporate DNS forwarders | `primary_private_dns_resolver_enabled` in the accelerator config |
@@ -227,13 +227,13 @@ Run the **AKS policy** workflow (also on every change to `stacks/aks-policy`): i
 `sub-aks-dev`, where every cluster with the Azure Policy add-on reports its compliance. Then deploy the clusters
 from [onek8s/aks-terraform](https://github.com/onek8s/aks-terraform): its **Deploy** workflow applies `dev-shared`
 (the cells' networks, the platform and zone Key Vaults, the internal zones' private DNS, the container registry,
-Traffic Manager) and then each cell, `dev-stateless-az1` and `dev-stateless-az2`; its **Renew Certificate**
+Traffic Manager) and then each cell, `dev-ext-stateless-az1` and `dev-ext-stateless-az2`; its **Renew Certificate**
 workflow issues the gateways' certificates. A cell takes roughly 15–20 minutes. Its **Cluster status** workflow
 reports what runs inside a cell.
 
 ## 8. Phase 1 exit criterion: create and delete a cell by the pipeline
 
-aks-terraform: Actions → **Deploy** → `dev-stateless-az2`, `destroy`. Then the same with `apply` and
+aks-terraform: Actions → **Deploy** → `dev-ext-stateless-az2`, `destroy`. Then the same with `apply` and
 `allow_empty_state`: the cell is rebuilt from IaC (new OIDC issuer, federated credentials replaced, its keys
 created again in the platform vault) and Flux brings back everything inside it.
 

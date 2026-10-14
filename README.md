@@ -12,8 +12,10 @@ Verified Modules). The clusters and the container registry are
 It implements **phase 1 (Foundation)** of the
 [implementation project](https://github.com/onek8s/onek8s.github.io/blob/main/docs/17-implementation-project-and-acceptance-testing.md):
 a separate build tenant with management, hub and `sub-aks-dev`, pipelines with OIDC, all Azure Policy assignments in
-audit mode and a client VNet that simulates the corporate network. The dev environment's clusters - the two
-stateless cells `aks-dev-stateless-az1` and `aks-dev-stateless-az2`, their networks, Key Vaults and Traffic Manager
+audit mode and a client VNet that simulates the corporate network. `sub-aks-dev` plays the design's external dev
+subscription `sub-aks-dev-ext` (decision D52: internal and external workloads have a subscription and clusters
+each); the build tenant has no internal one. The dev environment's clusters - the two external
+stateless cells `aks-dev-ext-stateless-az1` (running) and `aks-dev-ext-stateless-az2` (defined), their networks, Key Vaults and Traffic Manager
 - are [aks-terraform](https://github.com/onek8s/aks-terraform)'s, created and deleted by its pipeline in
 `sub-aks-dev` with this repository's dev apply identity.
 
@@ -28,8 +30,8 @@ Build tenant (not connected to the corporate network)
 │            │            └─ connectivity sub-hub    hub: Firewall (firewall mode) · private DNS zones
 │            │                                       client VNet (simulated corporate network)
 │            └─ landingzones ── corp      sub-aks-dev  AKS policy assignments (stacks/aks-policy)
-│                                                      onek8s/aks-terraform: vnet-dev-stateless-az1/-az2 +
-│                                                      aks-dev-stateless-az1/-az2 (AZ 1, 2), platform and zone
+│                                                      onek8s/aks-terraform: vnet-dev-ext-stateless-az1/-az2 +
+│                                                      aks-dev-ext-stateless-az1/-az2 (AZ 1, 2), platform and zone
 │                                                      Key Vaults, Traffic Manager, container registry
 ```
 
