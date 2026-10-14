@@ -3,6 +3,13 @@ environment     = "dev"
 location        = "swedencentral"
 subscription_id = "3b9f032a-0165-4b8c-9e1e-d7a664c661a8" # sub-aks-dev
 
+# Internal and external workloads have a subscription and clusters each (design decision D52).
+# sub-aks-dev plays sub-aks-dev-ext: its clusters hold the external zones only, so the zone policies
+# know only those - a namespace or pod naming an internal zone is refused here. The lab has no
+# internal subscription (it would be assigned the same with exposure = "int" and the int zones).
+exposure        = "ext"
+isolation_zones = ["ext-fi", "ext-se"]
+
 # DoNotEnforce until phase 3 (acceptance testing), then Default – together with policy_enforcement_mode in
 # accelerator/config/platform-landing-zone.tfvars and environments/dev/environment.tfvars
 policy_enforcement_mode = "DoNotEnforce"
@@ -17,8 +24,8 @@ key_vault_name_prefix = "kv-onek8s-dev"
 # clusters are stateless or stateful, as onek8s/aks-terraform names them (envs/*.tfvars)
 zone_domain_suffix          = "dev.onek8s.lol"
 cluster_resource_group_name = "rg-aks-dev"
-stateless_cluster_names     = ["aks-dev-stateless-az1", "aks-dev-stateless-az2"]
-stateful_cluster_name       = "aks-dev-stateful"
+stateless_cluster_names     = ["aks-dev-ext-stateless-az1", "aks-dev-ext-stateless-az2"]
+stateful_cluster_name       = "aks-dev-ext-stateful"
 
 # Promoted from Audit to Deny (design section 14: audit first, then deny, rule by rule): every rule
 # here reported no violation on aks-dev-stateless-az1 (2026-10-13, Cluster status, constraints audited

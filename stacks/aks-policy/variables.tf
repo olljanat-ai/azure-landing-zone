@@ -32,6 +32,20 @@ variable "container_registry_name" {
   description = "The environment's container registry, for the allowed-images policy. Not part of the landing zone: onek8s/aks-terraform creates it with the clusters (shared/, container_registry_name)."
 }
 
+variable "exposure" {
+  type        = string
+  default     = null
+  description = "The exposure of the subscription's clusters: int or ext (design decision D52 - internal and external workloads have a subscription and clusters each). Every isolation zone must be of it, so the zone policies of a subscription know only its own exposure's zones. Null checks nothing."
+  validation {
+    condition     = var.exposure == null || contains(["int", "ext"], coalesce(var.exposure, "-"))
+    error_message = "int or ext."
+  }
+  validation {
+    condition     = var.exposure == null || alltrue([for zone in var.isolation_zones : startswith(zone, "${coalesce(var.exposure, "-")}-")])
+    error_message = "Every isolation zone must be of the subscription's exposure (design decision D52)."
+  }
+}
+
 variable "isolation_zones" {
   type        = list(string)
   default     = ["int-fi", "int-se", "ext-fi", "ext-se"]

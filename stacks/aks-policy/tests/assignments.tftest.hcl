@@ -8,8 +8,8 @@ variables {
   container_registry_name     = "acronek8sdev"
   zone_domain_suffix          = "dev.onek8s.lol"
   cluster_resource_group_name = "rg-aks-dev"
-  stateless_cluster_names     = ["aks-dev-stateless-az1", "aks-dev-stateless-az2"]
-  stateful_cluster_name       = "aks-dev-stateful"
+  stateless_cluster_names     = ["aks-dev-ext-stateless-az1", "aks-dev-ext-stateless-az2"]
+  stateful_cluster_name       = "aks-dev-ext-stateful"
   key_vault_name_prefix       = "kv-onek8s-dev"
 }
 
@@ -66,9 +66,9 @@ run "platform_kubernetes_policies" {
 
   assert {
     condition = (
-      azurerm_subscription_policy_assignment.kubernetes["no-persistent-storage"].not_scopes == tolist(["/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev/providers/Microsoft.ContainerService/managedClusters/aks-dev-stateful"]) &&
+      azurerm_subscription_policy_assignment.kubernetes["no-persistent-storage"].not_scopes == tolist(["/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-aks-dev/providers/Microsoft.ContainerService/managedClusters/aks-dev-ext-stateful"]) &&
       length(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].not_scopes) == 2 &&
-      endswith(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].not_scopes[0], "/managedClusters/aks-dev-stateless-az1") &&
+      endswith(azurerm_subscription_policy_assignment.kubernetes["portable-storage-only"].not_scopes[0], "/managedClusters/aks-dev-ext-stateless-az1") &&
       length(coalesce(azurerm_subscription_policy_assignment.kubernetes["zone-placement"].not_scopes, [])) == 0
     )
     error_message = "Stateless rules leave out the stateful cluster, stateful rules the stateless cells, zone rules reach every cluster."
@@ -190,5 +190,26 @@ run "display_names_fit" {
       [for a in azurerm_subscription_policy_assignment.kubernetes_mutation : length(a.display_name) <= 128],
     ))
     error_message = "Azure refuses an assignment display name longer than 128 characters (only at apply)."
+  }
+}
+
+run "zones_of_another_exposure_refused" {
+  command = plan
+  variables {
+    exposure        = "ext"
+    isolation_zones = ["ext-fi", "int-fi"]
+  }
+  expect_failures = [var.exposure]
+}
+
+run "an_external_subscription_has_external_zones" {
+  command = plan
+  variables {
+    exposure        = "ext"
+    isolation_zones = ["ext-fi", "ext-se"]
+  }
+  assert {
+    condition     = !contains(keys(azurerm_policy_definition.kubernetes_mutation), "zone-node-selector-int-fi") && contains(keys(azurerm_policy_definition.kubernetes_mutation), "zone-node-selector-ext-se")
+    error_message = "An external subscription gets no internal zone's mutations."
   }
 }
