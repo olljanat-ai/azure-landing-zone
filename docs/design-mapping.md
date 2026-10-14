@@ -80,4 +80,4 @@ reported as *audit only*.
 - A hub VNet and Azure Firewall Premium per exposure (design D53): the external hub in `firewall` mode first, the
   internal hub (gateway, resolver, Bastion, client VNet) with `sub-aks-dev-int`; the management VNet peered to both;
   `main.firewall.tf` rewritten as a parent Firewall Policy with a child per exposure, without the edge / NGINXaaS rules.
-  IPv6 (design D54): nothing to build; the address plan only reserves prefixes.
+  IPv6 (design D54): not planned.
