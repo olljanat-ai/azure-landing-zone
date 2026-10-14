@@ -1,0 +1,371 @@
+# The Firewall Policies of OneK8s design decision D53: one parent policy (the platform's FQDNs, threat
+# intelligence, IDPS and the guard rails between the exposures) and a child policy per exposure (its cells,
+# vaults, registry and the zones' allow-lists), Premium. Built in every network mode: a policy needs no
+# firewall, and one associated with none (or one) costs nothing, so the lab's `sandbox` mode keeps the
+# rules reviewable in the Azure portal (Firewall Manager > Azure Firewall Policies) until `firewall` mode
+# associates each exposure's hub Firewall with its child policy (V22). TLS inspection is not configured:
+# it needs an intermediate CA in a Key Vault and the policy's own identity.
+#
+# Azure evaluates a parent's rule collection groups before any of the child's, whatever their priority,
+# and network rules before application rules. So a deny in the parent cannot be undone by a child's allow
+# (a parent rule wins over a child's mistake), and the deny-all tail is the Firewall's own default deny,
+# not a rule: an explicit deny-all in the parent would win over every allow of the children.
+#
+# Source and destination addresses are IP groups of the cells' real prefixes (onek8s/aks-terraform
+# shared/envs/<env>.tfvars and cells.tf), never the VirtualNetwork service tag.
+locals {
+  firewall_policies = var.firewall_policies_enabled
+
+  # "<env>-<exposure>" => the environment's spokes of that exposure
+  firewall_spokes = !local.firewall_policies ? {} : merge([
+    for exposure, e in var.firewall_exposures : {
+      for env, s in e.environments : "${env}-${exposure}" => merge(s, { env = env, exposure = exposure, corporate = e.corporate })
+    }
+  ]...)
+
+  # "<env>-<zone>" => the isolation zone's prefixes in every cell of its environment
+  firewall_zones = merge([
+    for key, s in local.firewall_spokes : {
+      for zone, z in s.zones : "${s.env}-${zone}" => merge(z, { spoke = key, zone = zone })
+    }
+  ]...)
+
+  firewall_all_cells = [for key, s in local.firewall_spokes : azurerm_ip_group.policy_cells[key].id]
+
+  # "<env>-<exposure>" => what its cells may never reach: the other exposures' cells, and the corporate network
+  # unless the exposure has the corporate path
+  firewall_guard_rails = {
+    for key, s in local.firewall_spokes : key => concat(
+      [for other, o in local.firewall_spokes : azurerm_ip_group.policy_cells[other].id if o.exposure != s.exposure],
+      s.corporate ? [] : [azurerm_ip_group.policy_client[0].id],
+    ) if !s.corporate || length([for o in values(local.firewall_spokes) : o if o.exposure != s.exposure]) > 0
+  }
+}
+
+resource "azurerm_resource_group" "firewall_policies" {
+  provider = azurerm.connectivity
+  count    = local.firewall_policies ? 1 : 0
+  name     = "rg-hub-fwpolicy-${var.location}"
+  location = var.location
+  tags     = var.tags
+}
+
+resource "azurerm_ip_group" "policy_management" {
+  provider            = azurerm.connectivity
+  count               = local.firewall_policies ? 1 : 0
+  name                = "ipg-mgmt"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.firewall_policies[0].name
+  cidrs               = [local.management.snet_runners, local.management.snet_jump]
+  tags                = var.tags
+}
+
+# The simulated corporate network: no exposure without `corporate` may reach it
+resource "azurerm_ip_group" "policy_client" {
+  provider            = azurerm.connectivity
+  count               = local.firewall_policies ? 1 : 0
+  name                = "ipg-client"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.firewall_policies[0].name
+  cidrs               = [var.client_address_space]
+  tags                = var.tags
+}
+
+# Every node subnet and load balancer subnet of an environment's cells of one exposure
+resource "azurerm_ip_group" "policy_cells" {
+  provider            = azurerm.connectivity
+  for_each            = local.firewall_policies ? local.firewall_spokes : {}
+  name                = "ipg-${each.key}-cells"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.firewall_policies[0].name
+  cidrs               = concat(each.value.system_prefixes, flatten([for z in values(each.value.zones) : z.prefixes]))
+  tags                = var.tags
+}
+
+# The system pools: Flux, the gateways, the External Secrets Operators and external-dns run there
+resource "azurerm_ip_group" "policy_system" {
+  provider            = azurerm.connectivity
+  for_each            = local.firewall_policies ? local.firewall_spokes : {}
+  name                = "ipg-${each.key}-system"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.firewall_policies[0].name
+  cidrs               = each.value.system_prefixes
+  tags                = var.tags
+}
+
+resource "azurerm_ip_group" "policy_zone" {
+  provider            = azurerm.connectivity
+  for_each            = local.firewall_policies ? local.firewall_zones : {}
+  name                = "ipg-${each.key}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.firewall_policies[0].name
+  cidrs               = each.value.prefixes
+  tags                = var.tags
+}
+
+resource "azurerm_firewall_policy" "parent" {
+  provider                 = azurerm.connectivity
+  count                    = local.firewall_policies ? 1 : 0
+  name                     = "afwp-hub-parent-${var.location}"
+  resource_group_name      = azurerm_resource_group.firewall_policies[0].name
+  location                 = var.location
+  sku                      = "Premium"
+  threat_intelligence_mode = "Deny"
+
+  dns {
+    proxy_enabled = true
+  }
+
+  intrusion_detection {
+    mode = "Deny"
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_firewall_policy" "exposure" {
+  provider                 = azurerm.connectivity
+  for_each                 = local.firewall_policies ? var.firewall_exposures : {}
+  name                     = "afwp-hub-${each.key}-${var.location}"
+  resource_group_name      = azurerm_resource_group.firewall_policies[0].name
+  location                 = var.location
+  sku                      = "Premium"
+  base_policy_id           = azurerm_firewall_policy.parent[0].id
+  threat_intelligence_mode = "Deny"
+
+  dns {
+    proxy_enabled = true
+  }
+
+  intrusion_detection {
+    mode = "Deny"
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
+  provider           = azurerm.connectivity
+  count              = local.firewall_policies && length(local.firewall_spokes) > 0 ? 1 : 0
+  name               = "rcg-platform"
+  firewall_policy_id = azurerm_firewall_policy.parent[0].id
+  priority           = 100
+
+  # D53: no route between the exposures, and none from an exposure without the corporate path to the
+  # corporate network. Here in the parent, so no child policy can allow it.
+  dynamic "network_rule_collection" {
+    for_each = length(local.firewall_guard_rails) > 0 ? [1] : []
+    content {
+      name     = "exposure-guard-rails"
+      priority = 100
+      action   = "Deny"
+
+      dynamic "rule" {
+        for_each = local.firewall_guard_rails
+        content {
+          name                  = "${rule.key}-isolation"
+          protocols             = ["Any"]
+          source_ip_groups      = [azurerm_ip_group.policy_cells[rule.key].id]
+          destination_ip_groups = rule.value
+          destination_ports     = ["*"]
+        }
+      }
+    }
+  }
+
+  network_rule_collection {
+    name     = "platform-network"
+    priority = 200
+    action   = "Allow"
+
+    # Workload identity token exchange: Entra ID has no Private Link for sign-in
+    rule {
+      name                  = "entra-id"
+      protocols             = ["TCP"]
+      source_ip_groups      = local.firewall_all_cells
+      destination_addresses = ["AzureActiveDirectory"]
+      destination_ports     = ["443"]
+    }
+  }
+
+  application_rule_collection {
+    name     = "platform-fqdns"
+    priority = 300
+    action   = "Allow"
+
+    # AKS's required FQDNs: the API server, MCR, packages, node images
+    rule {
+      name                  = "aks-required"
+      source_ip_groups      = local.firewall_all_cells
+      destination_fqdn_tags = ["AzureKubernetesService"]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+      protocols {
+        type = "Http"
+        port = 80
+      }
+    }
+
+    rule {
+      name             = "azure-policy-add-on"
+      source_ip_groups = local.firewall_all_cells
+      destination_fqdns = [
+        "data.policy.core.windows.net",
+        "store.policy.core.windows.net",
+        "dc.services.visualstudio.com",
+      ]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+    }
+
+    rule {
+      name             = "azure-monitor"
+      source_ip_groups = local.firewall_all_cells
+      destination_fqdns = [
+        "*.ods.opinsights.azure.com",
+        "*.oms.opinsights.azure.com",
+        "*.monitoring.azure.com",
+        "global.handler.control.monitor.azure.com",
+        "${var.location}.handler.control.monitor.azure.com",
+        "*.ingest.monitor.azure.com",
+        "*.metrics.ingest.monitor.azure.com",
+      ]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+    }
+
+    rule {
+      name              = "defender-for-containers"
+      source_ip_groups  = local.firewall_all_cells
+      destination_fqdns = ["*.cloud.defender.microsoft.com"]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+    }
+
+    # The GitOps extension (Flux) and external-dns on the system pools. github.com only while the fleet is
+    # pulled from Git; with the OCI artifact in the environment ACR it goes.
+    rule {
+      name             = "gitops-and-arm"
+      source_ip_groups = [for key, s in local.firewall_spokes : azurerm_ip_group.policy_system[key].id]
+      destination_fqdns = [
+        "${var.location}.dp.kubernetesconfiguration.azure.com",
+        "management.azure.com",
+        "login.microsoftonline.com",
+        "${var.location}.login.microsoft.com",
+        "mcr.microsoft.com",
+        "*.data.mcr.microsoft.com",
+        "github.com",
+      ]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+    }
+  }
+}
+
+# One rule collection group per environment in its exposure's child policy
+resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" {
+  provider           = azurerm.connectivity
+  for_each           = local.firewall_policies ? local.firewall_spokes : {}
+  name               = "rcg-aks-${each.value.env}"
+  firewall_policy_id = azurerm_firewall_policy.exposure[each.value.exposure].id
+  priority           = 300 + index(sort(keys(var.firewall_exposures[each.value.exposure].environments)), each.value.env) * 10
+
+  # Runners and jump host -> the environment's private endpoints and entry points (smoke tests)
+  network_rule_collection {
+    name     = "${each.key}-network"
+    priority = 100
+    action   = "Allow"
+
+    rule {
+      name                  = "management-to-cells"
+      protocols             = ["TCP"]
+      source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
+      destination_ip_groups = [azurerm_ip_group.policy_cells[each.key].id]
+      destination_ports     = ["443"]
+    }
+  }
+
+  application_rule_collection {
+    name     = "${each.key}-platform"
+    priority = 200
+    action   = "Allow"
+
+    # The platform vault and every zone vault through the External Secrets Operators on the system pool.
+    # Lab: public endpoints; with private endpoints (backlog item 3) this rule goes.
+    rule {
+      name             = "key-vaults"
+      source_ip_groups = [azurerm_ip_group.policy_system[each.key].id]
+      destination_fqdns = [
+        for v in concat([each.value.platform_key_vault], [for z in values(each.value.zones) : z.key_vault]) : "${v}.vault.azure.net"
+      ]
+      protocols {
+        type = "Https"
+        port = 443
+      }
+    }
+
+    # Lab: public environment ACR (Basic, no dedicated data endpoint): the layers come from its storage accounts
+    dynamic "rule" {
+      for_each = each.value.container_registry == null ? [] : [each.value.container_registry]
+      content {
+        name              = "container-registry"
+        source_ip_groups  = [azurerm_ip_group.policy_cells[each.key].id, azurerm_ip_group.policy_management[0].id]
+        destination_fqdns = ["${rule.value}.azurecr.io", "${rule.value}.${var.location}.data.azurecr.io", "*.blob.core.windows.net"]
+        protocols {
+          type = "Https"
+          port = 443
+        }
+      }
+    }
+
+    # The Grafana collectors run on every node (D48); an internal exposure uses its hub's private endpoint instead
+    dynamic "rule" {
+      for_each = length(each.value.observability_fqdns) > 0 ? [1] : []
+      content {
+        name              = "observability"
+        source_ip_groups  = [azurerm_ip_group.policy_cells[each.key].id]
+        destination_fqdns = each.value.observability_fqdns
+        protocols {
+          type = "Https"
+          port = 443
+        }
+      }
+    }
+  }
+
+  # Per-zone allow-lists: what the zone's applications may name in their FQDN egress policies
+  # (aks-fluxcd-platform policy/egress-allow-lists.yaml, design section 16)
+  dynamic "application_rule_collection" {
+    for_each = anytrue([for z in values(each.value.zones) : length(z.fqdn_allow_list) > 0]) ? [1] : []
+    content {
+      name     = "${each.key}-zones"
+      priority = 300
+      action   = "Allow"
+      dynamic "rule" {
+        for_each = { for zone, z in each.value.zones : zone => z.fqdn_allow_list if length(z.fqdn_allow_list) > 0 }
+        content {
+          name              = "${rule.key}-allow-list"
+          source_ip_groups  = [azurerm_ip_group.policy_zone["${each.value.env}-${rule.key}"].id]
+          destination_fqdns = rule.value
+          protocols {
+            type = "Https"
+            port = 443
+          }
+        }
+      }
+    }
+  }
+
+  # The parent's group first: Azure refuses parallel writes within one policy hierarchy
+  depends_on = [azurerm_firewall_policy_rule_collection_group.parent_platform]
+}

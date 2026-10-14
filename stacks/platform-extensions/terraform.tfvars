@@ -22,3 +22,31 @@ environments = {
 
 # state_storage_account_name / state_resource_group_name / state_container_name come from the GitHub variables
 # BACKEND_AZURE_* (TF_VAR_*), github_runner_token / github_runner_app_* from GitHub secrets.
+
+# The Firewall Policies (main.firewall.policies.tf, design D53): the prefixes of onek8s/aks-terraform
+# shared/envs/dev.tfvars - every cell's /20 with snet-system the first /24 and each zone the /24 of its index.
+# The lab has the external exposure only.
+firewall_exposures = {
+  ext = {
+    environments = {
+      dev = {
+        system_prefixes     = ["172.21.0.0/24", "172.21.16.0/24"] # dev-ext-stateless-az1, -az2
+        platform_key_vault  = "kv-onek8s-dev-platform"
+        container_registry  = "acronek8sdev"
+        observability_fqdns = ["*.grafana.net"]
+        zones = {
+          ext-fi = {
+            prefixes        = ["172.21.3.0/24", "172.21.19.0/24"]
+            key_vault       = "kv-onek8s-dev-ext-fi"
+            fqdn_allow_list = ["login.microsoftonline.com", "api.github.com"]
+          }
+          ext-se = {
+            prefixes        = ["172.21.4.0/24", "172.21.20.0/24"]
+            key_vault       = "kv-onek8s-dev-ext-se"
+            fqdn_allow_list = ["login.microsoftonline.com"]
+          }
+        }
+      }
+    }
+  }
+}
