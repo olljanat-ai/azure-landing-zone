@@ -632,6 +632,10 @@ tests:
     object: secrets-via-eso/flux-extension-agent-allowed.yaml
     assertions:
     - violations: 'no'
+  - name: aks-kms-migration-allowed
+    object: secrets-via-eso/aks-kms-migration-allowed.yaml
+    assertions:
+    - violations: 'no'
   - name: fleet-kustomize-refused
     object: secrets-via-eso/fleet-kustomize-refused.yaml
     assertions:
