@@ -30,8 +30,9 @@ module "labfw" {
   trusted_prefixes    = local.labfw_trusted_prefixes
   vm_size             = var.labfw.vm_size
   arch                = var.labfw.arch
-  # Provisioning only: the VM is managed with Run Command
+  # Provisioning key; the VM is managed with Run Command, and with SSH over the VPN where var.labfw.ssh allows it
   admin_ssh_public_key   = tls_private_key.vm.public_key_openssh
+  ssh                    = var.labfw.ssh
   release_version        = var.labfw.release_version
   release_repo           = var.labfw.release_repo
   dns_proxy              = true # also the VPN clients' DNS server for the private link zones

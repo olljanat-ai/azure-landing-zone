@@ -24,7 +24,7 @@ locals {
     network = {
       interface         = "eth0"
       dnatAddressMap    = { "*" = "primary" }
-      managementSources = []
+      managementSources = var.ssh.sources
       dnsClients        = local.dns_clients
       localIPs          = [local.private_ip]
     }
@@ -55,8 +55,10 @@ locals {
       }]
     }
   } : {})
-  config_b64  = base64encode(jsonencode(local.config))
-  install_b64 = filebase64("${path.module}/vendor/install-labfw.sh")
+  config_b64 = base64encode(jsonencode(local.config))
+  # azureuser's keys: the provisioning key and var.ssh's, the whole file rewritten so that a removed key goes
+  authorized_keys_b64 = base64encode(join("\n", concat([trimspace(var.admin_ssh_public_key)], var.ssh.authorized_keys, [""])))
+  install_b64         = filebase64("${path.module}/vendor/install-labfw.sh")
 
   cloud_init = replace(replace(replace(replace(replace(file("${path.module}/vendor/cloud-init.yaml"),
     "__CONFIG_YAML__", local.config_b64),
@@ -77,6 +79,11 @@ locals {
     echo '${local.install_b64}' | base64 -d >/usr/local/sbin/install-labfw.sh
     chmod 0755 /usr/local/sbin/install-labfw.sh
     /usr/local/sbin/install-labfw.sh '${var.release_version}' '${local.arch_go}' '${var.release_repo}'
+    install -d -m 0700 -o azureuser -g azureuser /home/azureuser/.ssh
+    echo '${local.authorized_keys_b64}' | base64 -d >/home/azureuser/.ssh/authorized_keys.new
+    chown azureuser:azureuser /home/azureuser/.ssh/authorized_keys.new
+    chmod 0600 /home/azureuser/.ssh/authorized_keys.new
+    mv /home/azureuser/.ssh/authorized_keys.new /home/azureuser/.ssh/authorized_keys
   SCRIPT
 }
 
@@ -109,7 +116,8 @@ resource "azurerm_role_assignment" "operators" {
 }
 
 # Spokes send 0.0.0.0/0 to labfw, so forwarded packets keep their real destination, which the default
-# AllowVnetInBound does not cover. No SSH: the VM is managed with Run Command.
+# AllowVnetInBound does not cover. No SSH rule: the VM is managed with Run Command, and SSH (var.ssh) comes through
+# the VPN tunnel.
 resource "azurerm_network_security_group" "labfw" {
   name                = "${var.name_prefix}-fw-nsg"
   location            = var.location
