@@ -186,6 +186,17 @@ resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
       destination_addresses = ["AzureActiveDirectory"]
       destination_ports     = ["443"]
     }
+
+    # Pods that call the API server go to its public address (the `kubernetes` Service's endpoint), with no SNI an
+    # application rule could match. Lab: public API servers (aks-terraform's dev exception to design section 3);
+    # a private API server is reached in its own VNet and needs no rule.
+    rule {
+      name                  = "aks-api-servers"
+      protocols             = ["TCP"]
+      source_ip_groups      = local.firewall_all_cells
+      destination_addresses = ["AzureCloud.${var.location}"]
+      destination_ports     = ["443"]
+    }
   }
 
   application_rule_collection {
@@ -269,6 +280,21 @@ resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
         port = 443
       }
     }
+
+    # The platform's Helm charts and upstream images (aks-fluxcd-platform, aks-terraform gateways/): Flux's
+    # source-controller on the system pools, the kubelets of every node (the collectors are DaemonSets)
+    dynamic "rule" {
+      for_each = length(var.platform_source_fqdns) > 0 ? [1] : []
+      content {
+        name              = "platform-sources"
+        source_ip_groups  = local.firewall_all_cells
+        destination_fqdns = var.platform_source_fqdns
+        protocols {
+          type = "Https"
+          port = 443
+        }
+      }
+    }
   }
 }
 
@@ -292,6 +318,19 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
       source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
       destination_ip_groups = [azurerm_ip_group.policy_cells[each.key].id]
       destination_ports     = ["443"]
+    }
+
+    # The corporate network (the client VNet) -> the internal zones' gateways (their internal load balancers in
+    # snet-<zone>-ilb), only in the exposure with the corporate path
+    dynamic "rule" {
+      for_each = each.value.corporate ? [1] : []
+      content {
+        name                  = "corporate-to-zones"
+        protocols             = ["TCP"]
+        source_ip_groups      = [azurerm_ip_group.policy_client[0].id]
+        destination_ip_groups = [for zone in keys(each.value.zones) : azurerm_ip_group.policy_zone["${each.value.env}-${zone}"].id]
+        destination_ports     = ["443"]
+      }
     }
   }
 

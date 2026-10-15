@@ -29,3 +29,8 @@ output "virtual_machine_id" {
 output "identity_principal_id" {
   value = azurerm_user_assigned_identity.labfw.principal_id
 }
+
+output "dns_clients" {
+  description = "Prefixes labfw's DNS proxy answers and its NSG lets in: the trusted prefixes (hub and spokes) and the VPN pool."
+  value       = local.dns_clients
+}

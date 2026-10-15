@@ -1,31 +1,34 @@
 # AKS policy assignments of dev (OneK8s design section 14), stacks/aks-policy
 environment     = "dev"
-location        = "swedencentral"
+location        = "germanywestcentral"
 subscription_id = "3b9f032a-0165-4b8c-9e1e-d7a664c661a8" # sub-aks-dev
 
 # Internal and external workloads have a subscription and clusters each (design decision D52).
-# sub-aks-dev plays sub-aks-dev-ext: its clusters hold the external zones only, so the zone policies
-# know only those - a namespace or pod naming an internal zone is refused here. The lab has no
-# internal subscription (it would be assigned the same with exposure = "int" and the int zones).
-exposure        = "ext"
-isolation_zones = ["ext-fi", "ext-se"]
+# sub-aks-dev plays sub-aks-dev-int since 2026-10-15: its clusters hold the internal zones only, so the zone
+# policies know only those - a namespace or pod naming an external zone is refused here. Of the countries only
+# Finland is enabled in the lab: Sweden's int-se is disabled (onek8s/aks-terraform shared/envs/dev.tfvars,
+# isolation_zones.int-se.enabled = false), so it is left out here too - a namespace naming it is refused.
+exposure        = "int"
+isolation_zones = ["int-fi"]
 
 # DoNotEnforce until phase 3 (acceptance testing), then Default – together with policy_enforcement_mode in
-# accelerator/config/platform-landing-zone.tfvars and environments/dev/environment.tfvars
+# accelerator/config/platform-landing-zone.tfvars
 policy_enforcement_mode = "DoNotEnforce"
 
 # The environment's container registry: created by onek8s/aks-terraform (shared/envs/dev.tfvars)
 container_registry_name = "acronek8sdev"
 
-# The environment's Key Vaults, <prefix>-<zone> and <prefix>-platform (onek8s/aks-terraform shared/envs/dev.tfvars)
-key_vault_name_prefix = "kv-onek8s-dev"
+# The environment's Key Vaults, <prefix>-<zone> and <prefix>-platform (onek8s/aks-terraform shared/envs/dev.tfvars).
+# kv-onek8s-gwc since the move to germanywestcentral: the old kv-onek8s-dev-platform is soft-deleted with purge
+# protection in swedencentral until 2027-01, and a vault cannot be recovered into another region.
+key_vault_name_prefix = "kv-onek8s-gwc"
 
 # The platform's own Kubernetes policies (stacks/aks-policy/kubernetes.tf): the zones' domain and which
 # clusters are stateless or stateful, as onek8s/aks-terraform names them (envs/*.tfvars)
 zone_domain_suffix          = "dev.onek8s.lol"
 cluster_resource_group_name = "rg-aks-dev"
-stateless_cluster_names     = ["aks-dev-ext-stateless-az1", "aks-dev-ext-stateless-az2"]
-stateful_cluster_name       = "aks-dev-ext-stateful"
+stateless_cluster_names     = ["aks-dev-int-stateless-az1"]
+stateful_cluster_name       = "aks-dev-int-stateful"
 
 # Promoted from Audit to Deny (design section 14: audit first, then deny, rule by rule): every rule
 # here reported no violation on aks-dev-stateless-az1 (2026-10-13, Cluster status, constraints audited

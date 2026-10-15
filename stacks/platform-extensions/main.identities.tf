@@ -74,8 +74,9 @@ resource "azurerm_federated_identity_credential" "deployment_repositories" {
 }
 
 # Custom role on a VNet: peer AKS spokes to it and link private DNS zones to it, nothing else. Assigned on the hub
-# VNet in both network modes; in sandbox mode also on the management VNet (management <-> backend spoke) and the
-# client VNet (client <-> edge VNet), because there is no Firewall to route between them.
+# VNet in every network mode (labfw mode: the cells peer to the hub and link their internal zones' private DNS to
+# it for the DNS proxy); in sandbox mode also on the management VNet (management <-> backend spoke) and the client
+# VNet (client <-> edge VNet), because there is no firewall to route between them.
 locals {
   spoke_peering_actions = [
     "Microsoft.Network/virtualNetworks/read",
@@ -149,7 +150,7 @@ resource "azurerm_role_assignment" "aks_hub_peering" {
 
 resource "azurerm_role_assignment" "aks_client_peering" {
   provider           = azurerm.connectivity
-  for_each           = local.azure_firewall ? {} : var.environments
+  for_each           = local.routed ? {} : var.environments
   scope              = azurerm_virtual_network.client.id
   role_definition_id = azurerm_role_definition.hub_spoke_peering.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
@@ -157,7 +158,7 @@ resource "azurerm_role_assignment" "aks_client_peering" {
 }
 
 resource "azurerm_role_assignment" "aks_management_peering" {
-  for_each           = local.azure_firewall ? {} : var.environments
+  for_each           = local.routed ? {} : var.environments
   scope              = azurerm_virtual_network.management.id
   role_definition_id = azurerm_role_definition.management_spoke_peering.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id

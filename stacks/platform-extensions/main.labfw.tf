@@ -1,17 +1,18 @@
-# Network mode "labfw": labfw (onek8s/azure-lab-fw, modules/labfw) in the hub instead of Azure Firewall. It
-# enforces the exposure's child Firewall Policy of main.firewall.policies.tf together with the parent - the same
-# policies a hub Firewall would get (D53) - and holds the build tenant's egress rules in the parent
-# (main.firewall.tf). The management and client VNets send 0.0.0.0/0 to it like to the Firewall; everything else
-# stays as in sandbox mode: no Azure Firewall, the cells (onek8s/aks-terraform) keep their own NAT gateways and
-# direct peerings.
+# Network mode "labfw": firewall mode with labfw (onek8s/azure-lab-fw, modules/labfw) in the hub instead of Azure
+# Firewall. It enforces the exposure's child Firewall Policy of main.firewall.policies.tf together with the parent -
+# the same policies a hub Firewall would get (D53) - and holds the build tenant's egress rules in the parent
+# (main.firewall.tf). The management and client VNets here and the AKS cells of onek8s/aks-terraform (shared/,
+# `hub`: peered to the hub only, 0.0.0.0/0 to labfw, its DNS proxy) send everything to it like to the Firewall.
 #
 # The optional WireGuard VPN connects agent and management machines outside Azure: its client pool is treated as
 # management (ipg-mgmt in the policies, the API server private endpoints' NSG).
 locals {
   labfw_vpn      = local.labfw && var.labfw.vpn.enabled
   labfw_vpn_pool = local.labfw_vpn ? [cidrsubnet(var.labfw.vpn.address, 0, 0)] : []
-  # Routed through labfw: the hub and the spokes of this stack
-  labfw_trusted_prefixes = concat(local.hub_vnet.address_space, [var.management_address_space, var.client_address_space])
+  # Routed through labfw: the hub, the spokes of this stack and every exposure's cells (firewall_exposures) - its DNS
+  # proxy clients and what its NSG lets in
+  labfw_cell_prefixes    = distinct(flatten([for s in values(local.firewall_spokes) : concat(s.system_prefixes, flatten([for z in values(s.zones) : z.prefixes]))]))
+  labfw_trusted_prefixes = concat(local.hub_vnet.address_space, [var.management_address_space, var.client_address_space], local.labfw_cell_prefixes)
 }
 
 module "labfw" {

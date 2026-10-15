@@ -29,7 +29,7 @@ Replacements are denoted by the dollar-dollar curly braces token (e.g. $${starte
 `subscription_id_security`.
 */
 
-starter_locations = ["swedencentral"]
+starter_locations = ["germanywestcentral"]
 
 custom_replacements = {
   names = {

@@ -1,4 +1,4 @@
-location = "swedencentral"
+location = "germanywestcentral"
 
 # The same subscriptions as accelerator/config/inputs.yaml – replace
 subscription_ids = {
@@ -25,28 +25,36 @@ environments = {
 
 # The Firewall Policies (main.firewall.policies.tf, design D53): the prefixes of onek8s/aks-terraform
 # shared/envs/dev.tfvars - every cell's /20 with snet-system the first /24 and each zone the /24 of its index.
-# The lab has the external exposure only.
+# The lab has the internal exposure only (2026-10-15): one cell, dev-int-stateless-az1, with Finland's zone; Sweden's
+# (int-se, index 2) is disabled there, so it has no prefixes here either. Disabling or adding a country is the
+# zone's entry here, in shared/envs/dev.tfvars (isolation_zones.<zone>.enabled) and in environments/dev/policy.tfvars.
 firewall_exposures = {
-  ext = {
+  int = {
+    # The corporate path: the client VNet reaches the internal zones' gateways
+    corporate = true
     environments = {
       dev = {
-        system_prefixes     = ["172.21.0.0/24", "172.21.16.0/24"] # dev-ext-stateless-az1, -az2
-        platform_key_vault  = "kv-onek8s-dev-platform"
+        system_prefixes     = ["172.22.0.0/24"] # dev-int-stateless-az1
+        platform_key_vault  = "kv-onek8s-gwc-platform"
         container_registry  = "acronek8sdev"
         observability_fqdns = ["*.grafana.net"]
         zones = {
-          ext-fi = {
-            prefixes        = ["172.21.3.0/24", "172.21.19.0/24"]
-            key_vault       = "kv-onek8s-dev-ext-fi"
-            fqdn_allow_list = ["login.microsoftonline.com", "api.github.com"]
-          }
-          ext-se = {
-            prefixes        = ["172.21.4.0/24", "172.21.20.0/24"]
-            key_vault       = "kv-onek8s-dev-ext-se"
+          int-fi = {
+            prefixes        = ["172.22.1.0/24"]
+            key_vault       = "kv-onek8s-gwc-int-fi"
             fqdn_allow_list = ["login.microsoftonline.com"]
           }
         }
       }
     }
   }
+}
+
+# labfw (network mode labfw, network-mode.tfvars) in the hub instead of Azure Firewall: it enforces the internal
+# exposure's child policy with the parent, and the spokes - the management and client VNets and the AKS cells - use
+# its DNS proxy like a Firewall's. The default VM size, Standard_B2ats_v2 (Basv2, 2 vCPU), fits the lab's Basv2
+# quota of 4 vCPUs; azure-lab-fw's optional E2E test VM is not deployed here.
+labfw = {
+  policy_exposure = "int"
+  spoke_dns_proxy = true
 }
