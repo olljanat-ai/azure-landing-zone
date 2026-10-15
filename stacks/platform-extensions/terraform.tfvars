@@ -25,7 +25,8 @@ environments = {
 
 # The Firewall Policies (main.firewall.policies.tf, design D53): the prefixes of onek8s/aks-terraform
 # shared/envs/dev.tfvars - every cell's /20 with snet-system the first /24 and each zone the /24 of its index.
-# The lab has the internal exposure only (2026-10-15): one cell, dev-int-stateless-az1, with Finland's zone; Sweden's
+# The lab has the internal exposure only (2026-10-15): two cells in the spec, dev-int-stateless-az1 (disabled in
+# aks-terraform: zone 1 is not available to sub-aks-dev) and dev-int-stateless-az2 (running), with Finland's zone; Sweden's
 # (int-se, index 2) is disabled there, so it has no prefixes here either. Disabling or adding a country is the
 # zone's entry here, in shared/envs/dev.tfvars (isolation_zones.<zone>.enabled) and in environments/dev/policy.tfvars.
 firewall_exposures = {
@@ -34,13 +35,13 @@ firewall_exposures = {
     corporate = true
     environments = {
       dev = {
-        system_prefixes     = ["172.22.0.0/24"] # dev-int-stateless-az1
+        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24"] # dev-int-stateless-az1 (disabled), -az2
         platform_key_vault  = "kv-onek8s-gwc-platform"
         container_registry  = "acronek8sdev"
         observability_fqdns = ["*.grafana.net"]
         zones = {
           int-fi = {
-            prefixes        = ["172.22.1.0/24"]
+            prefixes        = ["172.22.1.0/24", "172.22.17.0/24"]
             key_vault       = "kv-onek8s-gwc-int-fi"
             fqdn_allow_list = ["login.microsoftonline.com"]
           }
