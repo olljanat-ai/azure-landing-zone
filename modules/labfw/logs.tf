@@ -37,7 +37,10 @@ resource "azurerm_log_analytics_workspace" "labfw" {
   daily_quota_gb      = var.log_analytics.daily_quota_gb
   # Entra ID only: queries with workspace or resource permissions, no shared keys
   local_authentication_enabled = false
-  tags                         = local.tags
+  # Without public network access only through the hub's Azure Monitor Private Link scope
+  internet_ingestion_enabled = var.log_analytics.public_network_access
+  internet_query_enabled     = var.log_analytics.public_network_access
+  tags                       = local.tags
 }
 
 resource "azurerm_log_analytics_workspace_table_custom_log" "labfw" {
@@ -62,7 +65,9 @@ resource "azurerm_monitor_data_collection_endpoint" "labfw" {
   location            = var.location
   resource_group_name = azurerm_resource_group.labfw.name
   kind                = "Linux"
-  tags                = local.tags
+  # The agent reaches it through the hub's Azure Monitor Private Link scope: labfw resolves through the hub's links
+  public_network_access_enabled = var.log_analytics.public_network_access
+  tags                          = local.tags
 }
 
 resource "azurerm_monitor_data_collection_rule" "labfw" {

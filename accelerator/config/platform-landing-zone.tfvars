@@ -493,14 +493,40 @@ hub_virtual_networks = {
     }
     private_dns_zones = {
       parent_id = "$${dns_resource_group_id}"
-      # Lab: only the private link zones the AKS platform uses (Key Vault and ACR private endpoints) instead of
-      # all ~90 Azure services. Same keys as the module defaults, so adding more zones back is additive.
+      # Lab: only the private link zones the platform uses instead of all ~90 Azure services - the AKS environments'
+      # vaults, registry, Foundry (AI agents) and Terraform state, and Azure Monitor's Private Link scope
+      # (stacks/platform-extensions main.monitor.private.tf: Log Analytics and the data collection endpoints). Same
+      # keys as the module defaults, so adding more zones back is additive.
       private_link_private_dns_zones = {
         azure_key_vault = {
           zone_name = "privatelink.vaultcore.azure.net"
         }
         azure_acr_registry = {
           zone_name = "privatelink.azurecr.io"
+        }
+        azure_ai_cog_svcs = {
+          zone_name = "privatelink.cognitiveservices.azure.com"
+        }
+        azure_ai_oai = {
+          zone_name = "privatelink.openai.azure.com"
+        }
+        azure_ai_services = {
+          zone_name = "privatelink.services.ai.azure.com"
+        }
+        azure_storage_blob = {
+          zone_name = "privatelink.blob.core.windows.net"
+        }
+        azure_monitor = {
+          zone_name = "privatelink.monitor.azure.com"
+        }
+        azure_log_analytics = {
+          zone_name = "privatelink.oms.opinsights.azure.com"
+        }
+        azure_log_analytics_data = {
+          zone_name = "privatelink.ods.opinsights.azure.com"
+        }
+        azure_monitor_agent = {
+          zone_name = "privatelink.agentsvc.azure-automation.net"
         }
       }
       private_link_private_dns_zones_regex_filter = {

@@ -132,8 +132,11 @@ variable "log_analytics" {
     denied_only       = optional(bool, true)
     retention_in_days = optional(number, 30)
     daily_quota_gb    = optional(number, 1)
+    # false: the workspace takes data and queries, and the data collection endpoint answers, only through an Azure
+    # Monitor Private Link scope (the stack's main.monitor.private.tf) - no public network access
+    public_network_access = optional(bool, true)
   })
   default     = {}
   nullable    = false
-  description = "labfw's connection log in a Log Analytics workspace of its own (table LabfwFirewallLog_CL, Azure Monitor Agent on the VM) - the counterpart of an Azure Firewall's diagnostic setting. denied_only: only denied connections."
+  description = "labfw's connection log in a Log Analytics workspace of its own (table LabfwFirewallLog_CL, Azure Monitor Agent on the VM) - the counterpart of an Azure Firewall's diagnostic setting. denied_only: only denied connections. public_network_access: false once the workspace and its endpoint are in a Private Link scope."
 }

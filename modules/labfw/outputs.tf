@@ -36,6 +36,6 @@ output "dns_clients" {
 }
 
 output "log_analytics_workspace" {
-  description = "The workspace of labfw's connection log (table LabfwFirewallLog_CL): resource ID and customer (workspace) ID; null without log_analytics."
-  value       = local.log_analytics ? { id = azurerm_log_analytics_workspace.labfw[0].id, workspace_id = azurerm_log_analytics_workspace.labfw[0].workspace_id, table = azurerm_log_analytics_workspace_table_custom_log.labfw[0].name } : null
+  description = "The workspace of labfw's connection log (table LabfwFirewallLog_CL): resource ID, customer (workspace) ID and its data collection endpoint; null without log_analytics."
+  value       = local.log_analytics ? { id = azurerm_log_analytics_workspace.labfw[0].id, workspace_id = azurerm_log_analytics_workspace.labfw[0].workspace_id, table = azurerm_log_analytics_workspace_table_custom_log.labfw[0].name, data_collection_endpoint_id = azurerm_monitor_data_collection_endpoint.labfw[0].id } : null
 }

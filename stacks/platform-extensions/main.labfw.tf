@@ -20,6 +20,7 @@ module "labfw" {
   count  = local.labfw ? 1 : 0
   providers = {
     azurerm = azurerm.connectivity
+    azapi   = azapi
   }
 
   location            = var.location
