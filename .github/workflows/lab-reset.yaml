@@ -85,6 +85,10 @@ jobs:
           PROTECTED_RG_REGEX: ^(rg-alz-build-|rg-onek8s-dns$|${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}$)
           DRY_RUN: ${{ inputs.dry_run }}
           MAX_PASSES: ${{ inputs.max_passes }}
+          # for the script's re-login with a fresh OIDC token (the first one expires during a long reset)
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         run: scripts/reset-lab.sh
 
       - name: Redeploy the platform

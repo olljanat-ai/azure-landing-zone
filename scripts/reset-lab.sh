@@ -13,7 +13,8 @@
 # Terraform state of the platform and AKS stacks. A failing deletion is logged and retried in the next pass.
 #
 # Environment: SUBSCRIPTIONS (space-separated), ROOT_MG (alz), STATE_ACCOUNT, STATE_CONTAINER, PROTECTED_RG_REGEX,
-# DRY_RUN (true/false), MAX_PASSES, PASS_PAUSE_SECONDS.
+# DRY_RUN (true/false), MAX_PASSES, PASS_PAUSE_SECONDS; on GitHub Actions also AZURE_CLIENT_ID, AZURE_TENANT_ID and
+# AZURE_SUBSCRIPTION_ID, to sign in again with a fresh OIDC token (see relogin).
 set -uo pipefail
 
 ROOT_MG="${ROOT_MG:-alz}"
@@ -24,6 +25,20 @@ PROTECTED_RG_REGEX="${PROTECTED_RG_REGEX:-^(rg-alz-build-|rg-onek8s-dns$)}"
 STATE_BLOB_REGEX='^(terraform|platform-extensions|aks-.*)\.tfstate$'
 ALZ_ROLE_ASSIGNMENT_DESCRIPTION="Created by ALZ Terraform provider. Assignment required for Azure Policy."
 MG_PREFIX="/providers/Microsoft.Management/managementGroups"
+
+# azure/login's federated assertion expires after a few minutes, and a token for a new resource (Storage) or a
+# refresh after an hour then fails – the listings below swallow errors, so a lapsed login would look like an empty
+# lab. Sign in again with a fresh GitHub OIDC token before each pass and before the state is deleted.
+relogin() {
+  [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${AZURE_CLIENT_ID:-}" ] || return 0
+  local token
+  token="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)" \
+    && az login --service-principal --username "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" \
+         --federated-token "$token" --output none \
+    && { [ -z "${AZURE_SUBSCRIPTION_ID:-}" ] || az account set --subscription "$AZURE_SUBSCRIPTION_ID"; } \
+    || { echo "::error::Could not sign in to Azure again with a fresh OIDC token."; exit 1; }
+}
 
 failed=0
 try() { # <description> <command...>: runs the command, logs and counts a failure, never exits
@@ -210,9 +225,12 @@ pass() {
 }
 
 delete_state() {
-  local blobs
-  blobs="$(az storage blob list --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --auth-mode login \
-    --query "[].name" -o tsv | grep -E "$STATE_BLOB_REGEX")"
+  local all blobs
+  if ! all="$(az storage blob list --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --auth-mode login \
+    --query "[].name" -o tsv)"; then
+    failed=$((failed + 1)); echo "::error::Could not list the state blobs in $STATE_CONTAINER."; return 1
+  fi
+  blobs="$(grep -E "$STATE_BLOB_REGEX" <<<"$all")"
   [ -z "$blobs" ] && echo "  no state blobs matching $STATE_BLOB_REGEX"
   for blob in $blobs; do
     az storage blob lease break --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --blob-name "$blob" \
@@ -235,7 +253,9 @@ fi
 clean=false
 for i in $(seq 1 "$MAX_PASSES"); do
   echo "=== pass $i/$MAX_PASSES"
+  relogin
   pass
+  relogin
   echo "=== left after pass $i ($failed failed deletions so far):"
   if report; then echo "nothing left"; clean=true; break; fi
   echo "$left items left"
@@ -246,6 +266,7 @@ done
 if [ "$clean" = true ]; then
   echo "=== Terraform state ($STATE_CONTAINER in $STATE_ACCOUNT)"
   failed=0
+  relogin
   delete_state
   [ "$failed" -eq 0 ] && { echo "Lab reset complete."; exit 0; }
   echo "::error::Could not delete every Terraform state blob."; exit 1
