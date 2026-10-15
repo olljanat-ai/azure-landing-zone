@@ -200,6 +200,12 @@ variable "labfw" {
         allowed_ips = list(string)
       })), [])
     }), {})
+    # SSH to labfw (azureuser@<vpn gateway address>) from these VPN client addresses, with these public keys.
+    # Empty: SSH closed, Run Command only.
+    ssh = optional(object({
+      sources         = optional(list(string), [])
+      authorized_keys = optional(list(string), [])
+    }), {})
   })
   default     = {}
   description = "labfw (onek8s/azure-lab-fw) in the hub, network mode labfw only (main.labfw.tf)."

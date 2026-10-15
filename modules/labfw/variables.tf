@@ -58,7 +58,20 @@ variable "os_disk_type" {
 
 variable "admin_ssh_public_key" {
   type        = string
-  description = "Provisioning key only: the VM is managed with Run Command, its NSG has no SSH rule."
+  description = "Provisioning key of `azureuser`; the VM is managed with Run Command."
+}
+
+variable "ssh" {
+  type = object({
+    # Addresses labfw's own nftables let in on port 22 (its `managementSources`) - the VPN clients that may log in.
+    # The NSG has no SSH rule: these arrive through the WireGuard tunnel.
+    sources = optional(list(string), [])
+    # Extra public keys of `azureuser`, next to the provisioning key; written on every reconfigure
+    authorized_keys = optional(list(string), [])
+  })
+  default     = {}
+  description = "SSH to labfw over its VPN. Empty: SSH closed (the default)."
+  nullable    = false
 }
 
 variable "release_version" {

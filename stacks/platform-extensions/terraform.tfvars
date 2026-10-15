@@ -74,4 +74,9 @@ labfw = {
       { name = "github-runners", public_key = "MPuQuKwgLKKaJ5wiRWanumW+T2EVw6rHLmeDRCcuJgc=", allowed_ips = ["10.0.12.11/32"] },
     ]
   }
+  # SSH to labfw itself over the VPN: ssh azureuser@10.0.12.1 from olli-1 only (not the runners)
+  ssh = {
+    sources         = ["10.0.12.10/32"]
+    authorized_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHV0psBSMqZB0V2Ot57JjTm0xB1meG+9cw4JyjaYR9sn user@ai"]
+  }
 }
