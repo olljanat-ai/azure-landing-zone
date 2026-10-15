@@ -244,6 +244,7 @@ variable "platform_source_fqdns" {
     "registry-1.docker.io",
     "auth.docker.io",
     "production.cloudflare.docker.com",
+    "production.cloudfront.docker.com", # Docker Hub's layer CDN as well (seen 2026-10-15)
     "registry.k8s.io",
     "cdn.registry.k8s.io", # registry.k8s.io's redirect for image layers (2026)
     "*.pkg.dev",
