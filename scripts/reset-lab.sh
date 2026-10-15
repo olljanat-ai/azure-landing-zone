@@ -7,7 +7,7 @@
 # is created outside Terraform and delegated at the registrar, so its name servers must never change) and the `alz` management group the bootstrap created (the identities'
 # role assignments live there; subscriptions under its children are moved up to it).
 #
-# Removed, in passes: resource locks, policy assignments and exemptions, the role assignments the ALZ module
+# Removed, in passes: resource locks, subscription budgets, policy assignments and exemptions, the role assignments the ALZ module
 # creates for policy identities, resource groups, custom policy (set) definitions, the ALZ custom roles and custom
 # roles scoped to the subscriptions, the management groups below `alz`, and – only once nothing is left – the
 # Terraform state of the platform and AKS stacks. A failing deletion is logged and retried in the next pass.
@@ -108,6 +108,12 @@ resource_groups() { # subscription<TAB>name<TAB>managedBy, without the protected
     done < <(az group list --subscription "$sub" --query "[].[name, managedBy]" -o tsv 2>/dev/null)
   done
 }
+budgets() { # subscription budgets (aks-terraform shared/ budget.tf): subscription-scoped, so no resource group takes them
+  for sub in $SUBSCRIPTIONS; do
+    az rest --method get --url "https://management.azure.com/subscriptions/$sub/providers/Microsoft.Consumption/budgets?api-version=2023-05-01" \
+      --query "value[].id" -o tsv 2>/dev/null
+  done
+}
 locks() { # every lock in the subscriptions except those inside the protected resource groups
   local id rg
   for sub in $SUBSCRIPTIONS; do
@@ -153,7 +159,7 @@ left=0
 report() { # prints what is left and sets $left; succeeds when nothing is left
   local lines
   left=0
-  for kind in locks resource_groups custom_roles \
+  for kind in locks budgets resource_groups custom_roles \
               $( [ "$SKIP_POLICIES" = true ] || echo policy_assignments policy_exemptions alz_role_assignments \
                    policy_set_definitions policy_definitions child_mgs ); do
     lines="$($kind | sed '/^$/d')"
@@ -169,6 +175,10 @@ report() { # prints what is left and sets $left; succeeds when nothing is left
 pass() {
   echo "::group::locks"
   for id in $(locks); do try "lock $id" az lock delete --ids "$id"; done
+  echo "::endgroup::"
+
+  echo "::group::budgets"
+  for id in $(budgets); do try "budget $id" az rest --method delete --url "https://management.azure.com$id?api-version=2023-05-01"; done
   echo "::endgroup::"
 
   if [ "$SKIP_POLICIES" != true ]; then
