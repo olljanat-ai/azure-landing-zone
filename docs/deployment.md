@@ -310,6 +310,10 @@ accelerator bootstrap (state storage, plan / apply identities, the `alz` managem
 registrar, so its name servers must not change) and the GitHub settings stay. It runs with the platform apply identity, so its reviewers approve it.
 
 - Type `reset-lab` in *confirm*. *dry_run* (default) only lists what would be deleted.
+- *skip_policies* (default on) keeps the management groups below `alz`, Azure Policy (assignments, exemptions,
+  definitions, the policy identities' role assignments), the ALZ custom roles and their Terraform state
+  (`terraform.tfstate`, `aks-*-policy.tfstate`): their removal takes most of a reset's time. Turn it off for a reset
+  from scratch.
 - Resource groups that other repositories created in the subscriptions go too - e.g. azure-lab-fw's
   `rg-labfw-<region>` with the VM identity its repository variables name: run its **azure-bootstrap** again
   afterwards (its OIDC app survives, its role assignments do not).
