@@ -16,7 +16,8 @@ audit mode and a client VNet that simulates the corporate network, in **germanyw
 accelerator bootstrap stays in swedencentral). `sub-aks-dev` plays the design's internal dev subscription
 `sub-aks-dev-int` (decision D52: internal and external workloads have a subscription and clusters each); the build
 tenant has no external one now. The dev environment's cluster - one internal stateless cell
-`aks-dev-int-stateless-az1` with Finland's zone `int-fi` (Sweden's is disabled), its network and Key Vaults - is
+`aks-dev-int-stateless-az2` with Finland's zone `int-fi` (Sweden's is disabled; its twin in zone 1 is disabled too,
+zone 1 not being available to the subscription), its network and Key Vaults - is
 [aks-terraform](https://github.com/onek8s/aks-terraform)'s, created and deleted by its pipeline in `sub-aks-dev` with
 this repository's dev apply identity, and routed through labfw in the hub (network mode `labfw`).
 

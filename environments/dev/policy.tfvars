@@ -27,7 +27,7 @@ key_vault_name_prefix = "kv-onek8s-gwc"
 # clusters are stateless or stateful, as onek8s/aks-terraform names them (envs/*.tfvars)
 zone_domain_suffix          = "dev.onek8s.lol"
 cluster_resource_group_name = "rg-aks-dev"
-stateless_cluster_names     = ["aks-dev-int-stateless-az1"]
+stateless_cluster_names     = ["aks-dev-int-stateless-az1", "aks-dev-int-stateless-az2"] # az1 disabled (zone 1 not available)
 stateful_cluster_name       = "aks-dev-int-stateful"
 
 # Promoted from Audit to Deny (design section 14: audit first, then deny, rule by rule): every rule
