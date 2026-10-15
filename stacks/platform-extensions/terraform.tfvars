@@ -58,4 +58,12 @@ firewall_exposures = {
 labfw = {
   policy_exposure = "int"
   spoke_dns_proxy = true
+  # WireGuard for machines outside Azure (the pool counts as management: API server private endpoints, jump host,
+  # the cells' 443). Each client keeps its own private key; only public keys are listed here.
+  vpn = {
+    enabled = true
+    peers = [
+      { name = "olli-1", public_key = "pYIxZlOeS94bjS/n91t2skyVRRRauiwsVpSnXD9gYRI=", allowed_ips = ["10.0.12.10/32"] },
+    ]
+  }
 }
