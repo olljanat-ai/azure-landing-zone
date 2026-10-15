@@ -158,9 +158,13 @@ locals {
         zones = var.isolation_zones
         # The AKS Flux extension keeps its configuration's -auth, -genkey and -protected-parameters
         # Secrets in the team's namespace (aks-terraform's Cluster status lists who writes each).
+        # aksService: AKS's control plane rewrites every Secret when it changes the KMS encryption
+        # (KMS data encryption's secret migration failed with ReconcileAzureKeyVaultKmsError until it
+        # was exempt, seen on az3 2026-10-15) - it never brings a value of its own.
         exemptUsers = [
           "system:serviceaccount:flux-system:fluxconfig-agent-sa",
           "system:serviceaccount:flux-system:fluxconfig-controller-sa",
+          "aksService",
         ]
       }
       always_deny = false
