@@ -320,6 +320,16 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
       destination_ports     = ["443"]
     }
 
+    # Ping from the management network (and the labfw VPN's clients) to the cells: the gateways' internal load
+    # balancers answer it themselves; private endpoints never do (Private Link carries TCP and UDP only)
+    rule {
+      name                  = "management-ping-cells"
+      protocols             = ["ICMP"]
+      source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
+      destination_ip_groups = [azurerm_ip_group.policy_cells[each.key].id]
+      destination_ports     = ["*"]
+    }
+
     # The corporate network (the client VNet) -> the internal zones' gateways (their internal load balancers in
     # snet-<zone>-ilb), only in the exposure with the corporate path
     dynamic "rule" {
