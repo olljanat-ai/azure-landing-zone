@@ -231,6 +231,7 @@ variable "platform_source_fqdns" {
   default = [
     # Helm repositories and their chart downloads (GitHub Pages, GitHub releases)
     "charts.external-secrets.io",
+    "external-secrets.io", # the chart index's redirect target
     "kubernetes-sigs.github.io",
     "traefik.github.io",
     "grafana.github.io",
@@ -244,6 +245,7 @@ variable "platform_source_fqdns" {
     "auth.docker.io",
     "production.cloudflare.docker.com",
     "registry.k8s.io",
+    "cdn.registry.k8s.io", # registry.k8s.io's redirect for image layers (2026)
     "*.pkg.dev",
     "quay.io",
     "*.quay.io",
