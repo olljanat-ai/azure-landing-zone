@@ -1,0 +1,11 @@
+zone: int-se
+contact: https://github.com/onek8s/aks-fluxcd-example/issues
+egress:
+  - fqdn: api.open-meteo.com
+    reason: aks-hello's weather forecast
+  - fqdn: "*.example.org"
+    protocol: https
+    port: 443
+  - fqdn: plain.example.org
+    protocol: http
+    port: 80

@@ -32,6 +32,35 @@ locals {
 
   firewall_all_cells = [for key, s in local.firewall_spokes : azurerm_ip_group.policy_cells[key].id]
 
+  # Per application, what it may reach outside the landing zone (design D59): one file per application namespace,
+  # firewall-applications/<env>-<exposure>/<namespace>.yaml - written by the egress agent's pull requests
+  # (onek8s/aks-ai-agents) from the flows the firewall denied, reviewed by the platform and security. The source
+  # is the application's zone: its pods have addresses of the zone's node subnets only in a cell without an
+  # overlay (aks-terraform pod_network = "subnet"), so the firewall tells the zones apart, not the applications
+  # within one - the rule's name says whose it is.
+  firewall_application_files = !local.firewall_policies ? [] : [
+    for f in fileset("${path.module}/${var.firewall_applications_dir}", "*/*.yaml") : f if contains(keys(local.firewall_spokes), split("/", f)[0])
+  ]
+  firewall_applications = {
+    for f in local.firewall_application_files : trimsuffix(f, ".yaml") => merge(
+      { spoke = split("/", f)[0], namespace = trimsuffix(split("/", f)[1], ".yaml") },
+      yamldecode(file("${path.module}/${var.firewall_applications_dir}/${f}"))
+    )
+  }
+  # "<spoke>" => "<namespace>-<protocol>-<port>" => the application rule
+  firewall_application_rules = {
+    for key in keys(local.firewall_spokes) : key => merge([
+      for app in values(local.firewall_applications) : {
+        for pp in distinct([for e in app.egress : "${lower(try(e.protocol, "https"))}-${try(e.port, 443)}"]) : "${app.namespace}-${pp}" => {
+          zone     = app.zone
+          protocol = title(split("-", pp)[0])
+          port     = tonumber(split("-", pp)[1])
+          fqdns    = sort(distinct([for e in app.egress : lower(e.fqdn) if "${lower(try(e.protocol, "https"))}-${try(e.port, 443)}" == pp]))
+        }
+      } if app.spoke == key
+    ]...)
+  }
+
   # "<env>-<exposure>" => what its cells may never reach: the other exposures' cells, and the corporate network
   # unless the exposure has the corporate path
   firewall_guard_rails = {
@@ -111,6 +140,10 @@ resource "azurerm_firewall_policy" "parent" {
   location                 = var.location
   sku                      = "Premium"
   threat_intelligence_mode = "Deny"
+  # SNAT (design D59): the firewall translates every allowed flow to a destination outside these ranges - to its
+  # public address on the internet, to its own private address elsewhere (the corporate network) - so the cells'
+  # addresses, 100.64.0.0/10 among them, never leave the landing zone. Null: Azure's IANA private ranges.
+  private_ip_ranges = var.firewall_snat_private_ranges
 
   dns {
     proxy_enabled = true
@@ -132,6 +165,7 @@ resource "azurerm_firewall_policy" "exposure" {
   sku                      = "Premium"
   base_policy_id           = azurerm_firewall_policy.parent[0].id
   threat_intelligence_mode = "Deny"
+  private_ip_ranges        = var.firewall_snat_private_ranges
 
   dns {
     proxy_enabled = true
@@ -413,6 +447,41 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
           }
         }
       }
+    }
+  }
+
+  # Per application (design D59): what each application of the environment may reach, from its zone, as its
+  # firewall-applications/<spoke>/<namespace>.yaml says
+  dynamic "application_rule_collection" {
+    for_each = length(local.firewall_application_rules[each.key]) > 0 ? [1] : []
+    content {
+      name     = "${each.key}-applications"
+      priority = 400
+      action   = "Allow"
+      dynamic "rule" {
+        for_each = local.firewall_application_rules[each.key]
+        content {
+          name              = rule.key
+          source_ip_groups  = [azurerm_ip_group.policy_zone["${each.value.env}-${rule.value.zone}"].id]
+          destination_fqdns = rule.value.fqdns
+          protocols {
+            type = rule.value.protocol
+            port = rule.value.port
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = alltrue([
+        for app in values(local.firewall_applications) : app.spoke != each.key || (
+          contains(keys(each.value.zones), app.zone) && startswith(app.namespace, "${app.zone}-") && length(app.egress) > 0 &&
+          alltrue([for e in app.egress : can(regex("^(\\*\\.)?([a-z0-9-]+\\.)+[a-z]{2,}$", lower(e.fqdn))) && contains(["https", "http"], lower(try(e.protocol, "https")))])
+        )
+      ])
+      error_message = "Every firewall-applications/${each.key}/<namespace>.yaml names a zone of ${each.key}, a namespace <zone>-<app>, and at least one egress entry with an fqdn (a name, or *. and a name) and protocol https or http."
     }
   }
 
