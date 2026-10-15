@@ -215,6 +215,11 @@ variable "firewall_policies_enabled" {
   description = "The parent Firewall Policy and a child per exposure (main.firewall.policies.tf, design D53), in every network mode: without an associated Firewall they cost nothing and can be reviewed in the Azure portal."
 }
 
+variable "service_tag_region" {
+  type        = string
+  description = "The region's name in Azure service tags, which is not always its location name (germanywestcentral is `germanywc`, francecentral `centralfrance`): `az network list-service-tags --location <location> --query \"values[?name=='AzureCloud.<guess>'].properties.region\"`."
+}
+
 variable "platform_source_fqdns" {
   type = list(string)
   default = [

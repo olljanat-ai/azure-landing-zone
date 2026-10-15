@@ -296,7 +296,7 @@ run "labfw_mode" {
   }
 
   assert {
-    condition     = anytrue([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].network_rule_collection : anytrue([for r in c.rule : r.name == "aks-api-servers" && r.destination_addresses == tolist(["AzureCloud.germanywestcentral"])])])
+    condition     = anytrue([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].network_rule_collection : anytrue([for r in c.rule : r.name == "aks-api-servers" && r.destination_addresses == tolist(["AzureCloud.germanywc"])])])
     error_message = "the cells reach the public API servers by the region's AzureCloud service tag."
   }
 
