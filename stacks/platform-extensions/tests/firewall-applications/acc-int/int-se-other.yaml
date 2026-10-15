@@ -1,0 +1,3 @@
+zone: int-se
+egress:
+  - fqdn: acc-only.example.org

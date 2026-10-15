@@ -254,6 +254,24 @@ variable "platform_source_fqdns" {
   description = "Where the cells' platform components come from (Helm charts and upstream images of aks-fluxcd-platform and aks-terraform gateways/): the parent policy's platform-sources rule for every cell. Drops to the environment ACR once the platform's images and charts are mirrored there."
 }
 
+variable "firewall_applications_dir" {
+  type        = string
+  default     = "firewall-applications"
+  description = "The directory, relative to this stack, of the per-application egress files: <env>-<exposure>/<namespace>.yaml (design D59, firewall-applications/README.md)."
+  nullable    = false
+}
+
+variable "firewall_snat_private_ranges" {
+  type        = list(string)
+  default     = null
+  description = <<DESCRIPTION
+The Firewall Policies' SNAT private ranges (design D59): the firewall translates every allowed flow whose destination
+is outside them to its own address - public on the internet, private elsewhere. Null keeps Azure's IANA private
+ranges (RFC 1918 and 100.64.0.0/10), which leave a flow from a cell to the corporate network untranslated. Name the
+landing zone's own ranges (the hub's, the cells') to translate everything that leaves it.
+DESCRIPTION
+}
+
 variable "firewall_exposures" {
   type = map(object({
     # The internal exposure has the corporate path (the client VNet); every other exposure gets a parent deny to it

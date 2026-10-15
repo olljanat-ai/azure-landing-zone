@@ -233,6 +233,72 @@ run "firewall_policies_without_firewall" {
   }
 }
 
+run "firewall_rules_per_application" {
+  command = plan
+
+  variables {
+    network_mode                 = "sandbox"
+    firewall_applications_dir    = "tests/firewall-applications"
+    firewall_snat_private_ranges = ["10.0.0.0/16", "172.16.0.0/12", "100.64.0.0/10"]
+    firewall_exposures = {
+      int = {
+        corporate = true
+        environments = {
+          dev = {
+            system_prefixes    = ["172.22.16.0/24", "100.64.0.0/20"]
+            platform_key_vault = "kv-onek8s-gwc-platform"
+            zones = {
+              int-se = { prefixes = ["172.22.18.0/24", "100.64.32.0/20"], key_vault = "kv-onek8s-gwc-int-se" }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      [for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-int"].application_rule_collection : c.priority if c.name == "dev-int-applications"] == [400] &&
+      toset([for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-int"].application_rule_collection : c.rule[*].name if c.name == "dev-int-applications"][0]) == toset(["int-se-example-https-443", "int-se-example-http-80"])
+    )
+    error_message = "One application rule per application, protocol and port, in a collection of its own."
+  }
+  assert {
+    condition = [
+      for r in [for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-int"].application_rule_collection : c.rule if c.name == "dev-int-applications"][0] : r.destination_fqdns if r.name == "int-se-example-https-443"
+    ][0] == tolist(["*.example.org", "api.open-meteo.com"])
+    error_message = "The application's HTTPS destinations, sorted; files of other environments are ignored."
+  }
+  assert {
+    condition     = tolist(azurerm_firewall_policy.parent[0].private_ip_ranges) == tolist(["10.0.0.0/16", "172.16.0.0/12", "100.64.0.0/10"]) && tolist(azurerm_firewall_policy.exposure["int"].private_ip_ranges) == tolist(["10.0.0.0/16", "172.16.0.0/12", "100.64.0.0/10"])
+    error_message = "Both policies translate everything that leaves the landing zone's ranges."
+  }
+}
+
+run "firewall_rules_per_application_refuse_a_namespace_of_another_zone" {
+  command = plan
+
+  variables {
+    network_mode              = "sandbox"
+    firewall_applications_dir = "tests/firewall-applications"
+    firewall_exposures = {
+      int = {
+        environments = {
+          dev = {
+            system_prefixes    = ["100.64.0.0/20"]
+            platform_key_vault = "kv-onek8s-gwc-platform"
+            zones = {
+              int-fi = { prefixes = ["100.64.16.0/20"], key_vault = "kv-onek8s-gwc-int-fi" }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [azurerm_firewall_policy_rule_collection_group.exposure_environment]
+}
+
 run "firewall_policies_off" {
   command = plan
 
