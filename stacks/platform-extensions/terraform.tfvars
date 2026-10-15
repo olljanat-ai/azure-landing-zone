@@ -75,6 +75,9 @@ firewall_exposures = {
 # quota of 4 vCPUs; azure-lab-fw's optional E2E test VM is not deployed here.
 labfw = {
   policy_exposure = "int"
+  # Its denied connections in Log Analytics (log-labfw-germanywestcentral, table LabfwFirewallLog_CL), where the
+  # egress agent (design D59, onek8s/aks-ai-agents) reads them with Reader on sub-hub - no one logs in to the VM
+  log_analytics   = { enabled = true }
   spoke_dns_proxy = true
   # WireGuard for machines outside Azure (the pool counts as management: API server private endpoints, jump host,
   # the cells' 443). Each client keeps its own private key; only public keys are listed here.

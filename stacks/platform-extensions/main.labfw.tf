@@ -38,6 +38,7 @@ module "labfw" {
   dns_proxy              = true # also the VPN clients' DNS server for the private link zones
   reader_scopes          = ["/subscriptions/${module.platform.connectivity_subscription_id}"]
   operator_principal_ids = var.labfw.operator_principal_ids
+  log_analytics          = var.labfw.log_analytics
   tags                   = var.tags
 
   vpn = {

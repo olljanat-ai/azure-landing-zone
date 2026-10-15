@@ -187,6 +187,14 @@ variable "labfw" {
     # onek8s/azure-lab-fw's OIDC app: Virtual Machine Contributor on the labfw resource group for its Run Command
     # based workflows (upgrade-lab, view-logs, e2e-lab, power-lab, vpn-peer)
     operator_principal_ids = optional(list(string), [])
+    # labfw's connection log in a Log Analytics workspace (modules/labfw logs.tf) - Azure Firewall's diagnostic
+    # setting, for labfw: denied connections by default, read by the egress agent (D59) with Reader
+    log_analytics = optional(object({
+      enabled           = optional(bool, false)
+      denied_only       = optional(bool, true)
+      retention_in_days = optional(number, 30)
+      daily_quota_gb    = optional(number, 1)
+    }), {})
     # WireGuard for agent and management machines outside Azure: the pool counts as management (ipg-mgmt, the API
     # server private endpoints' NSG). Clients bring their own key pair; only public keys are listed here.
     vpn = optional(object({
