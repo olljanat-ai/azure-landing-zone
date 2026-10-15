@@ -125,3 +125,15 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "log_analytics" {
+  type = object({
+    enabled           = optional(bool, false)
+    denied_only       = optional(bool, true)
+    retention_in_days = optional(number, 30)
+    daily_quota_gb    = optional(number, 1)
+  })
+  default     = {}
+  nullable    = false
+  description = "labfw's connection log in a Log Analytics workspace of its own (table LabfwFirewallLog_CL, Azure Monitor Agent on the VM) - the counterpart of an Azure Firewall's diagnostic setting. denied_only: only denied connections."
+}

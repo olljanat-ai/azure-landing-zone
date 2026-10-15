@@ -337,6 +337,14 @@ run "labfw_mode" {
   }
 
   assert {
+    condition = (
+      contains(module.labfw[0].dns_clients, "100.64.0.0/20") && contains(module.labfw[0].dns_clients, "100.64.32.0/20") &&
+      output.labfw.log_analytics.table == "LabfwFirewallLog_CL"
+    )
+    error_message = "labfw serves the firewall-egress cell (100.64.0.0/16, D59) and ships its log of denied connections to Log Analytics."
+  }
+
+  assert {
     condition     = length(azurerm_nat_gateway.management) == 0 && length(azurerm_firewall_policy_rule_collection_group.aks) == 0 && length(azurerm_ip_group.environment) == 0
     error_message = "labfw mode: no NAT gateways and none of the Azure Firewall's ALZ policy rules."
   }

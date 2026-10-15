@@ -34,3 +34,8 @@ output "dns_clients" {
   description = "Prefixes labfw's DNS proxy answers and its NSG lets in: the trusted prefixes (hub and spokes) and the VPN pool."
   value       = local.dns_clients
 }
+
+output "log_analytics_workspace" {
+  description = "The workspace of labfw's connection log (table LabfwFirewallLog_CL): resource ID and customer (workspace) ID; null without log_analytics."
+  value       = local.log_analytics ? { id = azurerm_log_analytics_workspace.labfw[0].id, workspace_id = azurerm_log_analytics_workspace.labfw[0].workspace_id, table = azurerm_log_analytics_workspace_table_custom_log.labfw[0].name } : null
+}
