@@ -212,6 +212,19 @@ resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
     priority = 200
     action   = "Allow"
 
+    # The management network and the labfw VPN's clients (the GitHub-hosted runners among them) -> the hub's Azure
+    # Monitor Private Link scope (main.monitor.private.tf): Log Analytics queries and ingestion without public access
+    dynamic "rule" {
+      for_each = local.monitor_private_link ? [1] : []
+      content {
+        name                  = "management-to-monitor-private-link"
+        protocols             = ["TCP"]
+        source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
+        destination_addresses = [local.management.snet_pe]
+        destination_ports     = ["443"]
+      }
+    }
+
     # Workload identity token exchange: Entra ID has no Private Link for sign-in
     rule {
       name                  = "entra-id"
@@ -352,6 +365,20 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
       source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
       destination_ip_groups = [azurerm_ip_group.policy_cells[each.key].id]
       destination_ports     = ["443"]
+    }
+
+    # The management network and the labfw VPN's clients (the deployment runners) -> the environment's private
+    # endpoints (aks-terraform shared/ snet-shared-pe): vaults, registry, Foundry, the Terraform state - none of them
+    # has public network access
+    dynamic "rule" {
+      for_each = length(each.value.shared_prefixes) > 0 ? [1] : []
+      content {
+        name                  = "management-to-private-endpoints"
+        protocols             = ["TCP"]
+        source_ip_groups      = [azurerm_ip_group.policy_management[0].id]
+        destination_addresses = each.value.shared_prefixes
+        destination_ports     = ["443"]
+      }
     }
 
     # Ping from the management network (and the labfw VPN's clients) to the cells: the gateways' internal load

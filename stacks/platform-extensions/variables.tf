@@ -194,6 +194,9 @@ variable "labfw" {
       denied_only       = optional(bool, true)
       retention_in_days = optional(number, 30)
       daily_quota_gb    = optional(number, 1)
+      # false: data, queries and the agent's endpoint only through the hub's Azure Monitor Private Link scope
+      # (monitor_private_link)
+      public_network_access = optional(bool, true)
     }), {})
     # WireGuard for agent and management machines outside Azure: the pool counts as management (ipg-mgmt, the API
     # server private endpoints' NSG). Clients bring their own key pair; only public keys are listed here.
@@ -304,4 +307,21 @@ variable "firewall_exposures" {
   }))
   default     = {}
   description = "Exposure (int / ext) => the environments' cells whose rules its child Firewall Policy holds."
+}
+
+variable "monitor_private_link" {
+  type = object({
+    enabled = optional(bool, false)
+    # Other Log Analytics workspaces reached through the hub's scope (resource IDs): the AKS environments'
+    # (onek8s/aks-terraform shared/ log-<env>-platform). labfw's workspace and endpoint are added on their own.
+    workspace_ids = optional(list(string), [])
+  })
+  default     = {}
+  nullable    = false
+  description = <<DESCRIPTION
+The hub's Azure Monitor Private Link scope (main.monitor.private.tf): one per DNS - its private endpoint (in the
+management network's snet-pe) answers every Azure Monitor name for the networks that resolve through the hub, so
+there is one for the whole tenant, in access mode Open (resources outside the scope stay reachable on their public
+endpoints). The workspaces and data collection endpoints in it can then turn public network access off.
+DESCRIPTION
 }

@@ -272,6 +272,21 @@ resource "azurerm_linux_virtual_machine" "labfw" {
   depends_on = [azurerm_role_assignment.labfw_reader]
 }
 
+# The OS disk takes no export or import over a public SAS URL (a managed disk's only network endpoint); azurerm's VM
+# resource has no setting for it
+resource "azapi_update_resource" "os_disk_private" {
+  type        = "Microsoft.Compute/disks@2024-03-02"
+  resource_id = "${azurerm_resource_group.labfw.id}/providers/Microsoft.Compute/disks/${local.vm_name}-osdisk"
+  body = {
+    properties = {
+      publicNetworkAccess = "Disabled"
+      networkAccessPolicy = "DenyAll"
+    }
+  }
+
+  depends_on = [azurerm_linux_virtual_machine.labfw]
+}
+
 resource "azurerm_virtual_machine_run_command" "reconfigure" {
   name               = "labfw-reconfigure"
   location           = var.location

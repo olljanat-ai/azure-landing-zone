@@ -355,6 +355,23 @@ run "labfw_mode" {
   }
 
   assert {
+    condition = (
+      length(azurerm_monitor_private_link_scope.hub) == 1 &&
+      toset(keys(azurerm_monitor_private_link_scoped_service.hub)) == toset(["labfw-workspace", "labfw-endpoint", "workspace-log-dev-platform"]) &&
+      length(azurerm_private_endpoint.monitor_private_link) == 1
+    )
+    error_message = "The hub's Azure Monitor Private Link scope holds labfw's workspace and endpoint and dev's workspace, with a private endpoint."
+  }
+
+  assert {
+    condition = (
+      contains([for r in one([for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-int"].network_rule_collection : c if c.name == "dev-int-network"]).rule : r.name], "management-to-private-endpoints") &&
+      contains([for r in one([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].network_rule_collection : c if c.name == "platform-network"]).rule : r.name], "management-to-monitor-private-link")
+    )
+    error_message = "The management network and the VPN's clients reach the environment's private endpoints and the Azure Monitor Private Link scope (no public network access)."
+  }
+
+  assert {
     condition     = tolist(azurerm_virtual_network.management.dns_servers) == tolist(["10.0.1.4"]) && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 0
     error_message = "the lab's spokes resolve through labfw's DNS proxy, not through hub zone links of their own."
   }

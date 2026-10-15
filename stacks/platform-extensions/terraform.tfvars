@@ -85,9 +85,12 @@ labfw = {
     enabled = true
     peers = [
       { name = "olli-1", public_key = "pYIxZlOeS94bjS/n91t2skyVRRRauiwsVpSnXD9gYRI=", allowed_ips = ["10.0.12.10/32"] },
-      # aks-terraform's GitHub-hosted runners (kubectl to the private API servers); its config is the secret
-      # labfw-vpn--github-runners in kv-onek8s-gwc-platform. One peer: those jobs share the concurrency group labfw-vpn.
+      # aks-terraform's GitHub-hosted runners (kubectl to the private API servers, the private endpoints); its config
+      # is the dev environment secret LABFW_VPN_GITHUB_RUNNERS. One peer: those jobs share the concurrency group labfw-vpn.
       { name = "github-runners", public_key = "MPuQuKwgLKKaJ5wiRWanumW+T2EVw6rHLmeDRCcuJgc=", allowed_ips = ["10.0.12.11/32"] },
+      # aks-terraform's Deploy workflow, on the VPN for a whole Terraform run (the state, vaults and registry are
+      # private); its config is the dev environment secret LABFW_VPN_GITHUB_DEPLOY (VPN clients workflow)
+      { name = "github-deploy", public_key = "IeqDBE49fgRByR6GcllmPwCWyTznLsJDRPdNKbpB8Dc=", allowed_ips = ["10.0.12.12/32"] },
     ]
   }
   # SSH to labfw itself over the VPN: ssh azureuser@10.0.12.1 from olli-1 only (not the runners)
@@ -95,4 +98,13 @@ labfw = {
     sources         = ["10.0.12.10/32"]
     authorized_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHV0psBSMqZB0V2Ot57JjTm0xB1meG+9cw4JyjaYR9sn user@ai"]
   }
+}
+
+# The hub's Azure Monitor Private Link scope (main.monitor.private.tf): labfw's connection log and the AKS
+# environments' workspaces reached over Private Link, so that they take no public network access
+monitor_private_link = {
+  enabled = true
+  workspace_ids = [
+    "/subscriptions/3b9f032a-0165-4b8c-9e1e-d7a664c661a8/resourceGroups/rg-aks-dev/providers/Microsoft.OperationalInsights/workspaces/log-dev-platform",
+  ]
 }
