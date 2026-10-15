@@ -16,10 +16,17 @@ module "address_plan" {
 }
 
 locals {
-  firewall    = module.platform.firewall_enabled
-  firewall_ip = module.platform.firewall_private_ip
-  dns_server  = module.platform.dns_server_ip
-  hub_vnet    = module.platform.hub_virtual_network
+  # firewall: the hub Azure Firewall (design); labfw: labfw in the hub instead (main.labfw.tf); both route the
+  # management and client VNets' 0.0.0.0/0 to it. sandbox: neither.
+  azure_firewall = module.platform.firewall_enabled
+  labfw          = var.network_mode == "labfw"
+  routed         = local.azure_firewall || local.labfw
+  firewall_ip    = local.labfw ? module.labfw[0].private_ip : module.platform.firewall_private_ip
+  # The spokes' DNS server: the Firewall DNS proxy, labfw's with labfw.spoke_dns_proxy, otherwise Azure DNS with
+  # the hub private link zones linked to the spoke VNets
+  dns_server        = local.labfw ? (var.labfw.spoke_dns_proxy ? local.firewall_ip : null) : module.platform.dns_server_ip
+  spoke_dns_servers = local.dns_server == null ? [] : [local.dns_server]
+  hub_vnet          = module.platform.hub_virtual_network
 
   management = {
     snet_runners    = cidrsubnet(var.management_address_space, 4, 0) # /26 ACI runners (delegated)

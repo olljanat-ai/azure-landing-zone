@@ -149,7 +149,7 @@ resource "azurerm_role_assignment" "aks_hub_peering" {
 
 resource "azurerm_role_assignment" "aks_client_peering" {
   provider           = azurerm.connectivity
-  for_each           = local.firewall ? {} : var.environments
+  for_each           = local.azure_firewall ? {} : var.environments
   scope              = azurerm_virtual_network.client.id
   role_definition_id = azurerm_role_definition.hub_spoke_peering.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
@@ -157,7 +157,7 @@ resource "azurerm_role_assignment" "aks_client_peering" {
 }
 
 resource "azurerm_role_assignment" "aks_management_peering" {
-  for_each           = local.firewall ? {} : var.environments
+  for_each           = local.azure_firewall ? {} : var.environments
   scope              = azurerm_virtual_network.management.id
   role_definition_id = azurerm_role_definition.management_spoke_peering.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id

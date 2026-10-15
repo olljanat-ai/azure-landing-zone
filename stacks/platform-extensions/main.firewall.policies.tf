@@ -56,7 +56,7 @@ resource "azurerm_ip_group" "policy_management" {
   name                = "ipg-mgmt"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_policies[0].name
-  cidrs               = [local.management.snet_runners, local.management.snet_jump]
+  cidrs               = concat([local.management.snet_runners, local.management.snet_jump], local.labfw_vpn_pool)
   tags                = var.tags
 }
 
@@ -366,6 +366,6 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
     }
   }
 
-  # The parent's group first: Azure refuses parallel writes within one policy hierarchy
-  depends_on = [azurerm_firewall_policy_rule_collection_group.parent_platform]
+  # The parent's groups first: Azure refuses parallel writes within one policy hierarchy
+  depends_on = [azurerm_firewall_policy_rule_collection_group.parent_platform, azurerm_firewall_policy_rule_collection_group.build_tenant]
 }

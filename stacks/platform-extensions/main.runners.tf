@@ -136,7 +136,7 @@ resource "azurerm_container_group" "runners" {
   tags                = var.tags
 
   dynamic "dns_config" {
-    for_each = local.firewall ? [1] : [] # sandbox mode: Azure DNS of the VNet
+    for_each = local.dns_server != null ? [1] : [] # otherwise Azure DNS of the VNet
     content {
       nameservers = [local.dns_server]
     }

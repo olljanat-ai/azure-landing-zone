@@ -1,4 +1,5 @@
-# Hub Firewall rules (OneK8s design sections 5, 8 and 16), only in network mode "firewall". The Firewall decides what a *zone* may reach; Cilium FQDN
+# Hub Firewall rules (OneK8s design sections 5, 8 and 16) in the ALZ policy of the Azure Firewall, only in network
+# mode "firewall" (labfw mode: main.labfw.tf). The Firewall decides what a *zone* may reach; Cilium FQDN
 # policies decide what an *application* may reach. Rules are written with zone prefixes from the address plan
 # (IP groups), never with the VirtualNetwork service tag.
 locals {
@@ -38,7 +39,7 @@ locals {
 
 resource "azurerm_resource_group" "firewall_ip_groups" {
   provider = azurerm.connectivity
-  count    = local.firewall ? 1 : 0
+  count    = local.azure_firewall ? 1 : 0
   name     = "rg-hub-ipgroups-${var.location}"
   location = var.location
   tags     = var.tags
@@ -46,7 +47,7 @@ resource "azurerm_resource_group" "firewall_ip_groups" {
 
 resource "azurerm_ip_group" "management" {
   provider            = azurerm.connectivity
-  count               = local.firewall ? 1 : 0
+  count               = local.azure_firewall ? 1 : 0
   name                = "ipg-mgmt"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
@@ -56,7 +57,7 @@ resource "azurerm_ip_group" "management" {
 
 resource "azurerm_ip_group" "client" {
   provider            = azurerm.connectivity
-  count               = local.firewall ? 1 : 0
+  count               = local.azure_firewall ? 1 : 0
   name                = "ipg-client"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
@@ -64,11 +65,20 @@ resource "azurerm_ip_group" "client" {
   tags                = var.tags
 }
 
+# The build tenant's own egress (runners, jump host, test clients): in the Azure Firewall's ALZ policy, or in labfw
+# mode in the parent policy of main.firewall.policies.tf, which labfw enforces through its child policy
+locals {
+  build_tenant_rules  = local.azure_firewall || local.labfw
+  build_tenant_policy = local.azure_firewall ? module.platform.firewall_policy_id : one(azurerm_firewall_policy.parent[*].id)
+  ipg_management      = local.azure_firewall ? one(azurerm_ip_group.management[*].id) : one(azurerm_ip_group.policy_management[*].id)
+  ipg_client          = local.azure_firewall ? one(azurerm_ip_group.client[*].id) : one(azurerm_ip_group.policy_client[*].id)
+}
+
 resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
   provider           = azurerm.connectivity
-  count              = local.firewall ? 1 : 0
+  count              = local.build_tenant_rules ? 1 : 0
   name               = "rcg-build-tenant"
-  firewall_policy_id = module.platform.firewall_policy_id
+  firewall_policy_id = local.build_tenant_policy
   priority           = 200
 
   application_rule_collection {
@@ -78,7 +88,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name             = "runners-github"
-      source_ip_groups = [azurerm_ip_group.management[0].id]
+      source_ip_groups = [local.ipg_management]
       destination_fqdns = concat(local.github_fqdns, [
         "${var.state_storage_account_name}.blob.core.windows.net",
       ], local.runner_registry_private ? [] : azurerm_container_registry.runners[*].login_server)
@@ -90,7 +100,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name              = "runners-and-jump-tooling"
-      source_ip_groups  = [azurerm_ip_group.management[0].id]
+      source_ip_groups  = [local.ipg_management]
       destination_fqdns = local.tooling_fqdns
       protocols {
         type = "Https"
@@ -100,7 +110,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
 
     rule {
       name              = "jump-and-clients-os-updates"
-      source_ip_groups  = [azurerm_ip_group.management[0].id, azurerm_ip_group.client[0].id]
+      source_ip_groups  = [local.ipg_management, local.ipg_client]
       destination_fqdns = local.ubuntu_fqdns
       protocols {
         type = "Http"
@@ -121,17 +131,33 @@ resource "azurerm_firewall_policy_rule_collection_group" "build_tenant" {
     rule {
       name                  = "entra-id"
       protocols             = ["TCP"]
-      source_ip_groups      = [azurerm_ip_group.management[0].id, azurerm_ip_group.client[0].id]
+      source_ip_groups      = [local.ipg_management, local.ipg_client]
       destination_addresses = ["AzureActiveDirectory"]
       destination_ports     = ["443"]
     }
+
+    # labfw VPN clients (agent and management machines outside Azure) -> the API server private endpoints and SSH
+    # to the jump host
+    dynamic "rule" {
+      for_each = local.labfw_vpn ? [1] : []
+      content {
+        name                  = "management-vpn"
+        protocols             = ["TCP"]
+        source_addresses      = local.labfw_vpn_pool
+        destination_addresses = [local.management.snet_aks_api_pe, local.management.snet_jump]
+        destination_ports     = ["22", "443"]
+      }
+    }
   }
+
+  # Azure refuses parallel writes within one policy hierarchy
+  depends_on = [azurerm_firewall_policy_rule_collection_group.parent_platform]
 }
 
 # One rule collection group per AKS environment
 resource "azurerm_ip_group" "zone_frontend" {
   provider = azurerm.connectivity
-  for_each = !local.firewall ? {} : merge([for env, plan in module.address_plan : {
+  for_each = !local.azure_firewall ? {} : merge([for env, plan in module.address_plan : {
     for zone, z in plan.zones : "${env}-${zone}" => { env = env, cidrs = [z.frontend] }
   }]...)
   name                = "ipg-${each.key}-frontend"
@@ -143,7 +169,7 @@ resource "azurerm_ip_group" "zone_frontend" {
 
 resource "azurerm_ip_group" "zone_backend" {
   provider = azurerm.connectivity
-  for_each = !local.firewall ? {} : merge([for env, plan in module.address_plan : {
+  for_each = !local.azure_firewall ? {} : merge([for env, plan in module.address_plan : {
     for zone, z in plan.zones : "${env}-${zone}" => { env = env, cidrs = [z.backend] }
   }]...)
   name                = "ipg-${each.key}-backend"
@@ -155,7 +181,7 @@ resource "azurerm_ip_group" "zone_backend" {
 
 resource "azurerm_ip_group" "environment" {
   provider            = azurerm.connectivity
-  for_each            = local.firewall ? module.address_plan : {}
+  for_each            = local.azure_firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-all"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
@@ -166,7 +192,7 @@ resource "azurerm_ip_group" "environment" {
 # Control plane zones (system pools) of the stateless cells
 resource "azurerm_ip_group" "control_planes" {
   provider            = azurerm.connectivity
-  for_each            = local.firewall ? module.address_plan : {}
+  for_each            = local.azure_firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-control-planes"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
@@ -178,7 +204,7 @@ resource "azurerm_ip_group" "control_planes" {
 # cluster) are not in it, so they get no Internet access apart from the Entra ID and Azure Policy exceptions.
 resource "azurerm_ip_group" "frontend" {
   provider            = azurerm.connectivity
-  for_each            = local.firewall ? module.address_plan : {}
+  for_each            = local.azure_firewall ? module.address_plan : {}
   name                = "ipg-${each.key}-frontend"
   location            = var.location
   resource_group_name = azurerm_resource_group.firewall_ip_groups[0].name
@@ -191,7 +217,7 @@ resource "azurerm_ip_group" "frontend" {
 
 resource "azurerm_firewall_policy_rule_collection_group" "aks" {
   provider           = azurerm.connectivity
-  for_each           = local.firewall ? module.address_plan : {}
+  for_each           = local.azure_firewall ? module.address_plan : {}
   name               = "rcg-aks-${each.key}"
   firewall_policy_id = module.platform.firewall_policy_id
   priority           = 300 + index(keys(module.address_plan), each.key) * 10

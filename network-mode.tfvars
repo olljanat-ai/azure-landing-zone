@@ -8,4 +8,8 @@
 #             network boundary, Internet egress through NAT gateways (open egress for nodes; pods are still
 #             limited by Cilium FQDN policies), DNS through the hub Private DNS Resolver.
 #             Not for acceptance testing: section 17 phase 3 runs with the Firewall.
+#   labfw     sandbox, but with labfw (onek8s/azure-lab-fw, a VM that enforces the Firewall Policies of
+#             main.firewall.policies.tf) in the hub instead of Azure Firewall: the management and client VNets route
+#             0.0.0.0/0 to it, optional WireGuard VPN for agent and management machines outside Azure
+#             (labfw in stacks/platform-extensions). The cells stay as in sandbox mode.
 network_mode = "sandbox"

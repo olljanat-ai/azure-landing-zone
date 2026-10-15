@@ -17,30 +17,83 @@ repository's dev apply identity.
  step 8  onek8s/aks-terraform "Deploy"  ──► destroy / apply one cell
 ```
 
-## Network mode: firewall or sandbox
+## Network mode: firewall, sandbox or labfw
 
 One flag in [`network-mode.tfvars`](../network-mode.tfvars) decides how the networks are connected. Switch it
 with the script – it also sets `primary_firewall_enabled` in the accelerator configuration and regenerates
 `platform/`; CI fails if the two disagree:
 
 ```bash
-scripts/set-network-mode.sh sandbox   # or: firewall
+scripts/set-network-mode.sh sandbox   # or: firewall, labfw
 git add -A && git commit -m "Network mode sandbox" && git push
 ```
 
-| | `firewall` (the design) | `sandbox` (lab / prototype) |
-|---|---|---|
-| Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed |
-| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; the cells (aks-terraform) are networks of their own, not peered to the hub |
-| Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary |
-| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies |
-| DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone |
-| Cost | the Firewall is the largest fixed cost of the build tenant | NAT gateways and public IPs only |
+| | `firewall` (the design) | `sandbox` (lab / prototype) | `labfw` (lab with a firewall) |
+|---|---|---|---|
+| Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed | not deployed: [labfw](https://github.com/onek8s/azure-lab-fw) VM `labfw-fw` in `snet-labfw` (10.0.1.4) of the hub, resource group `rg-hub-labfw-<region>`, enforcing the D53 child policy `afwp-hub-<labfw.policy_exposure>-<region>` with its parent |
+| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; the cells (aks-terraform) are networks of their own, not peered to the hub | management and client VNets: `0.0.0.0/0` → labfw; the cells as in `sandbox` |
+| Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary | as `sandbox` for the cells; management and client traffic leaving their VNets passes the policy |
+| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies | management and client VNets: the policy's allow-lists (`rcg-build-tenant` in the parent policy); cells: NAT gateways |
+| DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone | as `sandbox`; `labfw.spoke_dns_proxy = true` switches the spokes to labfw's DNS proxy |
+| Remote access | – | – | optional WireGuard VPN on labfw for agent and management machines outside Azure (`labfw.vpn`) |
+| Cost | the Firewall is the largest fixed cost of the build tenant | NAT gateways and public IPs only | one B-series VM, an HDD OS disk and a public IP (roughly $10–20/month) |
 
 Use `sandbox` for a first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
 Firewall is part of what is accepted. Switching later is an ordinary change: with `firewall` the next runs create
 the Firewall, route tables and rules and remove the direct peerings and NAT gateways (run Platform, then AKS
 dev). The NAT gateway public IPs are flagged by the ALZ `corp` policies – fine while they are in audit mode.
+
+### labfw mode
+
+labfw is the build tenant's cheap stand-in for Azure Firewall: a VM that reads the Firewall Policies of
+`stacks/platform-extensions/main.firewall.policies.tf` from ARM and enforces their network, application and DNAT
+rules. `modules/labfw` deploys it like azure-lab-fw's own Bicep does, with that repository's cloud-init and
+install script vendored into `modules/labfw/vendor` (`scripts/vendor-labfw.sh <tag>` refreshes them; keep the tag
+equal to `labfw.release_version`). Configuration or version changes reach the running VM through a managed Run
+Command, without replacing it. Its identity is Reader on `sub-hub` (policies, IP groups, service tags).
+
+Switching an existing lab to `labfw`:
+
+1. If azure-lab-fw's own lab is deployed into the hub (its `deploy-lab` with `mode=existing-hub`): **wire-spokes**
+   `action=rollback` for every wired target, then **destroy-lab**. Its `snet-labfw` and the spoke route tables
+   `rt-labfw-*` would otherwise collide with the ones this repository creates (same subnet, and a subnet holds one
+   route table). Its bootstrap resources (`rg-labfw-<region>`, the VM identity, the OIDC app) are not used here.
+2. `scripts/set-network-mode.sh labfw`, set `labfw` in `stacks/platform-extensions/terraform.tfvars` if the
+   defaults do not fit (release, VM size, VPN peers; `operator_principal_ids` with azure-lab-fw's OIDC app keeps
+   its Run Command workflows - upgrade-lab, view-logs, e2e-lab, power-lab - working once its `LABFW_RG` points
+   at `rg-hub-labfw-<region>`), commit, run **Platform**.
+3. The runners now egress through labfw: anything they need beyond `rcg-build-tenant` (in the parent policy)
+   is denied and logged (azure-lab-fw **view-logs**, or `labfw logs --action deny` on the VM).
+
+Back to `sandbox` or on to `firewall`: switch the mode and run Platform - the route tables, labfw and its subnet go,
+and `firewall` mode reuses the same policies once it associates them (backlog item #2).
+
+#### VPN for machines outside Azure
+
+`labfw.vpn.enabled = true` turns on WireGuard on labfw (UDP 51820, the NSG allows `labfw.vpn.source_prefixes`).
+Each client creates its own key pair (`wg genkey | tee key | wg pubkey`, or `labfw vpn keygen`) and is listed with
+its **public** key and one address of the pool (default 10.0.12.0/24, free inside the hub's 10.0.0.0/16):
+
+```hcl
+labfw = {
+  release_version = "v0.2.0" # the first release with the VPN
+  vpn = {
+    enabled = true
+    peers = [
+      { name = "agent-1", public_key = "<client public key>", allowed_ips = ["10.0.12.10/32"] },
+    ]
+  }
+}
+```
+
+The pool counts as management: it is in `ipg-mgmt`, `rcg-build-tenant` lets it reach the API server private
+endpoints (443) and the jump host (22), and labfw SNATs its traffic to private destinations (private endpoints
+answer the source directly, past any route table), so the NSGs see labfw's address. The client's tunnel carries
+only the hub, management and client prefixes (split tunnel) and uses labfw as DNS server, which resolves the hub's
+private link zones. The output `labfw` of the extensions apply job names the endpoint; on the VM
+`labfw vpn client-config --peer agent-1 --endpoint <endpoint>` prints the client configuration (with a placeholder
+for the client's private key). Peers can also be changed without a Platform run with azure-lab-fw's
+**vpn-peer** workflow; the next Platform run puts the Terraform list back.
 
 ## 0. Prerequisites
 
@@ -247,6 +300,9 @@ accelerator bootstrap (state storage, plan / apply identities, the `alz` managem
 registrar, so its name servers must not change) and the GitHub settings stay. It runs with the platform apply identity, so its reviewers approve it.
 
 - Type `reset-lab` in *confirm*. *dry_run* (default) only lists what would be deleted.
+- Resource groups that other repositories created in the subscriptions go too - e.g. azure-lab-fw's
+  `rg-labfw-<region>` with the VM identity its repository variables name: run its **azure-bootstrap** again
+  afterwards (its OIDC app survives, its role assignments do not).
 - Deletions run in passes: a failure is logged and retried in the next pass. The Terraform state is deleted only
   when nothing is left; otherwise the run fails with the list of leftovers and can simply be started again.
 - *redeploy* starts the Platform workflow afterwards; run AKS policy and aks-terraform's Deploy after it.
