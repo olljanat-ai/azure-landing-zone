@@ -84,6 +84,16 @@ locals {
     chown azureuser:azureuser /home/azureuser/.ssh/authorized_keys.new
     chmod 0600 /home/azureuser/.ssh/authorized_keys.new
     mv /home/azureuser/.ssh/authorized_keys.new /home/azureuser/.ssh/authorized_keys
+    %{if var.log_analytics.enabled~}
+    # The Azure Monitor Agent (logs.tf) reads custom log files as syslog, not root: labfw's log is 0640 in a 0750
+    # directory of group labfw, so its readers join that group, and the agent restarts to pick it up
+    for user in syslog azuremonitoragent; do
+      if id "$user" >/dev/null 2>&1 && ! id -nG "$user" | grep -qw labfw; then
+        usermod -aG labfw "$user"
+        systemctl restart azuremonitoragent 2>/dev/null || true
+      fi
+    done
+    %{endif~}
   SCRIPT
 }
 
@@ -271,4 +281,7 @@ resource "azurerm_virtual_machine_run_command" "reconfigure" {
   source {
     script = local.reconfigure_script
   }
+
+  # The log readers' group membership needs the agent's users (logs.tf)
+  depends_on = [azurerm_virtual_machine_extension.monitor_agent]
 }
