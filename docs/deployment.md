@@ -85,7 +85,7 @@ its **public** key and one address of the pool (default 10.0.12.0/24, free insid
 
 ```hcl
 labfw = {
-  release_version = "v0.2.0" # the first release with the VPN
+  release_version = "v0.2.0" # the default; the first release with the VPN
   vpn = {
     enabled = true
     peers = [

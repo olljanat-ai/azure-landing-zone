@@ -175,7 +175,7 @@ variable "labfw_hybrid_reader_principal_ids" {
 variable "labfw" {
   type = object({
     # GitHub release of onek8s/azure-lab-fw; vendor the same ref into modules/labfw (scripts/vendor-labfw.sh)
-    release_version = optional(string, "v0.1.3") # the VPN needs the first release with it
+    release_version = optional(string, "v0.2.0")
     release_repo    = optional(string, "onek8s/azure-lab-fw")
     vm_size         = optional(string, "Standard_B2ats_v2") # B1ls is capacity-restricted in swedencentral
     arch            = optional(string, "x64")
