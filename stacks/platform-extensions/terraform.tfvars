@@ -70,7 +70,7 @@ labfw = {
     peers = [
       { name = "olli-1", public_key = "pYIxZlOeS94bjS/n91t2skyVRRRauiwsVpSnXD9gYRI=", allowed_ips = ["10.0.12.10/32"] },
       # aks-terraform's GitHub-hosted runners (kubectl to the private API servers); its config is the secret
-      # labfw-vpn-github-runners in kv-onek8s-gwc-platform. One peer: those jobs share the concurrency group labfw-vpn.
+      # labfw-vpn--github-runners in kv-onek8s-gwc-platform. One peer: those jobs share the concurrency group labfw-vpn.
       { name = "github-runners", public_key = "MPuQuKwgLKKaJ5wiRWanumW+T2EVw6rHLmeDRCcuJgc=", allowed_ips = ["10.0.12.11/32"] },
     ]
   }
