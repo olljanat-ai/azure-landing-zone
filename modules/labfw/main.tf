@@ -131,14 +131,16 @@ resource "azurerm_network_security_group" "labfw" {
   dynamic "security_rule" {
     for_each = var.vpn.enabled ? [1] : []
     content {
-      name                       = "allow-wireguard"
-      priority                   = 300
-      direction                  = "Inbound"
-      access                     = "Allow"
-      protocol                   = "Udp"
-      source_port_range          = "*"
-      destination_port_range     = local.vpn_listen_port
-      source_address_prefixes    = var.vpn.source_prefixes
+      name                   = "allow-wireguard"
+      priority               = 300
+      direction              = "Inbound"
+      access                 = "Allow"
+      protocol               = "Udp"
+      source_port_range      = "*"
+      destination_port_range = local.vpn_listen_port
+      # A service tag (the default, Internet) only works as the single source_address_prefix
+      source_address_prefix      = length(var.vpn.source_prefixes) == 1 ? var.vpn.source_prefixes[0] : null
+      source_address_prefixes    = length(var.vpn.source_prefixes) == 1 ? null : var.vpn.source_prefixes
       destination_address_prefix = "*"
     }
   }
