@@ -266,7 +266,7 @@ run "labfw_mode" {
   }
 
   assert {
-    condition     = alltrue([for p in ["10.0.0.0/22", "10.0.8.0/22", "10.200.0.0/22", "172.22.16.0/24", "172.22.17.0/24"] : contains(module.labfw[0].dns_clients, p)])
+    condition     = alltrue([for p in ["10.0.0.0/22", "10.0.8.0/22", "10.200.0.0/22", "172.22.16.0/24", "172.22.17.0/24", "172.20.2.0/26"] : contains(module.labfw[0].dns_clients, p)])
     error_message = "labfw serves (DNS proxy, NSG) the hub, the management and client VNets and every cell of firewall_exposures."
   }
 

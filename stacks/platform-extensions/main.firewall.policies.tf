@@ -339,11 +339,12 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
     priority = 200
     action   = "Allow"
 
-    # The platform vault and every zone vault through the External Secrets Operators on the system pool.
-    # Lab: public endpoints; with private endpoints (backlog item 3) this rule goes.
+    # The platform vault and every zone vault: the External Secrets Operators and Ratify on the system pool,
+    # and the management network (runners, jump host, the labfw VPN's clients). Their private endpoints
+    # (aks-terraform shared/ private_endpoints) are reached through the firewall like the public ones.
     rule {
       name             = "key-vaults"
-      source_ip_groups = [azurerm_ip_group.policy_system[each.key].id]
+      source_ip_groups = [azurerm_ip_group.policy_system[each.key].id, azurerm_ip_group.policy_management[0].id]
       destination_fqdns = [
         for v in concat([each.value.platform_key_vault], [for z in values(each.value.zones) : z.key_vault]) : "${v}.vault.azure.net"
       ]
