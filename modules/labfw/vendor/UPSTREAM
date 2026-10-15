@@ -1,0 +1,6 @@
+# Vendored from https://github.com/onek8s/azure-lab-fw - refresh with scripts/vendor-labfw.sh <ref>, never edit here.
+repository: onek8s/azure-lab-fw
+commit: 9f15fe538bc3b9e87eac3f5c90a80c9844539758
+files:
+  - deploy/cloud-init/cloud-init.yaml -> cloud-init.yaml
+  - deploy/cloud-init/install-labfw.sh -> install-labfw.sh

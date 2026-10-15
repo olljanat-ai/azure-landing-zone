@@ -12,9 +12,9 @@ variable "private_dns_zone_names" {
 variable "network_mode" {
   type        = string
   default     = "firewall"
-  description = "firewall: the hub Azure Firewall exists and is looked up; sandbox: no Firewall (network-mode.tfvars)."
+  description = "firewall: the hub Azure Firewall exists and is looked up; sandbox / labfw: no Azure Firewall (network-mode.tfvars)."
   validation {
-    condition     = contains(["firewall", "sandbox"], var.network_mode)
-    error_message = "firewall or sandbox."
+    condition     = contains(["firewall", "sandbox", "labfw"], var.network_mode)
+    error_message = "firewall, sandbox or labfw."
   }
 }

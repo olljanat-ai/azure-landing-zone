@@ -9,7 +9,7 @@ output "hub_virtual_network" {
 }
 
 output "firewall_enabled" {
-  description = "true in network mode firewall."
+  description = "true in network mode firewall: the hub Azure Firewall exists (labfw mode has none)."
   value       = var.network_mode == "firewall"
 }
 
@@ -24,7 +24,7 @@ output "firewall_policy_id" {
 }
 
 output "dns_server_ip" {
-  description = "Custom DNS server of every spoke: the Firewall DNS proxy in firewall mode; null in sandbox mode (Azure DNS with the hub zones linked to the spoke, see private_dns_zones)."
+  description = "Custom DNS server of every spoke: the Firewall DNS proxy in firewall mode; null without the Azure Firewall (Azure DNS with the hub zones linked to the spoke, see private_dns_zones)."
   value       = one(data.azurerm_firewall.hub[*].ip_configuration[0].private_ip_address)
 }
 

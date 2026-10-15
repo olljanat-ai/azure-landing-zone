@@ -159,10 +159,53 @@ variable "hub_bastion_subnet_prefix" {
 variable "network_mode" {
   type        = string
   default     = "firewall"
-  description = "firewall (design) or sandbox (no Azure Firewall: direct peerings, NSGs, NAT gateways) – network-mode.tfvars."
+  description = "firewall (design), sandbox (no Azure Firewall: direct peerings, NSGs, NAT gateways) or labfw (sandbox with labfw in the hub instead of Azure Firewall for the management and client VNets) – network-mode.tfvars."
   validation {
-    condition     = contains(["firewall", "sandbox"], var.network_mode)
-    error_message = "firewall or sandbox."
+    condition     = contains(["firewall", "sandbox", "labfw"], var.network_mode)
+    error_message = "firewall, sandbox or labfw."
+  }
+}
+
+variable "labfw_hybrid_reader_principal_ids" {
+  type        = list(string)
+  default     = []
+  description = "Identities of labfw instances running outside Azure (hybrid: e.g. on Hyper-V, with an Azure Arc machine identity or a certificate service principal) that read the Firewall Policies: Reader on their resource group and the service tag list of sub-hub. Any network mode."
+}
+
+variable "labfw" {
+  type = object({
+    # GitHub release of onek8s/azure-lab-fw; vendor the same ref into modules/labfw (scripts/vendor-labfw.sh)
+    release_version = optional(string, "v0.1.3") # the VPN needs the first release with it
+    release_repo    = optional(string, "onek8s/azure-lab-fw")
+    vm_size         = optional(string, "Standard_B2ats_v2") # B1ls is capacity-restricted in swedencentral
+    arch            = optional(string, "x64")
+    subnet_prefix   = optional(string, "10.0.1.0/26") # 10.0.0.0/26 stays free for AzureFirewallSubnet
+    # The exposure whose child Firewall Policy (main.firewall.policies.tf) labfw enforces, with the parent
+    policy_exposure = optional(string, "ext")
+    # Spokes use labfw's DNS proxy as DNS server. Off: Azure DNS with the hub zones linked, as in sandbox mode
+    spoke_dns_proxy = optional(bool, false)
+    # onek8s/azure-lab-fw's OIDC app: Virtual Machine Contributor on the labfw resource group for its Run Command
+    # based workflows (upgrade-lab, view-logs, e2e-lab, power-lab, vpn-peer)
+    operator_principal_ids = optional(list(string), [])
+    # WireGuard for agent and management machines outside Azure: the pool counts as management (ipg-mgmt, the API
+    # server private endpoints' NSG). Clients bring their own key pair; only public keys are listed here.
+    vpn = optional(object({
+      enabled         = optional(bool, false)
+      address         = optional(string, "10.0.12.1/24") # gateway address and client pool, free in the hub's 10.0.0.0/16
+      listen_port     = optional(number, 51820)
+      source_prefixes = optional(list(string), ["Internet"])
+      peers = optional(list(object({
+        name        = string
+        public_key  = string
+        allowed_ips = list(string)
+      })), [])
+    }), {})
+  })
+  default     = {}
+  description = "labfw (onek8s/azure-lab-fw) in the hub, network mode labfw only (main.labfw.tf)."
+  validation {
+    condition     = var.network_mode != "labfw" || (var.firewall_policies_enabled && contains(keys(var.firewall_exposures), var.labfw.policy_exposure))
+    error_message = "network mode labfw enforces the child Firewall Policy of labfw.policy_exposure: turn on firewall_policies_enabled and define that exposure in firewall_exposures."
   }
 }
 

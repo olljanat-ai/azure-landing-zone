@@ -28,7 +28,18 @@ output "runner_registry" {
   value       = one(azurerm_container_registry.runners[*].login_server)
 }
 
+output "labfw" {
+  description = "labfw in the hub (network mode labfw): private IP (next hop), public IP, VPN endpoint and client pool, resource group. Null in the other modes."
+  value = local.labfw ? {
+    private_ip          = module.labfw[0].private_ip
+    public_ip           = module.labfw[0].public_ip
+    vpn_endpoint        = module.labfw[0].vpn_endpoint
+    vpn_pool            = module.labfw[0].vpn_pool
+    resource_group_name = module.labfw[0].resource_group_name
+  } : null
+}
+
 output "network_mode" {
-  description = "firewall or sandbox."
+  description = "firewall, sandbox or labfw."
   value       = var.network_mode
 }

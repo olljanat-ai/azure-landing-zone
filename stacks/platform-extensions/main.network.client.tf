@@ -14,12 +14,12 @@ resource "azurerm_virtual_network" "client" {
   location            = var.location
   resource_group_name = azurerm_resource_group.client.name
   address_space       = [var.client_address_space]
-  dns_servers         = module.platform.dns_servers
+  dns_servers         = local.spoke_dns_servers
   tags                = var.tags
 }
 
 resource "azurerm_route_table" "client" {
-  count                         = local.firewall ? 1 : 0
+  count                         = local.routed ? 1 : 0
   provider                      = azurerm.connectivity
   name                          = "rt-client-${var.location}"
   location                      = var.location
@@ -74,7 +74,7 @@ resource "azurerm_subnet_network_security_group_association" "client" {
 
 resource "azurerm_subnet_route_table_association" "client" {
   provider       = azurerm.connectivity
-  for_each       = local.firewall ? azurerm_subnet.client : {}
+  for_each       = local.routed ? azurerm_subnet.client : {}
   subnet_id      = each.value.id
   route_table_id = azurerm_route_table.client[0].id
 }
@@ -82,7 +82,7 @@ resource "azurerm_subnet_route_table_association" "client" {
 # Sandbox mode: the clients reach the Internet through a NAT gateway, which only exists while the test client does.
 # The internal entry points (the cells of onek8s/aks-terraform) are not peered to the client VNet yet
 locals {
-  client_nat = !local.firewall && var.client_vm_enabled
+  client_nat = !local.routed && var.client_vm_enabled
 }
 
 resource "azurerm_public_ip" "client_nat" {

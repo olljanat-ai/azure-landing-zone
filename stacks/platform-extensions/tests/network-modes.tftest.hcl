@@ -246,3 +246,132 @@ run "firewall_policies_off" {
     error_message = "no policies when turned off."
   }
 }
+
+run "labfw_mode" {
+  command = plan
+
+  variables {
+    network_mode = "labfw"
+    firewall_exposures = {
+      ext = {
+        environments = {
+          dev = {
+            system_prefixes    = ["172.21.0.0/24"]
+            platform_key_vault = "kv-onek8s-dev-platform"
+            zones = {
+              ext-fi = { prefixes = ["172.21.3.0/24"], key_vault = "kv-onek8s-dev-ext-fi" }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.labfw) == 1 && module.labfw[0].private_ip == "10.0.1.4"
+    error_message = "labfw mode deploys labfw at 10.0.1.4 in snet-labfw."
+  }
+
+  assert {
+    condition     = [for r in azurerm_route_table.management[0].route : r.next_hop_in_ip_address] == ["10.0.1.4"] && [for r in azurerm_route_table.client[0].route : r.next_hop_in_ip_address] == ["10.0.1.4"]
+    error_message = "the management and client VNets send 0.0.0.0/0 to labfw."
+  }
+
+  assert {
+    condition     = length(azurerm_nat_gateway.management) == 0 && length(azurerm_firewall_policy_rule_collection_group.aks) == 0 && length(azurerm_ip_group.environment) == 0
+    error_message = "labfw mode: no NAT gateways and none of the Azure Firewall's ALZ policy rules."
+  }
+
+  assert {
+    condition     = length(azurerm_firewall_policy_rule_collection_group.build_tenant) == 1
+    error_message = "the build tenant's egress rules go into the parent policy that labfw enforces."
+  }
+
+  assert {
+    condition     = length(azurerm_container_group.runners["01"].dns_config) == 0 && length(azurerm_virtual_network.management.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2
+    error_message = "without labfw.spoke_dns_proxy the spokes keep Azure DNS with the hub private link zones linked."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.aks_management_peering) == 1 && length(module.labfw[0].vpn_endpoint == null ? [] : [1]) == 0
+    error_message = "the cells keep their sandbox peerings; no VPN by default."
+  }
+}
+
+run "labfw_mode_vpn_and_dns_proxy" {
+  command = plan
+
+  variables {
+    network_mode = "labfw"
+    labfw = {
+      spoke_dns_proxy = true
+      vpn = {
+        enabled = true
+        peers   = [{ name = "agent-1", public_key = "dGVzdHRlc3R0ZXN0dGVzdHRlc3R0ZXN0dGVzdHRlc3Q=", allowed_ips = ["10.0.12.10/32"] }]
+      }
+    }
+    firewall_exposures = {
+      ext = {
+        environments = {
+          dev = {
+            system_prefixes    = ["172.21.0.0/24"]
+            platform_key_vault = "kv-onek8s-dev-platform"
+            zones = {
+              ext-fi = { prefixes = ["172.21.3.0/24"], key_vault = "kv-onek8s-dev-ext-fi" }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = module.labfw[0].vpn_pool == "10.0.12.0/24" && contains(azurerm_ip_group.policy_management[0].cidrs, "10.0.12.0/24")
+    error_message = "the VPN client pool counts as management in the policies."
+  }
+
+  assert {
+    condition     = length(azurerm_network_security_rule.management_api_pe_vpn) == 1 && azurerm_network_security_rule.management_api_pe_vpn[0].source_address_prefix == "10.0.1.4"
+    error_message = "the API server private endpoints accept labfw's SNATed VPN traffic."
+  }
+
+  assert {
+    condition     = tolist(azurerm_virtual_network.management.dns_servers) == tolist(["10.0.1.4"])
+    error_message = "with labfw.spoke_dns_proxy the spokes resolve through labfw."
+  }
+
+  assert {
+    condition     = tolist(azurerm_container_group.runners["01"].dns_config[0].nameservers) == tolist(["10.0.1.4"])
+    error_message = "with labfw.spoke_dns_proxy the runners resolve through labfw."
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 0
+    error_message = "with labfw.spoke_dns_proxy no spoke links to the hub zones."
+  }
+}
+
+run "labfw_mode_needs_policies" {
+  command = plan
+
+  variables {
+    network_mode       = "labfw"
+    firewall_exposures = {}
+  }
+
+  expect_failures = [var.labfw]
+}
+
+run "labfw_hybrid_readers" {
+  command = plan
+
+  variables {
+    network_mode                      = "sandbox"
+    labfw_hybrid_reader_principal_ids = ["11111111-1111-1111-1111-111111111111"]
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.labfw_hybrid_policy_reader) == 1 && length(azurerm_role_assignment.labfw_hybrid_service_tags) == 1 && azurerm_role_definition.labfw_service_tags[0].permissions[0].actions == tolist(["Microsoft.Network/locations/serviceTags/read"])
+    error_message = "a hybrid labfw reads the policies' resource group and the service tags, in any network mode."
+  }
+}
