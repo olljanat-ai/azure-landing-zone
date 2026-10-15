@@ -78,7 +78,13 @@ locals {
     mv /etc/labfw/config.yaml.new /etc/labfw/config.yaml
     echo '${local.install_b64}' | base64 -d >/usr/local/sbin/install-labfw.sh
     chmod 0755 /usr/local/sbin/install-labfw.sh
-    /usr/local/sbin/install-labfw.sh '${var.release_version}' '${local.arch_go}' '${var.release_repo}'
+    # The release is installed once per version: onek8s/azure-lab-fw is a private repository, whose release
+    # assets the VM cannot download anonymously - an installed version only restarts to load the new config
+    if [ -x /usr/local/bin/labfw ] && /usr/local/bin/labfw version 2>/dev/null | grep -qF '${trimprefix(var.release_version, "v")}'; then
+      systemctl restart labfw
+    else
+      /usr/local/sbin/install-labfw.sh '${var.release_version}' '${local.arch_go}' '${var.release_repo}'
+    fi
     install -d -m 0700 -o azureuser -g azureuser /home/azureuser/.ssh
     echo '${local.authorized_keys_b64}' | base64 -d >/home/azureuser/.ssh/authorized_keys.new
     chown azureuser:azureuser /home/azureuser/.ssh/authorized_keys.new
