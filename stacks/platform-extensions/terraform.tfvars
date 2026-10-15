@@ -37,8 +37,10 @@ firewall_exposures = {
     corporate = true
     environments = {
       dev = {
-        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24"] # dev-int-stateless-az1 (disabled), -az2
-        shared_prefixes     = ["172.20.2.0/26"]                   # snet-shared-pe: the vaults' and the registry's private endpoints
+        # dev-int-stateless-az1 (disabled), -az2: snet-system and snet-apiserver (the private API server's
+        # VNet integration, reached from the management network and the labfw VPN)
+        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24", "172.22.15.0/28", "172.22.31.0/28"]
+        shared_prefixes     = ["172.20.2.0/26"] # snet-shared-pe: the vaults' and the registry's private endpoints
         platform_key_vault  = "kv-onek8s-gwc-platform"
         container_registry  = "acronek8sdev"
         observability_fqdns = ["*.grafana.net"]
@@ -67,6 +69,9 @@ labfw = {
     enabled = true
     peers = [
       { name = "olli-1", public_key = "pYIxZlOeS94bjS/n91t2skyVRRRauiwsVpSnXD9gYRI=", allowed_ips = ["10.0.12.10/32"] },
+      # aks-terraform's GitHub-hosted runners (kubectl to the private API servers); its config is the secret
+      # labfw-vpn-github-runners in kv-onek8s-gwc-platform. One peer: those jobs share the concurrency group labfw-vpn.
+      { name = "github-runners", public_key = "MPuQuKwgLKKaJ5wiRWanumW+T2EVw6rHLmeDRCcuJgc=", allowed_ips = ["10.0.12.11/32"] },
     ]
   }
 }
