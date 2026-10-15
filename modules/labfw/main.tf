@@ -39,10 +39,13 @@ locals {
     }
     }, var.vpn.enabled ? {
     vpn = {
-      enabled       = true
-      interface     = "wg0"
-      listenPort    = var.vpn.listen_port
-      address       = var.vpn.address
+      enabled    = true
+      interface  = "wg0"
+      listenPort = var.vpn.listen_port
+      address    = var.vpn.address
+      # Peers added on the VM (azure-lab-fw's vpn-peer workflow, `labfw vpn peer add`) live here, next to the
+      # Terraform list
+      peersFile     = "/var/lib/labfw/vpn-peers.json"
       clientRoutes  = length(var.vpn.client_routes) > 0 ? var.vpn.client_routes : var.trusted_prefixes
       snatToPrivate = var.vpn.snat_to_private
       peers = [for p in var.vpn.peers : {
@@ -136,6 +139,23 @@ resource "azurerm_network_security_group" "labfw" {
       source_port_range          = "*"
       destination_port_range     = local.vpn_listen_port
       source_address_prefixes    = var.vpn.source_prefixes
+      destination_address_prefix = "*"
+    }
+  }
+
+  # Packets with a pool source leave the NIC (toward the spokes when not SNATed): the pool is in no VNet, so the
+  # default AllowVnetOutBound does not cover it
+  dynamic "security_rule" {
+    for_each = var.vpn.enabled ? [1] : []
+    content {
+      name                       = "allow-vpn-pool-outbound"
+      priority                   = 300
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = local.vpn_pool
       destination_address_prefix = "*"
     }
   }

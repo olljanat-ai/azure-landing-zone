@@ -92,8 +92,9 @@ answer the source directly, past any route table), so the NSGs see labfw's addre
 only the hub, management and client prefixes (split tunnel) and uses labfw as DNS server, which resolves the hub's
 private link zones. The output `labfw` of the extensions apply job names the endpoint; on the VM
 `labfw vpn client-config --peer agent-1 --endpoint <endpoint>` prints the client configuration (with a placeholder
-for the client's private key). Peers can also be changed without a Platform run with azure-lab-fw's
-**vpn-peer** workflow; the next Platform run puts the Terraform list back.
+for the client's private key). Peers can also be added without a Platform run with azure-lab-fw's
+**vpn-peer** workflow (`labfw vpn peer add` on the VM): they go to `/var/lib/labfw/vpn-peers.json` and stay
+there across Platform runs, which only rewrite the Terraform list in `config.yaml`.
 
 ## 0. Prerequisites
 
