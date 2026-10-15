@@ -11,7 +11,7 @@ locals {
   labfw_vpn_pool = local.labfw_vpn ? [cidrsubnet(var.labfw.vpn.address, 0, 0)] : []
   # Routed through labfw: the hub, the spokes of this stack and every exposure's cells (firewall_exposures) - its DNS
   # proxy clients and what its NSG lets in
-  labfw_cell_prefixes    = distinct(flatten([for s in values(local.firewall_spokes) : concat(s.system_prefixes, flatten([for z in values(s.zones) : z.prefixes]))]))
+  labfw_cell_prefixes    = distinct(flatten([for s in values(local.firewall_spokes) : concat(s.system_prefixes, s.shared_prefixes, flatten([for z in values(s.zones) : z.prefixes]))]))
   labfw_trusted_prefixes = concat(local.hub_vnet.address_space, [var.management_address_space, var.client_address_space], local.labfw_cell_prefixes)
 }
 

@@ -36,6 +36,7 @@ firewall_exposures = {
     environments = {
       dev = {
         system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24"] # dev-int-stateless-az1 (disabled), -az2
+        shared_prefixes     = ["172.20.2.0/26"]                   # snet-shared-pe: the vaults' and the registry's private endpoints
         platform_key_vault  = "kv-onek8s-gwc-platform"
         container_registry  = "acronek8sdev"
         observability_fqdns = ["*.grafana.net"]

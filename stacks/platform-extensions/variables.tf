@@ -246,7 +246,10 @@ variable "firewall_exposures" {
     corporate = optional(bool, false)
     # Environment => its cells of this exposure (onek8s/aks-terraform shared/envs/<env>.tfvars, cells.tf)
     environments = map(object({
-      system_prefixes    = list(string) # every cell's snet-system
+      system_prefixes = list(string) # every cell's snet-system
+      # The environment's other networks behind the hub: the private endpoints of its vaults and registry
+      # (aks-terraform shared/ private_endpoints), routed through labfw like the cells
+      shared_prefixes    = optional(list(string), [])
       platform_key_vault = string
       container_registry = optional(string) # public environment ACR (lab); null with its private endpoint
       # The Grafana collectors' destinations on the Internet (D48); empty with a private endpoint in the hub
