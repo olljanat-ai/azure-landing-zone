@@ -76,9 +76,12 @@ alz_role_assignments() { # only the ones the ALZ module made for policy identiti
   for sub in $SUBSCRIPTIONS; do az role assignment list --all --subscription "$sub" --query "$q" -o tsv 2>/dev/null; done
 }
 resource_groups() { # subscription<TAB>name<TAB>managedBy, without the protected bootstrap groups
-  for sub in $SUBSCRIPTIONS; do
-    az group list --subscription "$sub" --query "[].[name, managedBy]" -o tsv 2>/dev/null \
-      | grep -Ev "$PROTECTED_RG_REGEX" | sed "s|^|$sub\t|"
+  local name managed_by
+  for sub in $SUBSCRIPTIONS; do # the regex tests the name alone: anchors such as `rg-onek8s-dns$` must not see managedBy
+    while IFS=$'\t' read -r name managed_by; do
+      [ -z "$name" ] || [[ "$name" =~ $PROTECTED_RG_REGEX ]] && continue
+      printf '%s\t%s\t%s\n' "$sub" "$name" "$managed_by"
+    done < <(az group list --subscription "$sub" --query "[].[name, managedBy]" -o tsv 2>/dev/null)
   done
 }
 locks() { # every lock in the subscriptions except those inside the protected resource groups
