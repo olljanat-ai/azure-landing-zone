@@ -1,4 +1,6 @@
 location = "germanywestcentral"
+# Its name in service tags (AzureCloud.germanywc)
+service_tag_region = "germanywc"
 
 # The same subscriptions as accelerator/config/inputs.yaml – replace
 subscription_ids = {

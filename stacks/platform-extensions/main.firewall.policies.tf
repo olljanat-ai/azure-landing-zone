@@ -194,7 +194,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
       name                  = "aks-api-servers"
       protocols             = ["TCP"]
       source_ip_groups      = local.firewall_all_cells
-      destination_addresses = ["AzureCloud.${var.location}"]
+      destination_addresses = ["AzureCloud.${var.service_tag_region}"]
       destination_ports     = ["443"]
     }
   }
