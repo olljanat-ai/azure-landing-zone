@@ -77,7 +77,9 @@ labfw = {
   policy_exposure = "int"
   # Its denied connections in Log Analytics (log-labfw-germanywestcentral, table LabfwFirewallLog_CL), where the
   # egress agent (design D59, onek8s/aks-ai-agents) reads them with Reader on sub-hub - no one logs in to the VM
-  log_analytics   = { enabled = true }
+  # No public network access (design D60): the agent ingests and readers query through the hub's Azure Monitor
+  # Private Link scope (monitor_private_link) - from outside Azure over the labfw VPN
+  log_analytics   = { enabled = true, public_network_access = false }
   spoke_dns_proxy = true
   # WireGuard for machines outside Azure (the pool counts as management: API server private endpoints, jump host,
   # the cells' 443). Each client keeps its own private key; only public keys are listed here.
