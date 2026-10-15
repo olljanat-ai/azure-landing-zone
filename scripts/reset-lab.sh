@@ -12,17 +12,26 @@
 # roles scoped to the subscriptions, the management groups below `alz`, and – only once nothing is left – the
 # Terraform state of the platform and AKS stacks. A failing deletion is logged and retried in the next pass.
 #
+# SKIP_POLICIES=true (the workflow's default) keeps everything Azure Policy is made of, because removing it takes
+# most of the time: the management groups below `alz` with the subscriptions in them, policy assignments,
+# exemptions and (set) definitions, the role assignments of policy identities, the ALZ custom roles, and the
+# Terraform state that holds them – the platform's (terraform.tfstate) and AKS policy's (aks-*-policy.tfstate).
+# Everything else goes as usual; the next Platform and AKS policy runs recreate what their state no longer finds.
+#
 # Environment: SUBSCRIPTIONS (space-separated), ROOT_MG (alz), STATE_ACCOUNT, STATE_CONTAINER, PROTECTED_RG_REGEX,
-# DRY_RUN (true/false), MAX_PASSES, PASS_PAUSE_SECONDS; on GitHub Actions also AZURE_CLIENT_ID, AZURE_TENANT_ID and
+# DRY_RUN (true/false), SKIP_POLICIES (true/false), MAX_PASSES, PASS_PAUSE_SECONDS; on GitHub Actions also AZURE_CLIENT_ID, AZURE_TENANT_ID and
 # AZURE_SUBSCRIPTION_ID, to sign in again with a fresh OIDC token (see relogin).
 set -uo pipefail
 
 ROOT_MG="${ROOT_MG:-alz}"
 DRY_RUN="${DRY_RUN:-false}"
+SKIP_POLICIES="${SKIP_POLICIES:-false}"
 MAX_PASSES="${MAX_PASSES:-5}"
 PASS_PAUSE_SECONDS="${PASS_PAUSE_SECONDS:-60}"
 PROTECTED_RG_REGEX="${PROTECTED_RG_REGEX:-^(rg-alz-build-|rg-onek8s-dns$)}"
 STATE_BLOB_REGEX='^(terraform|platform-extensions|aks-.*)\.tfstate$'
+KEPT_STATE_REGEX='^$' # nothing; with SKIP_POLICIES the state of the kept policies
+if [ "$SKIP_POLICIES" = true ]; then KEPT_STATE_REGEX='^(terraform|aks-.*-policy)\.tfstate$'; fi
 ALZ_ROLE_ASSIGNMENT_DESCRIPTION="Created by ALZ Terraform provider. Assignment required for Azure Policy."
 MG_PREFIX="/providers/Microsoft.Management/managementGroups"
 
@@ -132,7 +141,7 @@ policy_definitions() {
 custom_roles() { # id<TAB>name: the ALZ library roles "<name> (<mg>)" and roles whose scopes are all in the subscriptions
   local all mgs; mapfile -t all < <(echo "$ROOT_MG"; child_mgs)
   mgs="$(IFS='|'; echo "${all[*]}")"
-  az role definition list --custom-role-only true --scope "$MG_PREFIX/$ROOT_MG" -o json 2>/dev/null \
+  [ "$SKIP_POLICIES" = true ] || az role definition list --custom-role-only true --scope "$MG_PREFIX/$ROOT_MG" -o json 2>/dev/null \
     | jq -r --arg re " \\(($mgs)\\)$" '.[] | select(.roleName | test($re)) | [.id, .roleName] | @tsv'
   for sub in $SUBSCRIPTIONS; do
     az role definition list --custom-role-only true --subscription "$sub" -o json 2>/dev/null \
@@ -144,8 +153,9 @@ left=0
 report() { # prints what is left and sets $left; succeeds when nothing is left
   local lines
   left=0
-  for kind in locks policy_assignments policy_exemptions alz_role_assignments resource_groups \
-              policy_set_definitions policy_definitions custom_roles child_mgs; do
+  for kind in locks resource_groups custom_roles \
+              $( [ "$SKIP_POLICIES" = true ] || echo policy_assignments policy_exemptions alz_role_assignments \
+                   policy_set_definitions policy_definitions child_mgs ); do
     lines="$($kind | sed '/^$/d')"
     if [ -n "$lines" ]; then
       echo "$kind:"; printf '%s\n' "$lines" | sed 's/^/  /'
@@ -161,6 +171,7 @@ pass() {
   for id in $(locks); do try "lock $id" az lock delete --ids "$id"; done
   echo "::endgroup::"
 
+  if [ "$SKIP_POLICIES" != true ]; then
   echo "::group::policy assignments and exemptions"
   while IFS=$'\t' read -r scope name; do
     [ -n "$name" ] && try "policy assignment $scope/$name" az policy assignment delete --scope "$scope" --name "$name"
@@ -178,6 +189,7 @@ pass() {
       az account management-group subscription add --name "$ROOT_MG" --subscription "$sub"
   done
   echo "::endgroup::"
+  fi
 
   echo "::group::resource groups"
   local deleting=()
@@ -197,6 +209,7 @@ pass() {
   fi
   echo "::endgroup::"
 
+  if [ "$SKIP_POLICIES" != true ]; then
   echo "::group::custom policy set definitions and definitions"
   while IFS=$'\t' read -r kind where name; do
     [ -z "$name" ] && continue
@@ -209,6 +222,7 @@ pass() {
     else try "policy definition $where/$name" az policy definition delete --subscription "$where" --name "$name"; fi
   done < <(policy_definitions)
   echo "::endgroup::"
+  fi
 
   echo "::group::custom roles"
   local scope
@@ -219,9 +233,11 @@ pass() {
   done < <(custom_roles)
   echo "::endgroup::"
 
+  if [ "$SKIP_POLICIES" != true ]; then
   echo "::group::management groups below $ROOT_MG"
   for mg in $(child_mgs); do try "management group $mg" az account management-group delete --name "$mg"; done
   echo "::endgroup::"
+  fi
 }
 
 delete_state() {
@@ -230,7 +246,7 @@ delete_state() {
     --query "[].name" -o tsv)"; then
     failed=$((failed + 1)); echo "::error::Could not list the state blobs in $STATE_CONTAINER."; return 1
   fi
-  blobs="$(grep -E "$STATE_BLOB_REGEX" <<<"$all")"
+  blobs="$(grep -E "$STATE_BLOB_REGEX" <<<"$all" | grep -Ev "$KEPT_STATE_REGEX")"
   [ -z "$blobs" ] && echo "  no state blobs matching $STATE_BLOB_REGEX"
   for blob in $blobs; do
     az storage blob lease break --account-name "$STATE_ACCOUNT" --container-name "$STATE_CONTAINER" --blob-name "$blob" \
@@ -244,9 +260,11 @@ delete_state() {
 az config set extension.use_dynamic_install=yes_without_prompt >/dev/null 2>&1
 echo "Subscriptions: $SUBSCRIPTIONS"
 echo "Kept: management group $ROOT_MG, resource groups matching $PROTECTED_RG_REGEX"
+[ "$SKIP_POLICIES" = true ] && echo "Kept (SKIP_POLICIES): management groups, Azure Policy, ALZ custom roles, state blobs matching $KEPT_STATE_REGEX"
 
 if [ "$DRY_RUN" = true ]; then
-  echo "Dry run – would delete:"; report; echo "Terraform state blobs matching $STATE_BLOB_REGEX in $STATE_CONTAINER"
+  echo "Dry run – would delete:"; report
+  echo "Terraform state blobs matching $STATE_BLOB_REGEX but not $KEPT_STATE_REGEX in $STATE_CONTAINER"
   exit 0
 fi
 

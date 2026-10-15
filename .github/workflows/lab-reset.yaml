@@ -2,7 +2,8 @@
 # Lab reset: removes everything the platform and AKS stacks created in the build tenant lab, including their
 # Terraform state, so the lab can be redeployed from scratch (scripts/reset-lab.sh has the details). The
 # subscriptions, the accelerator bootstrap (Terraform state storage, plan / apply identities, the `alz`
-# management group), the public DNS zone (rg-onek8s-dns) and the GitHub configuration stay. Manual only; the apply environment's reviewers approve it.
+# management group), the public DNS zone (rg-onek8s-dns) and the GitHub configuration stay; with skip_policies (the
+# default) also the management groups and Azure Policy with their Terraform state. Manual only; the apply environment's reviewers approve it.
 name: Lab reset
 
 on:
@@ -14,6 +15,10 @@ on:
         required: true
       dry_run:
         description: Only list what would be deleted
+        type: boolean
+        default: true
+      skip_policies:
+        description: Keep Azure Policy and the management groups (their removal takes most of the time)
         type: boolean
         default: true
       max_passes:
@@ -84,6 +89,7 @@ jobs:
           # rg-onek8s-dns: the public DNS zone onek8s.lol, created outside Terraform and delegated at the registrar
           PROTECTED_RG_REGEX: ^(rg-alz-build-|rg-onek8s-dns$|${{ vars.BACKEND_AZURE_RESOURCE_GROUP_NAME }}$)
           DRY_RUN: ${{ inputs.dry_run }}
+          SKIP_POLICIES: ${{ inputs.skip_policies }}
           MAX_PASSES: ${{ inputs.max_passes }}
           # for the script's re-login with a fresh OIDC token (the first one expires during a long reset)
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
