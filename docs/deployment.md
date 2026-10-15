@@ -31,14 +31,15 @@ git add -A && git commit -m "Network mode sandbox" && git push
 | | `firewall` (the design) | `sandbox` (lab / prototype) | `labfw` (lab with a firewall) |
 |---|---|---|---|
 | Azure Firewall | in the hub (Standard in the lab, Premium in the design), DNS proxy, rule collection groups per zone | not deployed | not deployed: [labfw](https://github.com/onek8s/azure-lab-fw) VM `labfw-fw` in `snet-labfw` (10.0.1.4) of the hub, resource group `rg-hub-labfw-<region>`, enforcing the D53 child policy `afwp-hub-<labfw.policy_exposure>-<region>` with its parent |
-| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; the cells (aks-terraform) are networks of their own, not peered to the hub | management and client VNets: `0.0.0.0/0` → labfw; the cells as in `sandbox` |
-| Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary | as `sandbox` for the cells; management and client traffic leaving their VNets passes the policy |
-| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies | management and client VNets: the policy's allow-lists (`rcg-build-tenant` in the parent policy); cells: NAT gateways |
-| DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone | as `sandbox`; `labfw.spoke_dns_proxy = true` switches the spokes to labfw's DNS proxy |
+| Routing | every subnet: `0.0.0.0/0` and the other zones' address spaces → Firewall; spokes peered to the hub only | no route tables; the cells (aks-terraform) are networks of their own, not peered to the hub | as `firewall`, with labfw as next hop: the management and client VNets and the cells (aks-terraform `shared/` `hub`) peered to the hub only, `0.0.0.0/0` → labfw |
+| Zone isolation | NSG + Firewall + Cilium | NSG + Cilium – the same deny-by-default NSGs are the only network boundary | NSG + labfw (the D53 policies) + Cilium |
+| Internet egress | Firewall FQDN allow-lists, AKS outbound type `userDefinedRouting` | NAT gateways (cells: zonal in the cell's AZ, AKS outbound type `userAssignedNATGateway`; management VNet only with runners or the jump host, client VNet only with the test client); nodes have open egress, pods are still limited by Cilium FQDN policies | the policies' allow-lists (`rcg-build-tenant` and `rcg-platform` in the parent, the exposure's child), AKS outbound type `userDefinedRouting` |
+| DNS | Firewall DNS proxy | Azure DNS; each stack links its VNets to every hub private DNS zone | labfw's DNS proxy with `labfw.spoke_dns_proxy = true` (the lab's), else as `sandbox`; aks-terraform links the internal zones' private DNS to the hub so labfw resolves them |
 | Remote access | – | – | optional WireGuard VPN on labfw for agent and management machines outside Azure (`labfw.vpn`) |
 | Cost | the Firewall is the largest fixed cost of the build tenant | NAT gateways and public IPs only | one B-series VM, an HDD OS disk and a public IP (roughly $10–20/month) |
 
-Use `sandbox` for a first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
+The lab runs `labfw` (2026-10-15): the routing of `firewall` mode without the Firewall's cost. Use `sandbox` for a
+first run in your own lab; acceptance testing (phase 3) runs in `firewall` mode, because the
 Firewall is part of what is accepted. Switching later is an ordinary change: with `firewall` the next runs create
 the Firewall, route tables and rules and remove the direct peerings and NAT gateways (run Platform, then AKS
 dev). The NAT gateway public IPs are flagged by the ALZ `corp` policies – fine while they are in audit mode.
@@ -64,6 +65,14 @@ Switching an existing lab to `labfw`:
    at `rg-hub-labfw-<region>`), commit, run **Platform**.
 3. The runners now egress through labfw: anything they need beyond `rcg-build-tenant` (in the parent policy)
    is denied and logged (azure-lab-fw **view-logs**, or `labfw logs --action deny` on the VM).
+4. aks-terraform's cells follow with their `hub` setting (peering, route tables, DNS): Deploy `dev-shared`, then
+   the cells. AKS's outbound type cannot change on a running cluster, so a cell is built again. What the cells
+   reach is the parent's `rcg-platform` (AKS FQDN tag, the API servers by the region's `AzureCloud` tag, the
+   platform's chart and image sources: `platform_source_fqdns`) and the exposure's child policy.
+
+The cells' public load balancers do not work behind labfw (answers leave by the default route, not the load
+balancer: asymmetric routing), so an internal cell has no public entry point - no platform gateway and no Flux
+webhook (Flux polls every minute).
 
 Back to `sandbox` or on to `firewall`: switch the mode and run Platform - the route tables, labfw and its subnet go,
 and `firewall` mode reuses the same policies once it associates them (backlog item #2).
@@ -191,7 +200,7 @@ Lab reset keeps; [aks-terraform](https://github.com/onek8s/aks-terraform) only l
 cluster's external-dns write its own records.
 
 ```bash
-az group create --subscription <sub-aks-dev> -n rg-onek8s-dns -l swedencentral --tags purpose=public-dns
+az group create --subscription <sub-aks-dev> -n rg-onek8s-dns -l swedencentral --tags purpose=public-dns  # a DNS zone is global; the group stays where it was created
 az network dns zone create --subscription <sub-aks-dev> -g rg-onek8s-dns -n onek8s.lol
 az network dns zone show --subscription <sub-aks-dev> -g rg-onek8s-dns -n onek8s.lol --query nameServers
 ```

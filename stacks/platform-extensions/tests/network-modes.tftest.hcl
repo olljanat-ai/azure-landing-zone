@@ -250,21 +250,9 @@ run "firewall_policies_off" {
 run "labfw_mode" {
   command = plan
 
+  # The lab's settings (terraform.tfvars): the internal exposure's child policy, the spokes on labfw's DNS proxy
   variables {
     network_mode = "labfw"
-    firewall_exposures = {
-      ext = {
-        environments = {
-          dev = {
-            system_prefixes    = ["172.21.0.0/24"]
-            platform_key_vault = "kv-onek8s-dev-platform"
-            zones = {
-              ext-fi = { prefixes = ["172.21.3.0/24"], key_vault = "kv-onek8s-dev-ext-fi" }
-            }
-          }
-        }
-      }
-    }
   }
 
   assert {
@@ -278,6 +266,11 @@ run "labfw_mode" {
   }
 
   assert {
+    condition     = alltrue([for p in ["10.0.0.0/22", "10.0.8.0/22", "10.200.0.0/22", "172.22.0.0/24", "172.22.1.0/24"] : contains(module.labfw[0].dns_clients, p)])
+    error_message = "labfw serves (DNS proxy, NSG) the hub, the management and client VNets and every cell of firewall_exposures."
+  }
+
+  assert {
     condition     = length(azurerm_nat_gateway.management) == 0 && length(azurerm_firewall_policy_rule_collection_group.aks) == 0 && length(azurerm_ip_group.environment) == 0
     error_message = "labfw mode: no NAT gateways and none of the Azure Firewall's ALZ policy rules."
   }
@@ -288,13 +281,28 @@ run "labfw_mode" {
   }
 
   assert {
-    condition     = length(azurerm_container_group.runners["01"].dns_config) == 0 && length(azurerm_virtual_network.management.dns_servers) == 0 && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 2
-    error_message = "without labfw.spoke_dns_proxy the spokes keep Azure DNS with the hub private link zones linked."
+    condition     = tolist(azurerm_virtual_network.management.dns_servers) == tolist(["10.0.1.4"]) && length(azurerm_private_dns_zone_virtual_network_link.hub_zones) == 0
+    error_message = "the lab's spokes resolve through labfw's DNS proxy, not through hub zone links of their own."
   }
 
   assert {
-    condition     = length(azurerm_role_assignment.aks_management_peering) == 1 && length(module.labfw[0].vpn_endpoint == null ? [] : [1]) == 0
-    error_message = "the cells keep their sandbox peerings; no VPN by default."
+    condition     = length(azurerm_role_assignment.aks_management_peering) == 0 && length(azurerm_role_assignment.aks_client_peering) == 0 && length(azurerm_role_assignment.aks_hub_peering) == 1
+    error_message = "the cells peer to the hub only, like in firewall mode."
+  }
+
+  assert {
+    condition     = keys(azurerm_firewall_policy.exposure) == ["int"] && length([for c in azurerm_firewall_policy_rule_collection_group.exposure_environment["dev-int"].network_rule_collection : c if anytrue([for r in c.rule : r.name == "corporate-to-zones"])]) == 1
+    error_message = "the internal exposure's child policy lets the corporate network reach its zones' gateways."
+  }
+
+  assert {
+    condition     = anytrue([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].network_rule_collection : anytrue([for r in c.rule : r.name == "aks-api-servers" && r.destination_addresses == tolist(["AzureCloud.germanywestcentral"])])])
+    error_message = "the cells reach the public API servers by the region's AzureCloud service tag."
+  }
+
+  assert {
+    condition     = anytrue([for c in azurerm_firewall_policy_rule_collection_group.parent_platform[0].application_rule_collection : anytrue([for r in c.rule : r.name == "platform-sources"])])
+    error_message = "the cells reach the platform's chart and image sources."
   }
 }
 

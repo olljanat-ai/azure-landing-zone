@@ -36,7 +36,7 @@ jobs:
       contents: read
     env:
       MANAGEMENT_SUBSCRIPTION: 2e73156d-6206-4354-b599-1f4e31333a7d # sub-mgmt, stacks/platform-extensions/terraform.tfvars
-      LOCATION: swedencentral
+      LOCATION: germanywestcentral # stacks/platform-extensions/terraform.tfvars
       ENVIRONMENT: dev
       VAR_FILE: environments/dev/policy.tfvars
     steps:

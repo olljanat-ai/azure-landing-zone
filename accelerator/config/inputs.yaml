@@ -19,8 +19,10 @@
 # All inputs of the local bootstrap module: https://aka.ms/alz/acc/bootstrap/local/variables
 
 ## Decision 4: Bootstrap Resource Azure Region
-# One region for the whole build tenant; the design needs availability zones 1-3 (one cell per AZ),
-# API Server VNet Integration, NAP, ACNS and Azure Firewall Premium in it.
+# The bootstrap resources (state storage, plan / apply identities) were created in swedencentral and stay
+# there: the bootstrap is not applied again (docs/deployment.md, step 2). The platform and the AKS
+# environments moved to germanywestcentral on 2026-10-15 (starter_locations in platform-landing-zone.tfvars);
+# the design needs availability zones, API Server VNet Integration, NAP and ACNS in the platform's region.
 bootstrap_location: "swedencentral"
 
 ## Decision 6: Parent Management Group

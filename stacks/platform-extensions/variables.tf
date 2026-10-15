@@ -1,6 +1,6 @@
 variable "location" {
   type        = string
-  default     = "swedencentral"
+  default     = "germanywestcentral"
   description = "Region of the platform landing zone (starter_location_01)."
 }
 
@@ -177,7 +177,7 @@ variable "labfw" {
     # GitHub release of onek8s/azure-lab-fw; vendor the same ref into modules/labfw (scripts/vendor-labfw.sh)
     release_version = optional(string, "v0.2.0")
     release_repo    = optional(string, "onek8s/azure-lab-fw")
-    vm_size         = optional(string, "Standard_B2ats_v2") # B1ls is capacity-restricted in swedencentral
+    vm_size         = optional(string, "Standard_B2ats_v2") # 2 vCPU / 1 GiB, the smallest Basv2 size (B1ls is often capacity-restricted)
     arch            = optional(string, "x64")
     subnet_prefix   = optional(string, "10.0.1.0/26") # 10.0.0.0/26 stays free for AzureFirewallSubnet
     # The exposure whose child Firewall Policy (main.firewall.policies.tf) labfw enforces, with the parent
@@ -213,6 +213,31 @@ variable "firewall_policies_enabled" {
   type        = bool
   default     = true
   description = "The parent Firewall Policy and a child per exposure (main.firewall.policies.tf, design D53), in every network mode: without an associated Firewall they cost nothing and can be reviewed in the Azure portal."
+}
+
+variable "platform_source_fqdns" {
+  type = list(string)
+  default = [
+    # Helm repositories and their chart downloads (GitHub Pages, GitHub releases)
+    "charts.external-secrets.io",
+    "kubernetes-sigs.github.io",
+    "traefik.github.io",
+    "grafana.github.io",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+    # Upstream images: GitHub Container Registry, Docker Hub, registry.k8s.io (Artifact Registry behind it), Quay
+    "ghcr.io",
+    "pkg-containers.githubusercontent.com",
+    "docker.io",
+    "registry-1.docker.io",
+    "auth.docker.io",
+    "production.cloudflare.docker.com",
+    "registry.k8s.io",
+    "*.pkg.dev",
+    "quay.io",
+    "*.quay.io",
+  ]
+  description = "Where the cells' platform components come from (Helm charts and upstream images of aks-fluxcd-platform and aks-terraform gateways/): the parent policy's platform-sources rule for every cell. Drops to the environment ACR once the platform's images and charts are mirrored there."
 }
 
 variable "firewall_exposures" {
