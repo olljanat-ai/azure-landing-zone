@@ -251,7 +251,7 @@ variable "firewall_exposures" {
     corporate = optional(bool, false)
     # Environment => its cells of this exposure (onek8s/aks-terraform shared/envs/<env>.tfvars, cells.tf)
     environments = map(object({
-      system_prefixes = list(string) # every cell's snet-system, and its snet-apiserver with a private API server
+      system_prefixes = list(string) # every cell's snet-system (and snet-apiserver, if a cell has one)
       # The environment's other networks behind the hub: the private endpoints of its vaults and registry
       # (aks-terraform shared/ private_endpoints), routed through labfw like the cells
       shared_prefixes    = optional(list(string), [])

@@ -37,9 +37,9 @@ firewall_exposures = {
     corporate = true
     environments = {
       dev = {
-        # dev-int-stateless-az1 (disabled), -az2: snet-system and snet-apiserver (the private API server's
-        # VNet integration, reached from the management network and the labfw VPN)
-        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24", "172.22.15.0/28", "172.22.31.0/28"]
+        # dev-int-stateless-az1 (disabled), -az2: snet-system, which also holds the private API server's
+        # Private Link endpoint (reached from the management network and the labfw VPN)
+        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24"]
         shared_prefixes     = ["172.20.2.0/26"] # snet-shared-pe: the vaults' and the registry's private endpoints
         platform_key_vault  = "kv-onek8s-gwc-platform"
         container_registry  = "acronek8sdev"
