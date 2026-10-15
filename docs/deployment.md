@@ -68,6 +68,15 @@ Switching an existing lab to `labfw`:
 Back to `sandbox` or on to `firewall`: switch the mode and run Platform - the route tables, labfw and its subnet go,
 and `firewall` mode reuses the same policies once it associates them (backlog item #2).
 
+#### Hybrid: the policy here, labfw elsewhere
+
+labfw also runs outside Azure - on a laptop's Hyper-V or any Linux VM (azure-lab-fw: `platform: generic`,
+`deploy/hyperv`) - and still enforces the Firewall Policies of this landing zone, read over HTTPS from ARM. This
+needs no network mode: list the outside instance's identity (an Azure Arc machine identity, or a certificate
+service principal) in `labfw_hybrid_reader_principal_ids` of `stacks/platform-extensions`. It gets Reader on
+`rg-hub-fwpolicy-<region>` (the policies and their IP groups) and the custom role *OneK8s labfw Service Tag
+Reader* on `sub-hub`, nothing else.
+
 #### VPN for machines outside Azure
 
 `labfw.vpn.enabled = true` turns on WireGuard on labfw (UDP 51820, the NSG allows `labfw.vpn.source_prefixes`).

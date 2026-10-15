@@ -361,3 +361,17 @@ run "labfw_mode_needs_policies" {
 
   expect_failures = [var.labfw]
 }
+
+run "labfw_hybrid_readers" {
+  command = plan
+
+  variables {
+    network_mode                      = "sandbox"
+    labfw_hybrid_reader_principal_ids = ["11111111-1111-1111-1111-111111111111"]
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.labfw_hybrid_policy_reader) == 1 && length(azurerm_role_assignment.labfw_hybrid_service_tags) == 1 && azurerm_role_definition.labfw_service_tags[0].permissions[0].actions == tolist(["Microsoft.Network/locations/serviceTags/read"])
+    error_message = "a hybrid labfw reads the policies' resource group and the service tags, in any network mode."
+  }
+}

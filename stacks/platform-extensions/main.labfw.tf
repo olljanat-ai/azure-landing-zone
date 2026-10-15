@@ -86,3 +86,37 @@ resource "azurerm_network_security_rule" "management_jump_vpn" {
   resource_group_name         = azurerm_resource_group.management_network.name
   network_security_group_name = azurerm_network_security_group.management["jump"].name
 }
+
+# Hybrid labfw (onek8s/azure-lab-fw, platform: generic): the policy stays here, the firewall runs elsewhere and only
+# reads it - the policies and their IP groups (one resource group) and the service tag list, nothing else
+resource "azurerm_role_definition" "labfw_service_tags" {
+  provider    = azurerm.connectivity
+  count       = length(var.labfw_hybrid_reader_principal_ids) > 0 ? 1 : 0
+  name        = "OneK8s labfw Service Tag Reader"
+  scope       = "/subscriptions/${module.platform.connectivity_subscription_id}"
+  description = "Reads the Azure service tag list (labfw resolves service tags in Firewall Policy rules)."
+
+  permissions {
+    actions = ["Microsoft.Network/locations/serviceTags/read"]
+  }
+
+  assignable_scopes = ["/subscriptions/${module.platform.connectivity_subscription_id}"]
+}
+
+resource "azurerm_role_assignment" "labfw_hybrid_policy_reader" {
+  provider             = azurerm.connectivity
+  for_each             = local.firewall_policies ? toset(var.labfw_hybrid_reader_principal_ids) : toset([])
+  scope                = azurerm_resource_group.firewall_policies[0].id
+  role_definition_name = "Reader"
+  principal_id         = each.value
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "labfw_hybrid_service_tags" {
+  provider           = azurerm.connectivity
+  for_each           = toset(var.labfw_hybrid_reader_principal_ids)
+  scope              = "/subscriptions/${module.platform.connectivity_subscription_id}"
+  role_definition_id = azurerm_role_definition.labfw_service_tags[0].role_definition_resource_id
+  principal_id       = each.value
+  principal_type     = "ServicePrincipal"
+}

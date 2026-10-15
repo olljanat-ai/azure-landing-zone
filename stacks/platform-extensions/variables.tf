@@ -166,6 +166,12 @@ variable "network_mode" {
   }
 }
 
+variable "labfw_hybrid_reader_principal_ids" {
+  type        = list(string)
+  default     = []
+  description = "Identities of labfw instances running outside Azure (hybrid: e.g. on Hyper-V, with an Azure Arc machine identity or a certificate service principal) that read the Firewall Policies: Reader on their resource group and the service tag list of sub-hub. Any network mode."
+}
+
 variable "labfw" {
   type = object({
     # GitHub release of onek8s/azure-lab-fw; vendor the same ref into modules/labfw (scripts/vendor-labfw.sh)
