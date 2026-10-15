@@ -60,10 +60,13 @@ jobs:
         id: subscriptions
         run: |
           set -euo pipefail
-          # Platform subscriptions of the accelerator inputs and the AKS environments' subscriptions (placeholders
-          # and subscriptions the identity cannot see are left out)
+          # Platform subscriptions of the accelerator inputs and the AKS environments' subscriptions: the
+          # `environments` of stacks/platform-extensions and the AKS policy tfvars (placeholders and subscriptions
+          # the identity cannot see are left out). A missing file is no error, as long as something is found.
           candidates="$(python3 -I -c 'import sys, yaml; print(" ".join(v for v in yaml.safe_load(open(sys.argv[1]))["subscription_ids"].values() if v))' accelerator/config/inputs.yaml)
-            $(sed -nE 's/^subscription_id *= *"([0-9a-f-]{36})".*/\1/p' environments/*/environment.tfvars)"
+            $(cat stacks/platform-extensions/terraform.tfvars environments/*/*.tfvars 2>/dev/null \
+              | sed -nE 's/^ *subscription_id *= *"([0-9a-f-]{36})".*/\1/p')"
+          [ -n "$(echo $candidates)" ] || { echo "::error::No lab subscriptions found in the configuration."; exit 1; }
           subs=""
           for sub in $candidates; do
             if az account show --subscription "$sub" >/dev/null 2>&1; then subs="$subs $sub"; else echo "skipped $sub (not accessible)"; fi
