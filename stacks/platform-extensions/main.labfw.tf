@@ -124,3 +124,34 @@ resource "azurerm_role_assignment" "labfw_hybrid_service_tags" {
   principal_id       = each.value
   principal_type     = "ServicePrincipal"
 }
+
+# The lab's power switch (onek8s/aks-terraform, workflow "Lab power"): the environments' apply identities stop
+# labfw after the cells and start it before them - start, deallocate and read the VM, nothing else on it (no Run
+# Command, no change to it). A custom role at labfw's resource group, like the service tag reader above.
+resource "azurerm_role_definition" "labfw_power" {
+  provider    = azurerm.connectivity
+  count       = local.labfw ? 1 : 0
+  name        = "OneK8s labfw Power (${var.location})"
+  scope       = module.labfw[0].resource_group_id
+  description = "Starts and deallocates labfw's virtual machine (the lab's power switch); reads it and its instance view."
+
+  permissions {
+    actions = [
+      "Microsoft.Compute/virtualMachines/read",
+      "Microsoft.Compute/virtualMachines/instanceView/read",
+      "Microsoft.Compute/virtualMachines/start/action",
+      "Microsoft.Compute/virtualMachines/deallocate/action",
+    ]
+  }
+
+  assignable_scopes = [module.labfw[0].resource_group_id]
+}
+
+resource "azurerm_role_assignment" "labfw_power" {
+  provider           = azurerm.connectivity
+  for_each           = local.labfw ? var.environments : {}
+  scope              = module.labfw[0].resource_group_id
+  role_definition_id = azurerm_role_definition.labfw_power[0].role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.aks["${each.key}-apply"].principal_id
+  principal_type     = "ServicePrincipal"
+}
