@@ -257,7 +257,7 @@ the design:
 | Azure Firewall (`firewall` mode) | Standard, no IDPS | Premium, IDPS | `primary_firewall_sku_tier` and `intrusion_detection` in the accelerator config |
 | GitHub runners | 1 | 2 | `github_runners.count` |
 | Runner ACR | Basic, public endpoint, Entra ID authentication only | Premium, private endpoint | `runner_registry_sku` |
-| Environment ACR | not part of the landing zone: created by [aks-terraform](https://github.com/onek8s/aks-terraform) (`shared/`) | | `environments.<env>.public_registry` in `stacks/platform-extensions` for the Firewall rules |
+| Environment ACR | not part of the landing zone: created by [aks-terraform](https://github.com/onek8s/aks-terraform) (`shared/`). Basic, public endpoint, Entra ID authentication only in every non-production environment (design D62) | Premium, private endpoint, no public network access in prd | aks-terraform `shared/` `container_registry_sku` (defaults from the environment); `firewall_exposures.<exposure>.container_registry` in `stacks/platform-extensions` for the Firewall rule of a public registry (null with a private endpoint) |
 | Key Vaults | standard, software-protected cluster keys (RSA) | premium, RSA-HSM | aks-terraform `shared/` – changing it later replaces the cluster keys, so rebuild the cells |
 | Traffic Manager | one profile per external hostname | the same | aks-terraform `shared/`: `global_hostnames` |
 | AKS | Free tier, 1 system node, public API server | Standard tier, 3 system nodes, private API server | `sku_tier`, `default_node_pool.node_count`, `private_cluster_enabled` in aks-terraform's `envs/dev-ext-stateless-az*.tfvars` |
