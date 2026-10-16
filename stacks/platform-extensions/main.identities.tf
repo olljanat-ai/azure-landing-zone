@@ -48,12 +48,12 @@ resource "azurerm_user_assigned_identity" "aks" {
 }
 
 resource "azurerm_federated_identity_credential" "aks" {
-  for_each  = local.environment_identities
-  name      = "github-${replace(var.github_repository, "/", "-")}-aks-${each.key}"
-  parent_id = azurerm_user_assigned_identity.aks[each.key].id
-  audience  = ["api://AzureADTokenExchange"]
-  issuer    = "https://token.actions.githubusercontent.com"
-  subject   = "${var.github_oidc_subject_prefix}:environment:aks-${each.key}"
+  for_each                  = local.environment_identities
+  name                      = "github-${replace(var.github_repository, "/", "-")}-aks-${each.key}"
+  user_assigned_identity_id = azurerm_user_assigned_identity.aks[each.key].id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = "${var.github_oidc_subject_prefix}:environment:aks-${each.key}"
 }
 
 # The apply identity of an environment also deploys from the environment's other repositories - aks-terraform:
@@ -65,12 +65,12 @@ locals {
 }
 
 resource "azurerm_federated_identity_credential" "deployment_repositories" {
-  for_each  = local.deployment_repositories
-  name      = "github-${each.value.repo}-${each.value.github_environment}"
-  parent_id = azurerm_user_assigned_identity.aks["${each.value.env}-apply"].id
-  audience  = ["api://AzureADTokenExchange"]
-  issuer    = "https://token.actions.githubusercontent.com"
-  subject   = "${each.value.subject_prefix}:environment:${each.value.github_environment}"
+  for_each                  = local.deployment_repositories
+  name                      = "github-${each.value.repo}-${each.value.github_environment}"
+  user_assigned_identity_id = azurerm_user_assigned_identity.aks["${each.value.env}-apply"].id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = "${each.value.subject_prefix}:environment:${each.value.github_environment}"
 }
 
 # Custom role on a VNet: peer AKS spokes to it and link private DNS zones to it, nothing else. Assigned on the hub
