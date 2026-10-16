@@ -45,9 +45,10 @@ firewall_exposures = {
         # dev-int-stateless-az1 (disabled), -az2, -az3: snet-system, which also holds the private API server's
         # Private Link endpoint (reached from the management network and the labfw VPN). az3 has no overlay
         # (design D59): its pods have addresses of these subnets, in 100.64.0.0/16, all the way to labfw.
-        system_prefixes     = ["172.22.0.0/24", "172.22.16.0/24", "100.64.0.0/20"]
-        shared_prefixes     = ["172.20.2.0/26"] # snet-shared-pe: the vaults' and the registry's private endpoints
-        platform_key_vault  = "kv-onek8s-gwc-platform"
+        system_prefixes    = ["172.22.0.0/24", "172.22.16.0/24", "100.64.0.0/20"]
+        shared_prefixes    = ["172.20.2.0/26"] # snet-shared-pe: the vaults', Foundry's and the state account's private endpoints
+        platform_key_vault = "kv-onek8s-gwc-platform"
+        # Basic, public (design D62): the container-registry rule lets the cells reach its endpoint and its storage
         container_registry  = "acronek8sdev"
         observability_fqdns = ["*.grafana.net"]
         zones = {
