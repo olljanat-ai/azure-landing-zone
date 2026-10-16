@@ -1,0 +1,12 @@
+zone: int-fi
+contact: https://github.com/onek8s/aks-fluxcd-example/issues
+egress:
+  - fqdn: api.open-meteo.com
+    port: 443
+    protocol: https
+    reason: aks-hello 0.4.1 fetches a Helsinki weather forecast from the internet (api.open-meteo.com) as described in apps/firewall-egress-int-fi/kustomization.yaml
+    evidence: |
+      8 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T04:43:17Z, last seen 2026-10-16T04:49:17Z
+      The destination is named in apps/firewall-egress-int-fi/kustomization.yaml, line 6-10
+      The flow was denied by the hub firewall, which saw the node address (viaNode: true).
+      The application configuration names this destination.
