@@ -15,12 +15,10 @@ flowchart LR
     subgraph OUT["What the firewall opens for the zone"]
         direction TB
         d_api_open_meteo_com["api.open-meteo.com:443<br/>asked by int-se-example"]
-        d_stats_grafana_org["stats.grafana.org:443<br/>asked by int-se-example"]
         z_login_microsoftonline_com["login.microsoftonline.com:443<br/>zone allow-list"]
     end
     a_int_se_example --> fw
     fw -->|"allowed"| d_api_open_meteo_com
-    fw -->|"allowed, not in the configuration"| d_stats_grafana_org
     fw -->|"zone allow-list"| z_login_microsoftonline_com
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
@@ -33,7 +31,6 @@ flowchart LR
     class fw fw
     class a_int_se_example ns
     class d_api_open_meteo_com allowed
-    class d_stats_grafana_org unexplained
     class z_login_microsoftonline_com zone
 ```
 
@@ -41,14 +38,13 @@ flowchart LR
 
 | Namespace | Team | Rules | Of them not named in the configuration | Named, no rule |
 |---|---|---|---|---|
-| [`int-se-example`](int-se-example.md) | example | 2 | 1 | 0 |
+| [`int-se-example`](int-se-example.md) | example | 1 | 0 | 0 |
 
 ## Destinations the zone may reach
 
 | Destination | Port | Asked for by | Named in their configuration | Why |
 |---|---|---|---|---|
 | `api.open-meteo.com` | 443 | [`int-se-example`](int-se-example.md) | yes | int-se-example: aks-hello fetches a weather forecast from the internet (api.open-meteo.com) as configured in firewall-egress/kustomization.yaml line 34 |
-| `stats.grafana.org` | 443 | [`int-se-example`](int-se-example.md) | **no** | int-se-example: The application aks-hello in int-se-example needs to send metrics to the public Grafana cloud service for monitoring and visualization. |
 | `login.microsoftonline.com` | 443 | the zone's allow-list (platform) | - | open to every application of the zone |
 
 ## Legend

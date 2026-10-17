@@ -49,8 +49,11 @@ firewall_exposures = {
         shared_prefixes    = ["172.20.2.0/26"] # snet-shared-pe: the vaults', Foundry's and the state account's private endpoints
         platform_key_vault = "kv-onek8s-gwc-platform"
         # Basic, public (design D62): the container-registry rule lets the cells reach its endpoint and its storage
-        container_registry  = "acronek8sdev"
-        observability_fqdns = ["*.grafana.net"]
+        container_registry = "acronek8sdev"
+        # Grafana Cloud (D48) and Grafana's anonymous usage statistics, which Alloy, Beyla and the k8s-monitoring chart
+        # report from every node (a platform flow, not an application's: it showed up in both example namespaces'
+        # files until 2026-10-17)
+        observability_fqdns = ["*.grafana.net", "stats.grafana.org"]
         zones = {
           int-fi = {
             prefixes        = ["172.22.1.0/24", "172.22.17.0/24", "100.64.16.0/20"]
