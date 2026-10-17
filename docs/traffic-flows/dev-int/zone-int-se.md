@@ -16,10 +16,14 @@ flowchart LR
         direction TB
         d_api_open_meteo_com["api.open-meteo.com:443<br/>asked by int-se-example"]
         z_login_microsoftonline_com["login.microsoftonline.com:443<br/>zone allow-list"]
+        p___grafana_net["*.grafana.net:443<br/>platform rule, every cell"]
+        p_stats_grafana_org["stats.grafana.org:443<br/>platform rule, every cell"]
     end
     a_int_se_example --> fw
     fw -->|"allowed"| d_api_open_meteo_com
     fw -->|"zone allow-list"| z_login_microsoftonline_com
+    fw -->|"platform rule"| p___grafana_net
+    fw -->|"platform rule"| p_stats_grafana_org
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
     classDef fw fill:#ede7f6,stroke:#5e35b1,color:#000
@@ -32,6 +36,7 @@ flowchart LR
     class a_int_se_example ns
     class d_api_open_meteo_com allowed
     class z_login_microsoftonline_com zone
+    class p___grafana_net,p_stats_grafana_org platform
 ```
 
 ## Applications
@@ -46,6 +51,8 @@ flowchart LR
 |---|---|---|---|---|
 | `api.open-meteo.com` | 443 | [`int-se-example`](int-se-example.md) | yes | int-se-example: aks-hello fetches a weather forecast from the internet (api.open-meteo.com) as configured in firewall-egress/kustomization.yaml line 34 |
 | `login.microsoftonline.com` | 443 | the zone's allow-list (platform) | - | open to every application of the zone |
+| `*.grafana.net` | 443 | a platform rule of the exposure | - | open from every cell: the platform's own flows |
+| `stats.grafana.org` | 443 | a platform rule of the exposure | - | open from every cell: the platform's own flows |
 
 ## Legend
 
@@ -56,7 +63,10 @@ flowchart LR
 - **denied: no rule** (red, dashed): the configuration names it and no rule allows it - the firewall
   denies it until the egress agent's pull request is merged.
 - **proposed** (purple, dashed): in an open pull request of the egress agent.
-- **zone allow-list** (teal): open to every application of the zone, not asked for by this one.
+- **zone allow-list** (teal): on the zone's allow-list, open to every application of the zone; on an
+  application's page only when its configuration names it.
+- **platform rule** (grey): a rule of the platform for every cell of the exposure (the registry, Grafana
+  Cloud, ...); on an application's page only when its configuration names it.
 
 A rule opens its destination to the whole zone (the firewall tells zones apart, not applications within
 one - design section 22): the zone's page shows the union.
