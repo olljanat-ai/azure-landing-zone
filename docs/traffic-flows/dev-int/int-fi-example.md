@@ -29,7 +29,6 @@ flowchart LR
     fw["Hub firewall<br/>rule collection group dev-int-applications"]
     subgraph OUT["Outside the landing zone"]
         direction TB
-        d_login_microsoftonline_com["login.microsoftonline.com:443"]
         d_api_ipify_org["api.ipify.org:443"]
         d_api_open_meteo_com["api.open-meteo.com:443"]
     end
@@ -39,7 +38,6 @@ flowchart LR
     wl_aks_hello --> dns
     eso -.->|"Secrets"| wl_aks_hello
     wl_aks_hello -->|"every flow leaving the cluster"| fw
-    fw -->|"zone allow-list"| d_login_microsoftonline_com
     fw -->|"allowed"| d_api_ipify_org
     fw -->|"allowed"| d_api_open_meteo_com
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
@@ -54,7 +52,6 @@ flowchart LR
     class fw fw
     class svc_aks_hello,wl_aks_hello ns
     class d_api_ipify_org,d_api_open_meteo_com allowed
-    class d_login_microsoftonline_com zone
 ```
 
 ## Egress: what leaves the cluster, and who asked for it
@@ -65,9 +62,12 @@ names it.
 
 | Destination | Port | Status | Rule | Why (from the rule) | Named in the configuration | Evidence |
 |---|---|---|---|---|---|---|
-| `login.microsoftonline.com` | 443/https | zone allow-list - open to every application of the zone | - | - | - | - |
 | `api.ipify.org` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-fi-example-https-443` | aks-hello 0.5.0 fetches the public IP from api.ipify.org once at start, as configured in firewall-egress-int-fi/kustomization.yaml line 7-8. | mentioned in firewall-egress-int-fi/kustomization.yaml | 6 denied flows from pod aks-hello-77db47cfcd-bbfv9 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T09:12:57Z, last seen 2026-10-16T09:13:11Z<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true). |
 | `api.open-meteo.com` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-fi-example-https-443` | aks-hello 0.4.1 fetches a Helsinki weather forecast from the internet (api.open-meteo.com) as described in apps/firewall-egress-int-fi/kustomization.yaml | Deployment aks-hello, WEATHER_URL<br/>mentioned in firewall-egress-int-fi/kustomization.yaml | 8 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T04:43:17Z, last seen 2026-10-16T04:49:17Z<br/>The destination is named in apps/firewall-egress-int-fi/kustomization.yaml, line 6-10<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true).<br/>The application configuration names this destination. |
+
+The zone's allow-list and the platform's rules (open to every application of the zone, resp. from every cell)
+are on the [zone's page](zone-int-fi.md); a name of theirs appears above only when this application's
+configuration names it.
 
 ## Ingress: how it is reached
 
@@ -95,7 +95,10 @@ names it.
 - **denied: no rule** (red, dashed): the configuration names it and no rule allows it - the firewall
   denies it until the egress agent's pull request is merged.
 - **proposed** (purple, dashed): in an open pull request of the egress agent.
-- **zone allow-list** (teal): open to every application of the zone, not asked for by this one.
+- **zone allow-list** (teal): on the zone's allow-list, open to every application of the zone; on an
+  application's page only when its configuration names it.
+- **platform rule** (grey): a rule of the platform for every cell of the exposure (the registry, Grafana
+  Cloud, ...); on an application's page only when its configuration names it.
 
 A rule opens its destination to the whole zone (the firewall tells zones apart, not applications within
 one - design section 22): the zone's page shows the union.

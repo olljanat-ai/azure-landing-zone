@@ -29,7 +29,6 @@ flowchart LR
     fw["Hub firewall<br/>rule collection group dev-int-applications"]
     subgraph OUT["Outside the landing zone"]
         direction TB
-        d_login_microsoftonline_com["login.microsoftonline.com:443"]
         d_api_open_meteo_com["api.open-meteo.com:443"]
     end
     client --> gw
@@ -38,7 +37,6 @@ flowchart LR
     wl_aks_hello --> dns
     eso -.->|"Secrets"| wl_aks_hello
     wl_aks_hello -->|"every flow leaving the cluster"| fw
-    fw -->|"zone allow-list"| d_login_microsoftonline_com
     fw -->|"allowed"| d_api_open_meteo_com
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
@@ -52,7 +50,6 @@ flowchart LR
     class fw fw
     class svc_aks_hello,wl_aks_hello ns
     class d_api_open_meteo_com allowed
-    class d_login_microsoftonline_com zone
 ```
 
 ## Egress: what leaves the cluster, and who asked for it
@@ -63,8 +60,11 @@ names it.
 
 | Destination | Port | Status | Rule | Why (from the rule) | Named in the configuration | Evidence |
 |---|---|---|---|---|---|---|
-| `login.microsoftonline.com` | 443/https | zone allow-list - open to every application of the zone | - | - | - | - |
 | `api.open-meteo.com` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-se-example-https-443` | aks-hello fetches a weather forecast from the internet (api.open-meteo.com) as configured in firewall-egress/kustomization.yaml line 34 | Deployment aks-hello, WEATHER_URL<br/>mentioned in firewall-egress/kustomization.yaml | 91 denied connections from pods aks-hello in namespace int-se-example on cluster aks-dev-int-stateless-az3, first seen 2026-10-15T17:49:32+00:00, last seen 2026-10-15T20:47:35+00:00 |
+
+The zone's allow-list and the platform's rules (open to every application of the zone, resp. from every cell)
+are on the [zone's page](zone-int-se.md); a name of theirs appears above only when this application's
+configuration names it.
 
 ## Ingress: how it is reached
 
@@ -88,7 +88,10 @@ names it.
 - **denied: no rule** (red, dashed): the configuration names it and no rule allows it - the firewall
   denies it until the egress agent's pull request is merged.
 - **proposed** (purple, dashed): in an open pull request of the egress agent.
-- **zone allow-list** (teal): open to every application of the zone, not asked for by this one.
+- **zone allow-list** (teal): on the zone's allow-list, open to every application of the zone; on an
+  application's page only when its configuration names it.
+- **platform rule** (grey): a rule of the platform for every cell of the exposure (the registry, Grafana
+  Cloud, ...); on an application's page only when its configuration names it.
 
 A rule opens its destination to the whole zone (the firewall tells zones apart, not applications within
 one - design section 22): the zone's page shows the union.
