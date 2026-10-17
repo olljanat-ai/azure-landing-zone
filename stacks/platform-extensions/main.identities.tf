@@ -1,4 +1,4 @@
-# Deployment identities of the AKS environments (OneK8s design sections 11, 12 and 23): one plan (read) and one
+# Deployment identities of the AKS environments (OneK8s design sections 3.2, 3.3 and 7.1): one plan (read) and one
 # apply (write) identity per environment, federated with this repository's GitHub environments
 # `aks-<env>-plan` and `aks-<env>-apply`. Like the accelerator's own identities they live in sub-mgmt, so a
 # rebuilt environment subscription keeps its deployment path.

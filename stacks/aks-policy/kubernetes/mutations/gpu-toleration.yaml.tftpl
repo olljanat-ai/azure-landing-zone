@@ -1,4 +1,4 @@
-# GPU chosen by the application (R17, design section 5): a pod labelled platform/accelerator:
+# GPU chosen by the application (R17, design section 2.3): a pod labelled platform/accelerator:
 # nvidia-gpu tolerates the zone's GPU NodePool's taint, platform/accelerator=nvidia-gpu:NoSchedule.
 # The pod still asks for the GPUs themselves as a resource (nvidia.com/gpu); that request is what
 # makes NAP create a GPU node, and the validation refuses the label without it.

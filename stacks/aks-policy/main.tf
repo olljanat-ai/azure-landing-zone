@@ -1,4 +1,4 @@
-# Azure Policy for the AKS platform (OneK8s design section 9), assigned to the environment subscription so that a
+# Azure Policy for the AKS platform (OneK8s design section 2.7), assigned to the environment subscription so that a
 # new or rebuilt cluster gets every policy automatically. A stack of its own: assignments are control plane only, so
 # it runs on GitHub-hosted runners and applies whether or not the self-hosted runners and the AKS dev workflow are
 # up – the clusters of onek8s/aks-terraform report their compliance to these assignments. Built-in definitions
@@ -6,14 +6,14 @@
 # FQDN egress, Gateway API only, NAP NodePools) and mutations in kubernetes.tf, tested with gator
 # (kubernetes/test.sh).
 #
-# Build tenant: every assignment uses var.policy_enforcement_mode (DoNotEnforce = audit only, section 23).
-# New definitions start with effect Audit regardless of the enforcement mode (section 9: audit in dev first, then
+# Build tenant: every assignment uses var.policy_enforcement_mode (DoNotEnforce = audit only, section 7.1).
+# New definitions start with effect Audit regardless of the enforcement mode (section 2.7: audit in dev first, then
 # deny), so switching policy_enforcement_mode to Default does not turn them into Deny by accident.
 locals {
   env     = var.environment
   enforce = var.policy_enforcement_mode == "Default"
 
-  # Platform namespaces, left out of the application rules (section 9)
+  # Platform namespaces, left out of the application rules (section 2.7)
   # aks-command: `az aks command invoke`'s pod, the break-glass path into a private cluster
   platform_namespaces = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system", "kube-public", "aks-istio-system", "aks-command"]
 
@@ -39,7 +39,7 @@ locals {
         excludedNamespaces          = { value = ["kube-system", "gatekeeper-system", "azure-arc", "azure-extensions-usage-system", "flux-system"] }
       }
     }
-    # Audit only until promoted to Deny (section 9)
+    # Audit only until promoted to Deny (section 2.7)
     k8s-deployment-safeguards = {
       id          = "/providers/Microsoft.Authorization/policySetDefinitions/c047ea8e-9c78-49b2-958b-37e56d291a44"
       description = "Deployment safeguards: probes, resource requests and AKS best practices"
@@ -112,7 +112,7 @@ locals {
     }
     aks-workload-identity = {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/2cc2e023-0dac-4046-875b-178f683929d5"
-      description = "Workload identity enabled (section 7)"
+      description = "Workload identity enabled (section 2.5)"
       parameters  = { effect = { value = "Audit" } }
     }
     # Cluster resources
@@ -133,12 +133,12 @@ locals {
     }
     aks-encryption-at-host = {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/41425d9f-d1a5-499a-9932-f8ed8453932c"
-      description = "Encryption at host on every node (section 16)"
+      description = "Encryption at host on every node (section 4.2)"
       parameters  = { effect = { value = local.enforce ? "Deny" : "Audit" } }
     }
     aks-cmk-disks = {
       id          = "/providers/Microsoft.Authorization/policyDefinitions/7d7be79c-23ba-4033-84dd-45e2a5ccdd67"
-      description = "OS and data disks with customer-managed keys (section 16)"
+      description = "OS and data disks with customer-managed keys (section 4.2)"
       parameters  = { effect = { value = local.enforce ? "Deny" : "Audit" } }
     }
     # Key Vault and ACR
@@ -175,7 +175,7 @@ resource "azurerm_subscription_policy_assignment" "aks" {
   dynamic "non_compliance_message" {
     for_each = startswith(each.key, "k8s-") ? [] : [each.value.description]
     content {
-      content = "Violates the AKS platform design (OneK8s design section 9): ${non_compliance_message.value}."
+      content = "Violates the AKS platform design (OneK8s design section 2.7): ${non_compliance_message.value}."
     }
   }
 }

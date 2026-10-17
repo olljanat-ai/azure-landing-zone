@@ -1,4 +1,4 @@
-# Stateless clusters keep no state (design section 10, policy table of section 9: "Reject
+# Stateless clusters keep no state (design section 3.1, policy table of section 2.7: "Reject
 # PersistentVolumeClaim"). aks-terraform turns off every CSI driver of a stateless cluster
 # (persistent_storage_enabled = false); this keeps it that way:
 #
