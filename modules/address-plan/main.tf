@@ -1,4 +1,4 @@
-# Address plan of OneK8s design section 8 ("VNets and address plan"). Pure computation, no resources:
+# Address plan of OneK8s design section 10 ("VNets and address plan"). Pure computation, no resources:
 #
 #   environment /12 -> platform /16 (index 0) + one /16 per country
 #   country /16     -> zone /17: int (first half), ext (second half)
@@ -38,7 +38,7 @@ locals {
 
   control_plane = { for s, si in local.slots : s => cidrsubnet(local.platform_prefix, 4, si) }
 
-  # Subnet layout of a stateless cell (OneK8s design picture 2), per slot sl-az<N>
+  # Subnet layout of a stateless cell (OneK8s design picture 3), per slot sl-az<N>
   cells = {
     for s in ["sl-az1", "sl-az2", "sl-az3"] : s => {
       address_spaces = concat([local.control_plane[s]], [for z in values(local.zones) : z.slots[s]])

@@ -1,4 +1,4 @@
-# The platform's own Kubernetes policies (OneK8s design section 14): custom Microsoft.Kubernetes.Data
+# The platform's own Kubernetes policies (OneK8s design section 9): custom Microsoft.Kubernetes.Data
 # definitions with the Gatekeeper constraint and mutation templates of kubernetes/ embedded as
 # Base64, assigned to the environment subscription like the built-ins in main.tf. The Azure Policy
 # add-on of every cluster pulls them in within 15 minutes. kubernetes/test.sh tests the templates
@@ -10,7 +10,7 @@
 # stateful rules leave out the stateless cells.
 #
 # Effects:
-#   - new validations start as Audit, also when policy_enforcement_mode is Default (section 14:
+#   - new validations start as Audit, also when policy_enforcement_mode is Default (section 9:
 #     audit in dev first, then deny), and are promoted to Deny one by one in var.kubernetes_deny -
 #     once the clusters report no violation of them (aks-terraform's Cluster status lists them);
 #   - the storage rules are enforced (Deny) in every mode: they replace the fleet's

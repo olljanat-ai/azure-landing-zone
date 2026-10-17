@@ -1,4 +1,4 @@
-# Node auto provisioning in the stateless cells (R4, R17, design section 4): a zone's nodes come only
+# Node auto provisioning in the stateless cells (R4, R17, design section 5): a zone's nodes come only
 # from its own AKSNodeClass and NodePools, named after the zone without its dash (`extfi`,
 # `extfispot`):
 #

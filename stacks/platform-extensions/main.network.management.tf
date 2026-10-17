@@ -1,4 +1,4 @@
-# Management VNet in sub-mgmt (OneK8s design pictures 1 and 3): jump hosts and self-hosted CI runners, the only
+# Management VNet in sub-mgmt (OneK8s design pictures 1 and 4): jump hosts and self-hosted CI runners, the only
 # network that reaches the Kubernetes API servers – through a private endpoint per cluster in snet-aks-api-pe.
 resource "azurerm_resource_group" "management_network" {
   name     = "rg-mgmt-network-${var.location}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the `policy_assignments_to_modify` block that puts every ALZ policy assignment in
-enforcement mode `DoNotEnforce` (build tenant: audit only, see OneK8s design section 17).
+enforcement mode `DoNotEnforce` (build tenant: audit only, see OneK8s design section 23).
 
 Usage: generate-policy-enforcement.py <path-to-Azure-Landing-Zones-Library checkout at the ref in
 accelerator/config/lib/alz_library_metadata.json>
