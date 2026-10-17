@@ -31,7 +31,6 @@ flowchart LR
         direction TB
         d_login_microsoftonline_com["login.microsoftonline.com:443"]
         d_api_open_meteo_com["api.open-meteo.com:443"]
-        d_stats_grafana_org["stats.grafana.org:443"]
     end
     client --> gw
     gw --> svc_aks_hello
@@ -41,7 +40,6 @@ flowchart LR
     wl_aks_hello -->|"every flow leaving the cluster"| fw
     fw -->|"zone allow-list"| d_login_microsoftonline_com
     fw -->|"allowed"| d_api_open_meteo_com
-    fw -->|"allowed, not in the configuration"| d_stats_grafana_org
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
     classDef fw fill:#ede7f6,stroke:#5e35b1,color:#000
@@ -54,7 +52,6 @@ flowchart LR
     class fw fw
     class svc_aks_hello,wl_aks_hello ns
     class d_api_open_meteo_com allowed
-    class d_stats_grafana_org unexplained
     class d_login_microsoftonline_com zone
 ```
 
@@ -68,7 +65,6 @@ names it.
 |---|---|---|---|---|---|---|
 | `login.microsoftonline.com` | 443/https | zone allow-list - open to every application of the zone | - | - | - | - |
 | `api.open-meteo.com` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-se-example-https-443` | aks-hello fetches a weather forecast from the internet (api.open-meteo.com) as configured in firewall-egress/kustomization.yaml line 34 | Deployment aks-hello, WEATHER_URL<br/>mentioned in firewall-egress/kustomization.yaml | 91 denied connections from pods aks-hello in namespace int-se-example on cluster aks-dev-int-stateless-az3, first seen 2026-10-15T17:49:32+00:00, last seen 2026-10-15T20:47:35+00:00 |
-| `stats.grafana.org` | 443/https | allowed - the application's rule, but its configuration does not name it | `dev-int-applications/int-se-example-https-443` | The application aks-hello in int-se-example needs to send metrics to the public Grafana cloud service for monitoring and visualization. | - | 5 denied flows from pod aks-hello-66966c9985-5l74n in namespace int-se-example on cluster aks-dev-int-stateless-az3, first seen 2026-10-16T09:12:01Z, last seen 2026-10-16T09:12:24Z<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true).<br/>The application configuration does not explicitly name this destination, but it is a plausible public API for metrics. |
 
 ## Ingress: how it is reached
 

@@ -16,13 +16,11 @@ flowchart LR
         direction TB
         d_api_ipify_org["api.ipify.org:443<br/>asked by int-fi-example"]
         d_api_open_meteo_com["api.open-meteo.com:443<br/>asked by int-fi-example"]
-        d_stats_grafana_org["stats.grafana.org:443<br/>asked by int-fi-example"]
         z_login_microsoftonline_com["login.microsoftonline.com:443<br/>zone allow-list"]
     end
     a_int_fi_example --> fw
     fw -->|"allowed"| d_api_ipify_org
     fw -->|"allowed"| d_api_open_meteo_com
-    fw -->|"allowed, not in the configuration"| d_stats_grafana_org
     fw -->|"zone allow-list"| z_login_microsoftonline_com
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
@@ -35,7 +33,6 @@ flowchart LR
     class fw fw
     class a_int_fi_example ns
     class d_api_ipify_org,d_api_open_meteo_com allowed
-    class d_stats_grafana_org unexplained
     class z_login_microsoftonline_com zone
 ```
 
@@ -43,7 +40,7 @@ flowchart LR
 
 | Namespace | Team | Rules | Of them not named in the configuration | Named, no rule |
 |---|---|---|---|---|
-| [`int-fi-example`](int-fi-example.md) | example | 3 | 1 | 0 |
+| [`int-fi-example`](int-fi-example.md) | example | 2 | 0 | 0 |
 
 ## Destinations the zone may reach
 
@@ -51,7 +48,6 @@ flowchart LR
 |---|---|---|---|---|
 | `api.ipify.org` | 443 | [`int-fi-example`](int-fi-example.md) | yes | int-fi-example: aks-hello 0.5.0 fetches the public IP from api.ipify.org once at start, as configured in firewall-egress-int-fi/kustomization.yaml line 7-8. |
 | `api.open-meteo.com` | 443 | [`int-fi-example`](int-fi-example.md) | yes | int-fi-example: aks-hello 0.4.1 fetches a Helsinki weather forecast from the internet (api.open-meteo.com) as described in apps/firewall-egress-int-fi/kustomization.yaml |
-| `stats.grafana.org` | 443 | [`int-fi-example`](int-fi-example.md) | **no** | int-fi-example: The application aks-hello in int-fi-example needs to send metrics to the public Grafana cloud service for monitoring and visualization. |
 | `login.microsoftonline.com` | 443 | the zone's allow-list (platform) | - | open to every application of the zone |
 
 ## Legend

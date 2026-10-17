@@ -32,7 +32,6 @@ flowchart LR
         d_login_microsoftonline_com["login.microsoftonline.com:443"]
         d_api_ipify_org["api.ipify.org:443"]
         d_api_open_meteo_com["api.open-meteo.com:443"]
-        d_stats_grafana_org["stats.grafana.org:443"]
     end
     client --> gw
     gw --> svc_aks_hello
@@ -43,7 +42,6 @@ flowchart LR
     fw -->|"zone allow-list"| d_login_microsoftonline_com
     fw -->|"allowed"| d_api_ipify_org
     fw -->|"allowed"| d_api_open_meteo_com
-    fw -->|"allowed, not in the configuration"| d_stats_grafana_org
     classDef ns fill:#e3f2fd,stroke:#1565c0,color:#000
     classDef platform fill:#eceff1,stroke:#455a64,color:#000
     classDef fw fill:#ede7f6,stroke:#5e35b1,color:#000
@@ -56,7 +54,6 @@ flowchart LR
     class fw fw
     class svc_aks_hello,wl_aks_hello ns
     class d_api_ipify_org,d_api_open_meteo_com allowed
-    class d_stats_grafana_org unexplained
     class d_login_microsoftonline_com zone
 ```
 
@@ -71,7 +68,6 @@ names it.
 | `login.microsoftonline.com` | 443/https | zone allow-list - open to every application of the zone | - | - | - | - |
 | `api.ipify.org` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-fi-example-https-443` | aks-hello 0.5.0 fetches the public IP from api.ipify.org once at start, as configured in firewall-egress-int-fi/kustomization.yaml line 7-8. | mentioned in firewall-egress-int-fi/kustomization.yaml | 6 denied flows from pod aks-hello-77db47cfcd-bbfv9 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T09:12:57Z, last seen 2026-10-16T09:13:11Z<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true). |
 | `api.open-meteo.com` | 443/https | allowed - the application's rule, named in its configuration | `dev-int-applications/int-fi-example-https-443` | aks-hello 0.4.1 fetches a Helsinki weather forecast from the internet (api.open-meteo.com) as described in apps/firewall-egress-int-fi/kustomization.yaml | Deployment aks-hello, WEATHER_URL<br/>mentioned in firewall-egress-int-fi/kustomization.yaml | 8 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T04:43:17Z, last seen 2026-10-16T04:49:17Z<br/>The destination is named in apps/firewall-egress-int-fi/kustomization.yaml, line 6-10<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true).<br/>The application configuration names this destination. |
-| `stats.grafana.org` | 443/https | allowed - the application's rule, but its configuration does not name it | `dev-int-applications/int-fi-example-https-443` | The application aks-hello in int-fi-example needs to send metrics to the public Grafana cloud service for monitoring and visualization. | - | 5 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T08:39:12Z, last seen 2026-10-16T08:39:39Z<br/>The flow was denied by the hub firewall, which saw the node address (viaNode: true).<br/>The application configuration does not explicitly name this destination, but it is a plausible public API for metrics. |
 
 ## Ingress: how it is reached
 

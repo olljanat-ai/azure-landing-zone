@@ -15,11 +15,3 @@ egress:
       The destination is named in apps/firewall-egress-int-fi/kustomization.yaml, line 6-10
       The flow was denied by the hub firewall, which saw the node address (viaNode: true).
       The application configuration names this destination.
-  - fqdn: stats.grafana.org
-    port: 443
-    protocol: https
-    reason: The application aks-hello in int-fi-example needs to send metrics to the public Grafana cloud service for monitoring and visualization.
-    evidence: |
-      5 denied flows from pod aks-hello-895fcf8f8-jzfg6 in namespace int-fi-example on cluster aks-dev-int-stateless-az2, first seen 2026-10-16T08:39:12Z, last seen 2026-10-16T08:39:39Z
-      The flow was denied by the hub firewall, which saw the node address (viaNode: true).
-      The application configuration does not explicitly name this destination, but it is a plausible public API for metrics.
