@@ -1,4 +1,4 @@
-# The examples of OneK8s design section 8 ("VNets and address plan") must hold.
+# The examples of OneK8s design section 10 ("VNets and address plan") must hold.
 
 run "prd_matches_design" {
   command = plan

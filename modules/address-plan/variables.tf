@@ -10,7 +10,7 @@ variable "environment" {
 variable "base_prefix" {
   type        = string
   default     = "10.0.0.0/8"
-  description = "Prefix the environment /12s are taken from (OneK8s design section 8: dev 10.16.0.0/12, acc 10.32.0.0/12, prd 10.48.0.0/12)."
+  description = "Prefix the environment /12s are taken from (OneK8s design section 10: dev 10.16.0.0/12, acc 10.32.0.0/12, prd 10.48.0.0/12)."
 }
 
 variable "environment_indexes" {

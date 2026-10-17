@@ -1,5 +1,5 @@
 /*
-Platform landing zone of the AKS platform build tenant (OneK8s design section 17).
+Platform landing zone of the AKS platform build tenant (OneK8s design section 23).
 
 Based on the accelerator example `full-single-region/hub-and-spoke-vnet.tfvars` with these build tenant decisions:
 - Three subscriptions: sub-mgmt (management), sub-hub (connectivity) and sub-aks-dev (placed in `corp`).
@@ -168,7 +168,7 @@ management_resource_settings = {
 --- Management Groups and Policy ---
 The corporate landing zone initiatives (ALZ library, see lib/alz_library_metadata.json) assigned at the same
 scopes as in the corporate tenant. The AKS platform's own definitions are assigned per environment subscription
-by stacks/aks-policy (OneK8s design section 14).
+by stacks/aks-policy (OneK8s design section 9).
 */
 management_groups_enabled = true
 
@@ -225,7 +225,7 @@ management_group_settings = {
       subscription_id       = "$${subscription_id_security}"
       management_group_name = "security"
     }
-    # AKS platform environment subscriptions (OneK8s design section 9). Corp: connected to the hub, no public
+    # AKS platform environment subscriptions (OneK8s design section 11). Corp: connected to the hub, no public
     # endpoints – the only public entry point (Front Door) is a global service outside the spokes.
     aks_dev = {
       subscription_id       = "$${subscription_id_aks_dev}"

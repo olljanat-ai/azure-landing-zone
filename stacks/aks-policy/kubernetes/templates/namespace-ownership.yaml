@@ -1,4 +1,4 @@
-# Who owns what runs in a namespace, and who pays for it (design section 7, "Ownership and cost"):
+# Who owns what runs in a namespace, and who pays for it (design section 8, "Ownership and cost"):
 # every namespace the assignment covers - application namespaces and the platform's own, all but
 # the ones AKS and its add-ons create - carries
 #
@@ -47,11 +47,11 @@ spec:
         violation[{"msg": msg}] {
           key := input.parameters.requiredLabels[_]
           object.get(ns.metadata, ["labels", key], "") == ""
-          msg := sprintf("Namespace %v must carry the label %v: who owns and pays for what runs in it (design section 7).", [ns.metadata.name, key])
+          msg := sprintf("Namespace %v must carry the label %v: who owns and pays for what runs in it (design section 8).", [ns.metadata.name, key])
         }
 
         violation[{"msg": msg}] {
           key := input.parameters.requiredAnnotations[_]
           object.get(ns.metadata, ["annotations", key], "") == ""
-          msg := sprintf("Namespace %v must carry the annotation %v: how to reach its owners (design section 7).", [ns.metadata.name, key])
+          msg := sprintf("Namespace %v must carry the annotation %v: how to reach its owners (design section 8).", [ns.metadata.name, key])
         }

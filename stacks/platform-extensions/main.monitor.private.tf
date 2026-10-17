@@ -1,4 +1,4 @@
-# The hub's Azure Monitor Private Link scope (OneK8s design section 19; the user's ask 2026-10-15: no public
+# The hub's Azure Monitor Private Link scope (OneK8s design section 21; the user's ask 2026-10-15: no public
 # endpoints): Log Analytics and the data collection endpoints reached over Private Link, so that their workspaces and
 # endpoints take no public network access. An Azure Monitor private endpoint answers the global Azure Monitor names
 # (api.loganalytics.io, *.ods/oms.opinsights.azure.com, *.handler.control.monitor.azure.com ...) for every network

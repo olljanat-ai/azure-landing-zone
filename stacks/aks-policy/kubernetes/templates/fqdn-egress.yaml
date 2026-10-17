@@ -1,4 +1,4 @@
-# Egress out of the cluster only by FQDN (R20, design section 16) - the admission side of the rules
+# Egress out of the cluster only by FQDN (R20, design section 17) - the admission side of the rules
 # aks-fluxcd-platform's scripts/check-egress.py checks in CI (which also checks the names against
 # the zone's Firewall allow-list; admission cannot, it sees no other object):
 #
@@ -60,7 +60,7 @@ spec:
           rule := specs[_].egress[_]
           peer := forbidden_peers[_]
           rule[peer]
-          msg := sprintf("CiliumNetworkPolicy %v: egress %v is not allowed - only toEndpoints, toServices and toFQDNs (design section 16).", [obj.metadata.name, peer])
+          msg := sprintf("CiliumNetworkPolicy %v: egress %v is not allowed - only toEndpoints, toServices and toFQDNs (design section 17).", [obj.metadata.name, peer])
         }
 
         violation[{"msg": msg}] {

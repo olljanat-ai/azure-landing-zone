@@ -1,4 +1,4 @@
-# Zone pinning (design section 4): a pod in a namespace of zone ${zone} that names no zone gets
+# Zone pinning (design section 5): a pod in a namespace of zone ${zone} that names no zone gets
 # nodeSelector platform/zone: ${zone}. The zone's platform namespaces run on the system pool and are
 # left out; so is a pod labelled platform/zone-placement: "off" (a recorded exception - the
 # validation still reports it). Rendered per zone by stacks/aks-policy (kubernetes.tf).

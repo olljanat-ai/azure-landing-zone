@@ -1,4 +1,4 @@
-# gator verify suite of the platform's constraint templates (OneK8s design section 14):
+# gator verify suite of the platform's constraint templates (OneK8s design section 9):
 #   gator verify stacks/aks-policy/kubernetes/tests
 # Every case is a manifest the template must refuse (with the number of findings) or accept;
 # the cases named fleet-* and example-* are the real manifests of aks-fluxcd-platform and

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests of the platform's Kubernetes policies (OneK8s design section 14), run by CI and locally:
+# Tests of the platform's Kubernetes policies (OneK8s design section 9), run by CI and locally:
 #
 #   stacks/aks-policy/kubernetes/test.sh        (needs gator, python3 with PyYAML)
 #

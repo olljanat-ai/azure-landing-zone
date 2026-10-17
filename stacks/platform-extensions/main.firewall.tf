@@ -1,4 +1,4 @@
-# Hub Firewall rules (OneK8s design sections 5, 8 and 16) in the ALZ policy of the Azure Firewall, only in network
+# Hub Firewall rules (OneK8s design sections 6, 10 and 17) in the ALZ policy of the Azure Firewall, only in network
 # mode "firewall" (labfw mode: main.labfw.tf). The Firewall decides what a *zone* may reach; Cilium FQDN
 # policies decide what an *application* may reach. Rules are written with zone prefixes from the address plan
 # (IP groups), never with the VirtualNetwork service tag.
@@ -276,7 +276,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
     }
 
     # Internal entry point of zone X -> the gateway of zone X in every cell. Network rule: no SNAT, so NGINX sees
-    # the client address for client-IP affinity (OneK8s design section 8).
+    # the client address for client-IP affinity (OneK8s design section 10).
     dynamic "rule" {
       for_each = each.value.edge.zones
       content {
@@ -367,7 +367,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks" {
       }
     }
 
-    # GitOps extension (Flux) on the system pools of the stateless clusters (OneK8s design section 10). github.com
+    # GitOps extension (Flux) on the system pools of the stateless clusters (OneK8s design section 12). github.com
     # is only needed while the fleet is pulled from Git; with the OCI artifact in the environment ACR it is removed.
     rule {
       name             = "gitops-flux"

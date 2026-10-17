@@ -45,7 +45,7 @@ variable "management_address_space" {
 variable "client_address_space" {
   type        = string
   default     = "10.200.0.0/22"
-  description = "Client VNet that simulates the corporate network in the build tenant (OneK8s design section 17)."
+  description = "Client VNet that simulates the corporate network in the build tenant (OneK8s design section 23)."
 }
 
 variable "environments" {
@@ -53,7 +53,7 @@ variable "environments" {
     subscription_id = string
     countries       = optional(map(number), { fi = 1, se = 2 })
     # Isolation zone => extra FQDNs the zone's applications may reach on the Internet (union of the zones'
-    # application egress policies, OneK8s design section 16). Platform FQDNs are always allowed.
+    # application egress policies, OneK8s design section 17). Platform FQDNs are always allowed.
     zone_fqdn_allow_lists = optional(map(list(string)), {})
     # The environment ACR is public (Basic, created by onek8s/aks-terraform in the lab):
     # firewall mode then allows the nodes and the runners to reach it on the Internet instead of its private endpoint
@@ -66,7 +66,7 @@ variable "environments" {
       github_environment = string
     })), {})
   }))
-  description = "AKS platform environments that exist in this tenant. The build tenant only has dev (OneK8s design section 17)."
+  description = "AKS platform environments that exist in this tenant. The build tenant only has dev (OneK8s design section 23)."
 }
 
 variable "jump_host_enabled" {
@@ -83,7 +83,7 @@ variable "jump_host_vm_size" {
 variable "client_vm_enabled" {
   type        = bool
   default     = false
-  description = "Test client / load generator VM in the client VNet (and its NAT gateway in sandbox mode). Needs the hub Bastion like the jump host. Turn on for acceptance testing (OneK8s design section 17)."
+  description = "Test client / load generator VM in the client VNet (and its NAT gateway in sandbox mode). Needs the hub Bastion like the jump host. Turn on for acceptance testing (OneK8s design section 23)."
 }
 
 variable "client_vm_size" {
