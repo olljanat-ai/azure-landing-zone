@@ -50,3 +50,10 @@ Build tenant (not connected to the corporate network)
 
 Country codes `fi` / `se`, the test domain and all IP ranges are the examples of the design; replace them with the
 prefixes reserved from the corporate IPAM before deploying.
+
+## Traffic flow documentation
+
+[`docs/traffic-flows/`](docs/traffic-flows/README.md) shows, per application namespace and per isolation zone, what reaches the
+application and what it reaches through the hub firewall - with the application that asked for each rule, which the
+firewall itself cannot tell (OneK8s design section 23). The pages are generated from the rule files in
+`stacks/platform-extensions/firewall-applications/` and the applications' own configuration; do not edit them by hand.
