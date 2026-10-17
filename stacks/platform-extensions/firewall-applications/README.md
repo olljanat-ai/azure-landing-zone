@@ -17,6 +17,12 @@ egress:
     evidence: 12 denied flows 2026-10-15 from pod aks-hello-7d9c... (100.64.32.17), labfw deny log
 ```
 
+Each file is also the **attribution** the firewall cannot give: its rules take the zone's IP group as their source, so only
+these files say which application asked for a destination and why. `docs/traffic-flows/<env>-<exposure>/` (design section
+23) is generated from them and the applications' own configuration - a picture per application and per zone, every
+destination marked as named in the configuration, allowed but not named, or named but denied - by onek8s/aks-ai-agents'
+`aks-agent docs traffic` (aks-terraform workflow `Traffic flow docs`). Regenerate the pages after a change here.
+
 The files are written by the egress agent of onek8s/aks-ai-agents: it reads the flows the firewall denied, finds
 the pod behind each source address (a cell without an overlay keeps pod addresses up to the firewall), and opens
 a pull request adding the destination to that application's file. A human of the platform and security reviews
