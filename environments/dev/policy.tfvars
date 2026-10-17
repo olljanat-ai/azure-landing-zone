@@ -1,4 +1,4 @@
-# AKS policy assignments of dev (OneK8s design section 9), stacks/aks-policy
+# AKS policy assignments of dev (OneK8s design section 2.7), stacks/aks-policy
 environment     = "dev"
 location        = "germanywestcentral"
 subscription_id = "3b9f032a-0165-4b8c-9e1e-d7a664c661a8" # sub-aks-dev
@@ -29,7 +29,7 @@ cluster_resource_group_name = "rg-aks-dev"
 stateless_cluster_names     = ["aks-dev-int-stateless-az1", "aks-dev-int-stateless-az2", "aks-dev-int-stateless-az3"] # az1 disabled (zone 1 not available); az3 without an overlay (D59)
 stateful_cluster_name       = "aks-dev-int-stateful"
 
-# Promoted from Audit to Deny (design section 9: audit first, then deny, rule by rule): every rule
+# Promoted from Audit to Deny (design section 2.7: audit first, then deny, rule by rule): every rule
 # here reported no violation on aks-dev-stateless-az1 (2026-10-13, Cluster status, constraints audited
 # after the new rules were applied), and the isolation tests' forbidden manifests check that each now
 # refuses. Still in Audit, with the reason:

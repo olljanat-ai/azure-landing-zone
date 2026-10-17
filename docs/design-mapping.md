@@ -1,6 +1,6 @@
 # How the code implements the OneK8s design
 
-Requirements from [docs/requirements.md](https://github.com/onek8s/onek8s.github.io/blob/main/docs/requirements.md)
+Requirements from [docs/1.2-requirements.md](https://github.com/onek8s/onek8s.github.io/blob/main/docs/1.2-requirements.md)
 and where the code implements them. Four repositories share the work:
 
 | Repository | Role |
@@ -16,7 +16,7 @@ and where the code implements them. Four repositories share the work:
 | R2 | int / ext isolation by subscription and cluster (D52) | `exposure` (`int`/`ext`) in aks-terraform's root module and `shared/` and in `stacks/aks-policy`, validated: every zone, namespace and policy of a subscription is of its exposure; aks-fluxcd-platform `clusters/dev-ext-*`, `node-pools/{internal,external}`, `external-dns/internal`; the Isolation tests' R2 step (one exposure per cluster and subscription) | Built for both; the lab runs `int` (2026-10-15): `sub-aks-dev` plays `sub-aks-dev-int`, only `aks-dev-int-stateless-az2` (Finland's `int-fi`; `int-se` disabled; the az1 cell disabled, zone 1 not available to the subscription) in germanywestcentral; no external subscription in the build tenant now |
 | R3 | Country isolation (node pool + network) | aks-terraform `shared/` `isolation_zones`: per cell one /24 per zone (nodes, internal load balancer), own NSG and vault; aks-fluxcd-platform `infrastructure/zones` | Built |
 | R4 | Key Vault + network + nodes per zone | aks-terraform `shared/`: a vault per zone (`zone_key_vault_names`), a node and ILB subnet with its own NSG per zone and cell; aks-fluxcd-platform: a NAP `AKSNodeClass` per zone in its own subnet | Built |
-| R5 | Only Kubernetes-mandatory flows between zones | NSGs per subnet (aks-terraform `shared/cells.tf`, the flows of section 6); Cilium baseline per zone (aks-fluxcd-platform `infrastructure/zones/cilium.yaml`) | Built (NSG + Cilium); no Firewall in the lab's `sandbox` network mode. Design D53 (2026-10-14) puts a hub VNet and Azure Firewall per exposure with no route between them; its Firewall Policies are built ahead of the Firewalls (`stacks/platform-extensions/main.firewall.policies.tf`, 2026-10-14, in every network mode, no Firewall associated): parent `afwp-hub-parent-<region>` (Premium, threat intelligence and IDPS Deny, platform FQDNs, the exposure guard rails) and the child `afwp-hub-ext-<region>` with the cells' real prefixes, reviewable in the portal. Network mode `labfw` (2026-10-15) enforces them without an Azure Firewall: labfw ([onek8s/azure-lab-fw](https://github.com/onek8s/azure-lab-fw), `modules/labfw`, cloud-init vendored) in the hub enforces `afwp-hub-ext-<region>` with its parent for the management and client VNets and - since 2026-10-15, the lab's network mode - the cells too (aks-terraform `shared/` `hub`: hub peering, `0.0.0.0/0` to labfw, its DNS proxy), enforcing `afwp-hub-int-<region>` with its parent. `main.firewall.tf` (firewall mode only) still holds the old per-environment rules with the removed NGINXaaS edge rules - drop it when `firewall` mode associates the Firewalls with the new policies |
+| R5 | Only Kubernetes-mandatory flows between zones | NSGs per subnet (aks-terraform `shared/cells.tf`, the flows of section 2.4); Cilium baseline per zone (aks-fluxcd-platform `infrastructure/zones/cilium.yaml`) | Built (NSG + Cilium); no Firewall in the lab's `sandbox` network mode. Design D53 (2026-10-14) puts a hub VNet and Azure Firewall per exposure with no route between them; its Firewall Policies are built ahead of the Firewalls (`stacks/platform-extensions/main.firewall.policies.tf`, 2026-10-14, in every network mode, no Firewall associated): parent `afwp-hub-parent-<region>` (Premium, threat intelligence and IDPS Deny, platform FQDNs, the exposure guard rails) and the child `afwp-hub-ext-<region>` with the cells' real prefixes, reviewable in the portal. Network mode `labfw` (2026-10-15) enforces them without an Azure Firewall: labfw ([onek8s/azure-lab-fw](https://github.com/onek8s/azure-lab-fw), `modules/labfw`, cloud-init vendored) in the hub enforces `afwp-hub-ext-<region>` with its parent for the management and client VNets and - since 2026-10-15, the lab's network mode - the cells too (aks-terraform `shared/` `hub`: hub peering, `0.0.0.0/0` to labfw, its DNS proxy), enforcing `afwp-hub-int-<region>` with its parent. `main.firewall.tf` (firewall mode only) still holds the old per-environment rules with the removed NGINXaaS edge rules - drop it when `firewall` mode associates the Firewalls with the new policies |
 | R6 | Namespace + network policies | Managed namespaces with `AllowSameNamespace` default policies (aks-terraform), the zone's `CiliumClusterwideNetworkPolicy` baseline; who may work in a namespace (D49): `managed_namespaces.<ns>.groups` binds an Entra ID group each to ClusterRole `view`, `edit` and `admin` (RoleBindings `platform-<role>` from aks-fluxcd-platform `infrastructure/namespace-access`, applied by a Flux configuration `<ns>-access`) plus `AKS Namespace User` on the namespace, and on the namespace's Key Vault share `admin` Key Vault Secrets Officer and `edit` the custom Key Vault Secrets Editor (write and update, attributes, no value, no delete - D51, defined at the resource group) under `<ns>--`, `view` nothing (aks-terraform `shared/` `key_vault_namespaces.<ns>.groups`); soft multi-tenancy (D50): no tenant lists namespaces or a vault (the ABAC conditions gate `readMetadata`), platform viewers (`shared/` `platform_viewer_group_object_ids`) list both through a custom role defined and assignable at the resource group; Isolation tests check them by impersonation and as tester applications, in the cluster and in the vault | Built |
 | R7, R7a, R7b | Key Vault RBAC + ABAC, workload identity, ESO only | aks-terraform: a reader identity per namespace with an ABAC condition on `<namespace>--`, federated per cluster, Secrets Store CSI add-on stated off; aks-fluxcd-platform: one External Secrets Operator per zone (`controllerClass`), the platform's for platform namespaces; `stacks/aks-policy` `secrets-via-eso` (in a zone's namespaces only its ESO writes Secrets), `eso-objects` (SecretStores azurekv with workload identity on the zone's or platform vault, ExternalSecrets only on the namespace's `<namespace>--` keys, no PushSecret) and `service-accounts` (no pod as `key-vault`, no pull secrets), all **deny** | Built; ESO's RBAC is still cluster-wide (open question) |
 | R8, R8a, R9 | Stateless + optional stateful cluster | The stateless cells are built; `envs/dev-ext-stateful.tfvars` defines a stateful cluster, not deployed | Stateful: later, with the first exception |
@@ -41,7 +41,7 @@ and where the code implements them. Four repositories share the work:
 
 ## Requirement tests
 
-aks-terraform's **Isolation tests** workflow is the pipeline stage of design section 23 ("Requirement and isolation
+aks-terraform's **Isolation tests** workflow is the pipeline stage of design section 7.1 ("Requirement and isolation
 tests"): after every apply of a stateless cell, every weekday, and by hand. Each check names the requirement it
 covers (the run's summary is the table): R1–R8, R9b, R11–R17, R19, R20, R21 and R24 have automated checks - R7 with
 a token for the namespace's own identity (its secret 200, another application's and another zone's 403), R7a with
@@ -56,7 +56,7 @@ reported as *audit only*.
 
 1. **Traffic Manager instead of Front Door.** External applications are published on a public load balancer of
    their zone's gateway in every cell, with one Azure Traffic Manager profile per external hostname
-   (design section 10). Traffic Manager is DNS only: no WAF and no client-IP affinity.
+   (design section 3.1). Traffic Manager is DNS only: no WAF and no client-IP affinity.
 2. **Namespace = application, and its share of a vault is `<namespace>--`.** A zone's application namespace is
    `<zone>-<app>`; its reader identity's ABAC condition is on the namespace's prefix, and the gateways'
    certificates are `<zone>-gateway--wildcard`, read under the same condition rather than a role per certificate.
@@ -70,7 +70,7 @@ reported as *audit only*.
    over without rule changes. It is not Azure Firewall: no IDPS, no threat intelligence feed, and the design's
    acceptance tests (phase 3) still run in `firewall` mode. Its optional WireGuard VPN brings agent and
    management machines outside Azure into the management address set (ipg-mgmt, the API server private
-   endpoints' NSG) - the build tenant has no VPN gateway (section 23).
+   endpoints' NSG) - the build tenant has no VPN gateway (section 7.1).
 4. **Pod-to-pod NSG rule.** With Azure CNI Overlay, pod traffic between nodes keeps the overlay pod IPs, which
    the NSGs cannot attribute to a zone. Node-subnet NSGs therefore allow the pod range; zone separation
    between pods is enforced by Cilium.
@@ -78,12 +78,12 @@ reported as *audit only*.
    storage" rule denies (it replaced a ValidatingAdmissionPolicy that refused the same), the placement mutations
    are on (they refuse nothing), and each platform validation and Kubernetes built-in that the running cell
    reported no violation of was promoted to deny (`kubernetes_deny`), ahead of phase 3; the rest - and every
-   corporate and Azure resource assignment - audits, as section 23 says.
+   corporate and Azure resource assignment - audits, as section 7.1 says.
 
 ## Not built yet
 
-The backlog of the whole platform, in priority order, is in design section 23
-([Backlog, in priority order](https://github.com/onek8s/onek8s.github.io/blob/main/docs/23-implementation-project-and-acceptance-testing.md#backlog-in-priority-order)).
+The backlog of the whole platform, in priority order, is in design section 7.1
+([Backlog, in priority order](https://github.com/onek8s/onek8s.github.io/blob/main/docs/7.1-implementation-project-and-acceptance-testing.md#backlog-in-priority-order)).
 This repository's items: #1 promote the remaining Azure Policy rules to deny, #2 the external hub and Firewall in
 `firewall` mode with `main.firewall.tf` rewritten (parent policy + child per exposure, no edge / NGINXaaS rules),
 #4 the management VNet path to a private API server, #7 the internal hub and `sub-aks-dev-int`.

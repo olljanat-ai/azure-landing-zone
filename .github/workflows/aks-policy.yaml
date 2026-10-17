@@ -1,5 +1,5 @@
 ---
-# Azure Policy of the AKS platform, environment dev (OneK8s design section 9): stacks/aks-policy assigns the AKS
+# Azure Policy of the AKS platform, environment dev (OneK8s design section 2.7): stacks/aks-policy assigns the AKS
 # policies to sub-aks-dev. Control plane only, so it runs on GitHub-hosted runners: the clusters of
 # onek8s/aks-terraform report their compliance to these assignments.
 # Identities: GitHub environments aks-dev-plan / aks-dev-apply (stacks/platform-extensions, Owner of sub-aks-dev).

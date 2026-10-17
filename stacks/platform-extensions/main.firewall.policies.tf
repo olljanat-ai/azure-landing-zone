@@ -235,7 +235,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "parent_platform" {
     }
 
     # Pods that call the API server go to its public address (the `kubernetes` Service's endpoint), with no SNI an
-    # application rule could match. Lab: public API servers (aks-terraform's dev exception to design section 4);
+    # application rule could match. Lab: public API servers (aks-terraform's dev exception to design section 2.2);
     # a private API server is reached in its own VNet and needs no rule.
     rule {
       name                  = "aks-api-servers"
@@ -455,7 +455,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "exposure_environment" 
   }
 
   # Per-zone allow-lists: what the zone's applications may name in their FQDN egress policies
-  # (aks-fluxcd-platform policy/egress-allow-lists.yaml, design section 17)
+  # (aks-fluxcd-platform policy/egress-allow-lists.yaml, design section 5.1)
   dynamic "application_rule_collection" {
     for_each = anytrue([for z in values(each.value.zones) : length(z.fqdn_allow_list) > 0]) ? [1] : []
     content {

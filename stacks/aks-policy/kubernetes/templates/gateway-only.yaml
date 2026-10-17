@@ -1,5 +1,5 @@
 # Stateless clusters publish applications only through their zone's Gateway, over HTTPS (R9b,
-# design sections 15 and 9). Ingress is refused by the built-in definition (k8s-no-ingress); this
+# design sections 4.1 and 2.7). Ingress is refused by the built-in definition (k8s-no-ingress); this
 # adds:
 #
 #   - no LoadBalancer or NodePort Service: only App Routing's gateways have one, and the gateway

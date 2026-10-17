@@ -101,4 +101,4 @@ configuration names it.
   Cloud, ...); on an application's page only when its configuration names it.
 
 A rule opens its destination to the whole zone (the firewall tells zones apart, not applications within
-one - design section 18): the zone's page shows the union.
+one - design section 5.2): the zone's page shows the union.

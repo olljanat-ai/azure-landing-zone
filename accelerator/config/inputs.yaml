@@ -29,7 +29,7 @@ bootstrap_location: "swedencentral"
 root_parent_management_group_id: ""  # Tenant Root Group of the build tenant
 
 ## Decision 7: Platform Subscriptions
-# Build tenant subscriptions (OneK8s design section 23): sub-mgmt, sub-hub, sub-aks-dev.
+# Build tenant subscriptions (OneK8s design section 7.1): sub-mgmt, sub-hub, sub-aks-dev.
 # identity and security are not used in the build tenant; the identity / security management groups are
 # still created by the alz_custom architecture so the hierarchy matches the corporate landing zone.
 # sub-aks-dev is not a platform subscription: it is placed in the `corp` management group by the platform

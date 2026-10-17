@@ -80,7 +80,7 @@ jobs:
           scripts/sync-platform.sh --check
 
   address-plan:
-    name: Address plan matches aks-design section 10
+    name: Address plan matches aks-design section 3.1
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

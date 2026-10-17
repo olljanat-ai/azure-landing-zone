@@ -1,4 +1,4 @@
-# Isolation zones (R2-R4, design sections 5 and 9): an application of zone <zone> lives in a
+# Isolation zones (R2-R4, design sections 2.3 and 2.7): an application of zone <zone> lives in a
 # namespace `<zone>-<app>` and runs on its zone's nodes only.
 #
 #   - A namespace named `<zone>-*` carries `platform/zone: <zone>`; a namespace carrying
@@ -11,7 +11,7 @@
 # The zones' own platform namespaces (`<zone>-gateway`, `<zone>-secrets`) run on the system pool so
 # that a zone without applications has no nodes; the assignment leaves them out, like every
 # platform namespace. Zone rules go by the namespace name prefix: Azure Policy's definitions cannot
-# look up other objects (section 9).
+# look up other objects (section 2.7).
 apiVersion: templates.gatekeeper.sh/v1
 kind: ConstraintTemplate
 metadata:
